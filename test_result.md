@@ -200,15 +200,18 @@ backend:
 
   - task: "Warm-up set calculator"
     implemented: true
-    working: NA
+    working: true
     file: "server.py"
     stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: NA
         agent: "main"
         comment: "POST /api/workouts/warmup-sets calculates warmup progression"
+      - working: true
+        agent: "testing"
+        comment: "Tested POST /api/workouts/warmup-sets with working_weight=135, exercise_name='Bench Press' - returns 3 warmup sets at 40% (55lbs), 60% (80lbs), 80% (110lbs) of working weight. Calculator works correctly with proper rounding to nearest 5lbs. Tested multiple weights (100, 135, 200lbs) - all return correct percentages and calculated weights."
 
   - task: "User goals and equipment update"
     implemented: true
