@@ -349,6 +349,21 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 2,
   },
+  expoGoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3B82F620',
+    marginHorizontal: 20,
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 10,
+  },
+  expoGoText: {
+    flex: 1,
+    color: '#3B82F6',
+    fontSize: 13,
+  },
   permissionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
