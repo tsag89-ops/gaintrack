@@ -365,11 +365,7 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus:
-    - "Health check endpoint"
-    - "Exercise database CRUD"
-    - "Food database CRUD"
-    - "Warm-up set calculator"
+  current_focus: []
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
