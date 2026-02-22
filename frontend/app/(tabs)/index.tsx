@@ -135,6 +135,19 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 2,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  programsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#10B98120',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   addButton: {
     width: 48,
     height: 48,
