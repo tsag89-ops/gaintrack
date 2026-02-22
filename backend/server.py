@@ -634,11 +634,18 @@ async def get_progression_suggestions(user: User = Depends(get_current_user)):
 @api_router.get("/progression/exercise/{exercise_name}")
 async def get_exercise_progression(exercise_name: str, user: User = Depends(get_current_user)):
     """Get detailed progression history for a specific exercise"""
-    # Get all workouts with this exercise
+    # Optimized projection - only fetch needed fields
+    projection = {
+        "_id": 0,
+        "workout_id": 1,
+        "date": 1,
+        "exercises": 1
+    }
+    # Get workouts with this exercise, limited to 50 for performance
     workouts = await db.workouts.find(
         {"user_id": user.user_id, "exercises.exercise_name": exercise_name},
-        {"_id": 0}
-    ).sort("date", -1).to_list(100)
+        projection
+    ).sort("date", -1).limit(50).to_list(50)
     
     history = []
     for workout in workouts:
