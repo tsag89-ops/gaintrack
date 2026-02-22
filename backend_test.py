@@ -142,16 +142,15 @@ def test_warmup_calculator():
     """Test the warm-up calculator endpoint"""
     print("\nTesting POST /api/workouts/warmup-sets...")
     try:
-        # Test data as specified in the request
-        test_data = {
+        # Test data as query parameters
+        params = {
             "working_weight": 135,
             "exercise_name": "Bench Press"
         }
         
         response = requests.post(
             f"{BASE_URL}/workouts/warmup-sets", 
-            json=test_data,
-            headers={'Content-Type': 'application/json'}
+            params=params
         )
         print(f"Status Code: {response.status_code}")
         
