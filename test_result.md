@@ -150,11 +150,14 @@ backend:
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "GET /api/exercises returns exercise list, initializes with 32 default exercises"
+      - working: true
+        agent: "testing"
+        comment: "Tested GET /api/exercises - returns exactly 32 exercises as expected. Database initializes correctly with DEFAULT_EXERCISES. Sample exercises include Bench Press, Dumbbell Bench Press, Pull-ups etc. All exercise objects have correct structure with exercise_id, name, category, equipment_required, muscle_groups, is_compound fields."
 
   - task: "Food database CRUD"
     implemented: true
