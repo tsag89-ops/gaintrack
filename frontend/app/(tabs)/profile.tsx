@@ -191,6 +191,27 @@ export default function ProfileScreen() {
           </Text>
         </View>
 
+        {/* Notifications Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Reminders</Text>
+          
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push('/notifications')}
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons name="notifications-outline" size={22} color="#F59E0B" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Push Notifications</Text>
+                <Text style={styles.settingValue}>
+                  Workout & nutrition reminders
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
+
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
