@@ -99,6 +99,7 @@ const NutritionProgressBars = ({ data }: { data: NutritionData[] }) => {
 };
 
 export default function ProgressScreen() {
+  const router = useRouter();
   const { user } = useAuthStore();
   const [volumeData, setVolumeData] = useState<VolumeData[]>([]);
   const [nutritionData, setNutritionData] = useState<NutritionData[]>([]);
