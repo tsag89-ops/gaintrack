@@ -792,6 +792,221 @@ async def get_calendar_data(year: int, month: int, user: User = Depends(get_curr
     
     return calendar_data
 
+# ============== Workout Templates & Programs ==============
+
+class WorkoutTemplate(BaseModel):
+    template_id: str = Field(default_factory=lambda: f"tmpl_{uuid.uuid4().hex[:12]}")
+    name: str
+    description: str
+    difficulty: str  # beginner, intermediate, advanced
+    duration_weeks: int
+    workouts_per_week: int
+    type: str  # strength, hypertrophy, power, endurance
+    exercises: List[Dict[str, Any]]  # Exercise with recommended sets/reps
+
+# Pre-built workout programs
+DEFAULT_TEMPLATES = [
+    {
+        "name": "Beginner 5x5",
+        "description": "Classic strength program. 5 sets of 5 reps on compound lifts. Perfect for building a strength foundation.",
+        "difficulty": "beginner",
+        "duration_weeks": 12,
+        "workouts_per_week": 3,
+        "type": "strength",
+        "exercises": [
+            {"day": "A", "exercises": [
+                {"name": "Squats", "sets": 5, "reps": 5, "rest_seconds": 180},
+                {"name": "Bench Press", "sets": 5, "reps": 5, "rest_seconds": 180},
+                {"name": "Barbell Rows", "sets": 5, "reps": 5, "rest_seconds": 180}
+            ]},
+            {"day": "B", "exercises": [
+                {"name": "Squats", "sets": 5, "reps": 5, "rest_seconds": 180},
+                {"name": "Overhead Press", "sets": 5, "reps": 5, "rest_seconds": 180},
+                {"name": "Deadlift", "sets": 1, "reps": 5, "rest_seconds": 180}
+            ]}
+        ]
+    },
+    {
+        "name": "Push Pull Legs (PPL)",
+        "description": "6-day split targeting push muscles, pull muscles, and legs separately for maximum volume.",
+        "difficulty": "intermediate",
+        "duration_weeks": 8,
+        "workouts_per_week": 6,
+        "type": "hypertrophy",
+        "exercises": [
+            {"day": "Push", "exercises": [
+                {"name": "Bench Press", "sets": 4, "reps": 8, "rest_seconds": 120},
+                {"name": "Overhead Press", "sets": 3, "reps": 10, "rest_seconds": 90},
+                {"name": "Incline Dumbbell Press", "sets": 3, "reps": 12, "rest_seconds": 90},
+                {"name": "Lateral Raises", "sets": 3, "reps": 15, "rest_seconds": 60},
+                {"name": "Tricep Pushdowns", "sets": 3, "reps": 12, "rest_seconds": 60}
+            ]},
+            {"day": "Pull", "exercises": [
+                {"name": "Deadlift", "sets": 3, "reps": 5, "rest_seconds": 180},
+                {"name": "Pull-ups", "sets": 4, "reps": 8, "rest_seconds": 120},
+                {"name": "Barbell Rows", "sets": 3, "reps": 10, "rest_seconds": 90},
+                {"name": "Face Pulls", "sets": 3, "reps": 15, "rest_seconds": 60},
+                {"name": "Barbell Curls", "sets": 3, "reps": 12, "rest_seconds": 60}
+            ]},
+            {"day": "Legs", "exercises": [
+                {"name": "Squats", "sets": 4, "reps": 8, "rest_seconds": 150},
+                {"name": "Romanian Deadlift", "sets": 3, "reps": 10, "rest_seconds": 120},
+                {"name": "Dumbbell Lunges", "sets": 3, "reps": 12, "rest_seconds": 90},
+                {"name": "Leg Press", "sets": 3, "reps": 15, "rest_seconds": 90},
+                {"name": "Calf Raises", "sets": 4, "reps": 15, "rest_seconds": 60}
+            ]}
+        ]
+    },
+    {
+        "name": "Upper/Lower Split",
+        "description": "4-day program alternating upper and lower body. Great balance of volume and recovery.",
+        "difficulty": "intermediate",
+        "duration_weeks": 10,
+        "workouts_per_week": 4,
+        "type": "hypertrophy",
+        "exercises": [
+            {"day": "Upper A", "exercises": [
+                {"name": "Bench Press", "sets": 4, "reps": 6, "rest_seconds": 150},
+                {"name": "Barbell Rows", "sets": 4, "reps": 6, "rest_seconds": 150},
+                {"name": "Overhead Press", "sets": 3, "reps": 8, "rest_seconds": 120},
+                {"name": "Pull-ups", "sets": 3, "reps": 8, "rest_seconds": 120},
+                {"name": "Dumbbell Curls", "sets": 2, "reps": 12, "rest_seconds": 60},
+                {"name": "Tricep Dips", "sets": 2, "reps": 12, "rest_seconds": 60}
+            ]},
+            {"day": "Lower A", "exercises": [
+                {"name": "Squats", "sets": 4, "reps": 6, "rest_seconds": 180},
+                {"name": "Romanian Deadlift", "sets": 3, "reps": 8, "rest_seconds": 150},
+                {"name": "Leg Press", "sets": 3, "reps": 10, "rest_seconds": 120},
+                {"name": "Dumbbell Lunges", "sets": 2, "reps": 12, "rest_seconds": 90},
+                {"name": "Calf Raises", "sets": 4, "reps": 15, "rest_seconds": 60}
+            ]},
+            {"day": "Upper B", "exercises": [
+                {"name": "Dumbbell Bench Press", "sets": 4, "reps": 10, "rest_seconds": 120},
+                {"name": "Dumbbell Rows", "sets": 4, "reps": 10, "rest_seconds": 120},
+                {"name": "Dumbbell Shoulder Press", "sets": 3, "reps": 12, "rest_seconds": 90},
+                {"name": "Chin-ups", "sets": 3, "reps": 10, "rest_seconds": 90},
+                {"name": "Lateral Raises", "sets": 3, "reps": 15, "rest_seconds": 60},
+                {"name": "Hammer Curls", "sets": 2, "reps": 12, "rest_seconds": 60}
+            ]},
+            {"day": "Lower B", "exercises": [
+                {"name": "Deadlift", "sets": 3, "reps": 5, "rest_seconds": 180},
+                {"name": "Goblet Squats", "sets": 3, "reps": 12, "rest_seconds": 120},
+                {"name": "Romanian Deadlift", "sets": 3, "reps": 10, "rest_seconds": 120},
+                {"name": "Leg Raises", "sets": 3, "reps": 15, "rest_seconds": 60},
+                {"name": "Calf Raises", "sets": 4, "reps": 15, "rest_seconds": 60}
+            ]}
+        ]
+    },
+    {
+        "name": "Full Body 3x/Week",
+        "description": "Hit every muscle group 3 times per week. Efficient and effective for beginners.",
+        "difficulty": "beginner",
+        "duration_weeks": 8,
+        "workouts_per_week": 3,
+        "type": "strength",
+        "exercises": [
+            {"day": "Workout", "exercises": [
+                {"name": "Squats", "sets": 3, "reps": 8, "rest_seconds": 150},
+                {"name": "Bench Press", "sets": 3, "reps": 8, "rest_seconds": 120},
+                {"name": "Barbell Rows", "sets": 3, "reps": 8, "rest_seconds": 120},
+                {"name": "Overhead Press", "sets": 3, "reps": 10, "rest_seconds": 90},
+                {"name": "Dumbbell Curls", "sets": 2, "reps": 12, "rest_seconds": 60},
+                {"name": "Planks", "sets": 3, "reps": 30, "rest_seconds": 60}
+            ]}
+        ]
+    },
+    {
+        "name": "Home Gym Basics",
+        "description": "Effective program using minimal equipment: dumbbells, pull-up bar only.",
+        "difficulty": "beginner",
+        "duration_weeks": 8,
+        "workouts_per_week": 4,
+        "type": "hypertrophy",
+        "exercises": [
+            {"day": "Upper", "exercises": [
+                {"name": "Push-ups", "sets": 4, "reps": 15, "rest_seconds": 60},
+                {"name": "Dumbbell Rows", "sets": 4, "reps": 12, "rest_seconds": 90},
+                {"name": "Dumbbell Shoulder Press", "sets": 3, "reps": 12, "rest_seconds": 90},
+                {"name": "Pull-ups", "sets": 3, "reps": 8, "rest_seconds": 120},
+                {"name": "Dumbbell Curls", "sets": 3, "reps": 12, "rest_seconds": 60},
+                {"name": "Tricep Dips", "sets": 3, "reps": 12, "rest_seconds": 60}
+            ]},
+            {"day": "Lower", "exercises": [
+                {"name": "Goblet Squats", "sets": 4, "reps": 12, "rest_seconds": 120},
+                {"name": "Dumbbell Lunges", "sets": 3, "reps": 12, "rest_seconds": 90},
+                {"name": "Romanian Deadlift", "sets": 3, "reps": 12, "rest_seconds": 120},
+                {"name": "Calf Raises", "sets": 4, "reps": 20, "rest_seconds": 60},
+                {"name": "Planks", "sets": 3, "reps": 45, "rest_seconds": 60},
+                {"name": "Russian Twists", "sets": 3, "reps": 20, "rest_seconds": 60}
+            ]}
+        ]
+    }
+]
+
+@api_router.get("/templates")
+async def get_workout_templates(difficulty: Optional[str] = None, type: Optional[str] = None):
+    """Get workout templates/programs"""
+    # Initialize templates if empty
+    count = await db.workout_templates.count_documents({})
+    if count == 0:
+        for template in DEFAULT_TEMPLATES:
+            template_obj = WorkoutTemplate(**template)
+            await db.workout_templates.insert_one(template_obj.model_dump())
+    
+    query = {}
+    if difficulty:
+        query["difficulty"] = difficulty
+    if type:
+        query["type"] = type
+    
+    templates = await db.workout_templates.find(query, {"_id": 0}).to_list(20)
+    return templates
+
+@api_router.get("/templates/{template_id}")
+async def get_workout_template(template_id: str):
+    """Get a specific workout template"""
+    template = await db.workout_templates.find_one(
+        {"template_id": template_id},
+        {"_id": 0}
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return template
+
+@api_router.post("/templates/{template_id}/start")
+async def start_program(template_id: str, user: User = Depends(get_current_user)):
+    """Start a workout program - creates the first workout from template"""
+    template = await db.workout_templates.find_one(
+        {"template_id": template_id},
+        {"_id": 0}
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    # Get first day's exercises
+    first_day = template["exercises"][0]
+    exercises = []
+    
+    for ex in first_day["exercises"]:
+        exercises.append({
+            "exercise_id": f"ex_{uuid.uuid4().hex[:8]}",
+            "exercise_name": ex["name"],
+            "sets": [],  # User will fill in actual weights
+            "notes": f"Target: {ex['sets']}x{ex['reps']}, Rest: {ex['rest_seconds']}s"
+        })
+    
+    # Create the workout
+    workout = Workout(
+        user_id=user.user_id,
+        date=datetime.now(timezone.utc),
+        name=f"{template['name']} - {first_day['day']}",
+        exercises=exercises,
+        notes=f"Program: {template['name']}\nDay: {first_day['day']}"
+    )
+    
+    await db.workouts.insert_one(workout.model_dump())
+    return workout.model_dump()
+
 # ============== Health Check ==============
 
 @api_router.get("/health")
