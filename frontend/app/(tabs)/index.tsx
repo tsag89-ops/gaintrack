@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { workoutApi } from '../../src/services/api';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import { WorkoutCard } from '../../src/components/WorkoutCard';
@@ -33,9 +34,12 @@ export default function WorkoutsScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchWorkouts();
-  }, [fetchWorkouts]);
+  // Refetch workouts when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchWorkouts();
+    }, [fetchWorkouts])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
