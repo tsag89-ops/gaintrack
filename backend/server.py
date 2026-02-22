@@ -755,7 +755,20 @@ async def get_foods(category: Optional[str] = None, search: Optional[str] = None
     if search:
         query["name"] = {"$regex": search, "$options": "i"}
     
-    foods = await db.foods.find(query, {"_id": 0}).to_list(100)
+    # Optimized projection for foods
+    projection = {
+        "_id": 0,
+        "food_id": 1,
+        "name": 1,
+        "category": 1,
+        "calories": 1,
+        "protein": 1,
+        "carbs": 1,
+        "fat": 1,
+        "serving_size": 1,
+        "serving_unit": 1
+    }
+    foods = await db.foods.find(query, projection).limit(100).to_list(100)
     return foods
 
 # ============== Body Measurements Tracking ==============
