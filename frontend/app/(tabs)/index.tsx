@@ -58,9 +58,14 @@ export default function WorkoutsScreen() {
           <Text style={styles.headerTitle}>Workouts</Text>
           <Text style={styles.headerSubtitle}>Track your gains</Text>
         </View>
-        <TouchableOpacity style={styles.addButton} onPress={handleNewWorkout}>
-          <Ionicons name="add" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.programsButton} onPress={() => router.push('/programs')}>
+            <Ionicons name="list-outline" size={22} color="#10B981" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addButton} onPress={handleNewWorkout}>
+            <Ionicons name="add" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {isLoading && workouts.length === 0 ? (
