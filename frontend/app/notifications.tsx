@@ -40,6 +40,7 @@ export default function NotificationsScreen() {
   });
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isExpoGo, setIsExpoGo] = useState(false);
 
   useEffect(() => {
     loadSettings();
