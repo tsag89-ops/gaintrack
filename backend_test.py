@@ -364,6 +364,153 @@ def test_workout_template_detail(template_id):
         print(f"❌ Error parsing template detail JSON response: {e}")
         return False
 
+def test_progression_suggestions():
+    """Test the NEW Adaptive Progression AI suggestions endpoint (requires auth)"""
+    print("\nTesting GET /api/progression/suggestions (NEW AI Feature)...")
+    
+    # Bearer token provided in the review request
+    bearer_token = "test_session_1771746329648"
+    headers = {"Authorization": f"Bearer {bearer_token}"}
+    
+    try:
+        response = requests.get(f"{BASE_URL}/progression/suggestions", headers=headers)
+        print(f"Status Code: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            print(f"Response Keys: {list(data.keys())}")
+            
+            # Check expected response structure
+            expected_fields = ["suggestions", "total_exercises_analyzed", "generated_at"]
+            missing_fields = [field for field in expected_fields if field not in data]
+            
+            if not missing_fields:
+                print("✅ Progression suggestions response has correct structure")
+                
+                suggestions = data["suggestions"]
+                total_analyzed = data["total_exercises_analyzed"]
+                generated_at = data["generated_at"]
+                
+                print(f"Total exercises analyzed: {total_analyzed}")
+                print(f"Generated at: {generated_at}")
+                print(f"Number of suggestions: {len(suggestions)}")
+                
+                # Check suggestions structure if any exist
+                if suggestions:
+                    first_suggestion = suggestions[0]
+                    suggestion_fields = ["exercise_name", "current_weight", "suggested_weight", "increase_amount", "increase_percentage", "confidence", "reason", "recent_performance"]
+                    sug_missing = [field for field in suggestion_fields if field not in first_suggestion]
+                    
+                    if not sug_missing:
+                        print("✅ Suggestion objects have correct structure")
+                        print(f"Sample suggestion: {first_suggestion['exercise_name']} - {first_suggestion['current_weight']}lbs → {first_suggestion['suggested_weight']}lbs ({first_suggestion['confidence']} confidence)")
+                        return True
+                    else:
+                        print(f"❌ Suggestion object missing fields: {sug_missing}")
+                        return False
+                else:
+                    # No suggestions is valid if user has no workout history
+                    print("✅ No progression suggestions (user may have no workout history)")
+                    return True
+            else:
+                print(f"❌ Response missing required fields: {missing_fields}")
+                return False
+        elif response.status_code == 401:
+            print("❌ Authentication failed - invalid Bearer token")
+            print(f"Response: {response.text}")
+            return False
+        else:
+            print(f"❌ Progression suggestions endpoint returned status code: {response.status_code}")
+            print(f"Response: {response.text}")
+            return False
+            
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error connecting to progression suggestions endpoint: {e}")
+        return False
+    except json.JSONDecodeError as e:
+        print(f"❌ Error parsing progression suggestions JSON response: {e}")
+        return False
+
+def test_exercise_progression():
+    """Test the NEW exercise progression history endpoint (requires auth)"""
+    print("\nTesting GET /api/progression/exercise/Bench Press (NEW AI Feature)...")
+    
+    # Bearer token provided in the review request
+    bearer_token = "test_session_1771746329648"
+    headers = {"Authorization": f"Bearer {bearer_token}"}
+    
+    # Test with "Bench Press" as example exercise
+    exercise_name = "Bench Press"
+    
+    try:
+        response = requests.get(f"{BASE_URL}/progression/exercise/{exercise_name}", headers=headers)
+        print(f"Status Code: {response.status_code}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            print(f"Response Keys: {list(data.keys())}")
+            
+            # Check expected response structure
+            expected_fields = ["exercise_name", "history", "personal_records", "trend", "total_sessions"]
+            missing_fields = [field for field in expected_fields if field not in data]
+            
+            if not missing_fields:
+                print("✅ Exercise progression response has correct structure")
+                
+                exercise_name_resp = data["exercise_name"]
+                history = data["history"]
+                personal_records = data["personal_records"]
+                trend = data["trend"]
+                total_sessions = data["total_sessions"]
+                
+                print(f"Exercise: {exercise_name_resp}")
+                print(f"Total sessions: {total_sessions}")
+                print(f"Trend: {trend}")
+                print(f"History entries: {len(history)}")
+                
+                # Check personal records structure
+                if "max_weight" in personal_records and "max_volume" in personal_records:
+                    print(f"Personal Records - Max Weight: {personal_records['max_weight']}lbs, Max Volume: {personal_records['max_volume']}")
+                    
+                    # Check history structure if any exists
+                    if history:
+                        first_history = history[0]
+                        history_fields = ["date", "workout_id", "max_weight", "total_volume", "sets", "total_reps", "avg_rpe"]
+                        hist_missing = [field for field in history_fields if field not in first_history]
+                        
+                        if not hist_missing:
+                            print("✅ History objects have correct structure")
+                            print(f"Sample history: {first_history['date'][:10]} - {first_history['max_weight']}lbs x {first_history['total_reps']} reps")
+                            return True
+                        else:
+                            print(f"❌ History object missing fields: {hist_missing}")
+                            return False
+                    else:
+                        # No history is valid if user has never done this exercise
+                        print("✅ No exercise history (user may have never performed this exercise)")
+                        return True
+                else:
+                    print("❌ Personal records missing max_weight or max_volume")
+                    return False
+            else:
+                print(f"❌ Response missing required fields: {missing_fields}")
+                return False
+        elif response.status_code == 401:
+            print("❌ Authentication failed - invalid Bearer token")
+            print(f"Response: {response.text}")
+            return False
+        else:
+            print(f"❌ Exercise progression endpoint returned status code: {response.status_code}")
+            print(f"Response: {response.text}")
+            return False
+            
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error connecting to exercise progression endpoint: {e}")
+        return False
+    except json.JSONDecodeError as e:
+        print(f"❌ Error parsing exercise progression JSON response: {e}")
+        return False
+
 def run_all_tests():
     """Run all backend API tests"""
     print("=== GainTrack Backend API Test Suite ===")
