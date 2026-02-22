@@ -402,7 +402,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Workout templates database"
+    - "NEW Adaptive Progression AI - suggestions endpoint"
+    - "NEW Adaptive Progression AI - exercise history endpoint"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
