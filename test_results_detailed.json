@@ -7,10 +7,10 @@
     "success": true,
     "response_data": {
       "status": "healthy",
-      "timestamp": "2026-02-22T08:07:18.154148+00:00"
+      "timestamp": "2026-02-22T08:07:45.074098+00:00"
     },
     "error": null,
-    "timestamp": "2026-02-22T08:07:18.397654"
+    "timestamp": "2026-02-22T08:07:45.318915"
   },
   {
     "endpoint": "/api/exercises",
@@ -424,7 +424,7 @@
       }
     ],
     "error": null,
-    "timestamp": "2026-02-22T08:07:18.830229"
+    "timestamp": "2026-02-22T08:07:45.888875"
   },
   {
     "endpoint": "/api/foods",
@@ -754,7 +754,7 @@
       }
     ],
     "error": null,
-    "timestamp": "2026-02-22T08:07:19.242324"
+    "timestamp": "2026-02-22T08:07:46.304204"
   },
   {
     "endpoint": "/api/templates",
@@ -1246,40 +1246,42 @@
       }
     ],
     "error": null,
-    "timestamp": "2026-02-22T08:07:19.767780"
+    "timestamp": "2026-02-22T08:07:46.722808"
   },
   {
     "endpoint": "/api/workouts/warmup-sets",
     "method": "POST",
-    "status_code": 422,
+    "status_code": 200,
     "expected_status": 200,
-    "success": false,
+    "success": true,
     "response_data": {
-      "detail": [
+      "warmup_sets": [
         {
-          "type": "missing",
-          "loc": [
-            "query",
-            "working_weight"
-          ],
-          "msg": "Field required",
-          "input": null,
-          "url": "https://errors.pydantic.dev/2.12/v/missing"
+          "set_number": 1,
+          "weight": 55,
+          "reps": 10,
+          "percentage": 40,
+          "is_warmup": true
         },
         {
-          "type": "missing",
-          "loc": [
-            "query",
-            "exercise_name"
-          ],
-          "msg": "Field required",
-          "input": null,
-          "url": "https://errors.pydantic.dev/2.12/v/missing"
+          "set_number": 2,
+          "weight": 80,
+          "reps": 6,
+          "percentage": 60,
+          "is_warmup": true
+        },
+        {
+          "set_number": 3,
+          "weight": 110,
+          "reps": 3,
+          "percentage": 80,
+          "is_warmup": true
         }
-      ]
+      ],
+      "working_weight": 135.0
     },
     "error": null,
-    "timestamp": "2026-02-22T08:07:20.194544"
+    "timestamp": "2026-02-22T08:07:47.129503"
   },
   {
     "endpoint": "/api/progression/suggestions",
@@ -1290,10 +1292,10 @@
     "response_data": {
       "suggestions": [],
       "total_exercises_analyzed": 0,
-      "generated_at": "2026-02-22T08:07:20.370297+00:00"
+      "generated_at": "2026-02-22T08:07:47.307468+00:00"
     },
     "error": null,
-    "timestamp": "2026-02-22T08:07:20.609466"
+    "timestamp": "2026-02-22T08:07:47.542124"
   },
   {
     "endpoint": "/api/measurements",
@@ -1324,7 +1326,7 @@
       }
     ],
     "error": null,
-    "timestamp": "2026-02-22T08:07:21.026703"
+    "timestamp": "2026-02-22T08:07:47.978221"
   },
   {
     "endpoint": "/api/measurements/stats/progress",
@@ -1388,7 +1390,7 @@
       }
     },
     "error": null,
-    "timestamp": "2026-02-22T08:07:21.418228"
+    "timestamp": "2026-02-22T08:07:48.448340"
   },
   {
     "endpoint": "/api/auth/me",
@@ -1417,6 +1419,6 @@
       ]
     },
     "error": null,
-    "timestamp": "2026-02-22T08:07:21.835396"
+    "timestamp": "2026-02-22T08:07:48.875748"
   }
 ]
