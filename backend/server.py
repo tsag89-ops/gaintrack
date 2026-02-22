@@ -731,6 +731,156 @@ async def get_foods(category: Optional[str] = None, search: Optional[str] = None
     foods = await db.foods.find(query, {"_id": 0}).to_list(100)
     return foods
 
+# ============== Body Measurements Tracking ==============
+
+class BodyMeasurement(BaseModel):
+    measurement_id: str = Field(default_factory=lambda: f"bm_{uuid.uuid4().hex[:12]}")
+    user_id: str
+    date: str  # YYYY-MM-DD format
+    weight: Optional[float] = None  # lbs
+    body_fat: Optional[float] = None  # percentage
+    chest: Optional[float] = None  # inches
+    waist: Optional[float] = None  # inches
+    hips: Optional[float] = None  # inches
+    biceps_left: Optional[float] = None  # inches
+    biceps_right: Optional[float] = None  # inches
+    thighs_left: Optional[float] = None  # inches
+    thighs_right: Optional[float] = None  # inches
+    calves_left: Optional[float] = None  # inches
+    calves_right: Optional[float] = None  # inches
+    neck: Optional[float] = None  # inches
+    shoulders: Optional[float] = None  # inches
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class MeasurementCreate(BaseModel):
+    date: Optional[str] = None
+    weight: Optional[float] = None
+    body_fat: Optional[float] = None
+    chest: Optional[float] = None
+    waist: Optional[float] = None
+    hips: Optional[float] = None
+    biceps_left: Optional[float] = None
+    biceps_right: Optional[float] = None
+    thighs_left: Optional[float] = None
+    thighs_right: Optional[float] = None
+    calves_left: Optional[float] = None
+    calves_right: Optional[float] = None
+    neck: Optional[float] = None
+    shoulders: Optional[float] = None
+    notes: Optional[str] = None
+
+@api_router.post("/measurements")
+async def create_measurement(measurement: MeasurementCreate, user: User = Depends(get_current_user)):
+    """Create or update body measurement for a date"""
+    date = measurement.date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    
+    # Check if measurement exists for this date
+    existing = await db.body_measurements.find_one(
+        {"user_id": user.user_id, "date": date}
+    )
+    
+    if existing:
+        # Update existing measurement
+        update_data = {k: v for k, v in measurement.model_dump().items() if v is not None}
+        update_data.pop("date", None)  # Don't update the date
+        await db.body_measurements.update_one(
+            {"user_id": user.user_id, "date": date},
+            {"$set": update_data}
+        )
+        updated = await db.body_measurements.find_one(
+            {"user_id": user.user_id, "date": date},
+            {"_id": 0}
+        )
+        return updated
+    else:
+        # Create new measurement
+        new_measurement = BodyMeasurement(
+            user_id=user.user_id,
+            date=date,
+            **measurement.model_dump(exclude={"date"})
+        )
+        await db.body_measurements.insert_one(new_measurement.model_dump())
+        return new_measurement.model_dump()
+
+@api_router.get("/measurements")
+async def get_measurements(user: User = Depends(get_current_user), limit: int = 30):
+    """Get user's body measurements history"""
+    measurements = await db.body_measurements.find(
+        {"user_id": user.user_id},
+        {"_id": 0}
+    ).sort("date", -1).limit(limit).to_list(limit)
+    return measurements
+
+@api_router.get("/measurements/{date}")
+async def get_measurement(date: str, user: User = Depends(get_current_user)):
+    """Get body measurement for a specific date"""
+    measurement = await db.body_measurements.find_one(
+        {"user_id": user.user_id, "date": date},
+        {"_id": 0}
+    )
+    if not measurement:
+        raise HTTPException(status_code=404, detail="No measurement found for this date")
+    return measurement
+
+@api_router.delete("/measurements/{date}")
+async def delete_measurement(date: str, user: User = Depends(get_current_user)):
+    """Delete a body measurement"""
+    result = await db.body_measurements.delete_one(
+        {"user_id": user.user_id, "date": date}
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Measurement not found")
+    return {"message": "Measurement deleted"}
+
+@api_router.get("/measurements/stats/progress")
+async def get_measurement_progress(user: User = Depends(get_current_user), days: int = 90):
+    """Get measurement progress over time for charts"""
+    start_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+    
+    measurements = await db.body_measurements.find(
+        {"user_id": user.user_id, "date": {"$gte": start_date}},
+        {"_id": 0}
+    ).sort("date", 1).to_list(100)
+    
+    if not measurements:
+        return {
+            "measurements": [],
+            "changes": {},
+            "has_data": False
+        }
+    
+    # Calculate changes from first to latest
+    first = measurements[0]
+    latest = measurements[-1]
+    
+    changes = {}
+    fields = ["weight", "body_fat", "chest", "waist", "hips", "biceps_left", "biceps_right", 
+              "thighs_left", "thighs_right", "shoulders", "neck"]
+    
+    for field in fields:
+        first_val = first.get(field)
+        latest_val = latest.get(field)
+        if first_val is not None and latest_val is not None:
+            change = latest_val - first_val
+            change_pct = (change / first_val * 100) if first_val != 0 else 0
+            changes[field] = {
+                "first": first_val,
+                "latest": latest_val,
+                "change": round(change, 2),
+                "change_percent": round(change_pct, 1)
+            }
+    
+    return {
+        "measurements": measurements,
+        "changes": changes,
+        "has_data": True,
+        "date_range": {
+            "start": first.get("date"),
+            "end": latest.get("date")
+        }
+    }
+
 # ============== Nutrition Tracking ==============
 
 @api_router.get("/nutrition/{date}")
