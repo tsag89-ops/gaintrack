@@ -127,13 +127,9 @@ class GainTrackTester:
         """Test POST /api/workouts/warmup-sets"""
         print("\n=== Testing Warmup Calculator ===")
         try:
-            test_data = {
-                "working_weight": 135,
-                "exercise_name": "Bench Press"
-            }
+            # Use query parameters as expected by the endpoint
             response = requests.post(
-                f"{self.base_url}/api/workouts/warmup-sets", 
-                json=test_data,
+                f"{self.base_url}/api/workouts/warmup-sets?working_weight=135&exercise_name=Bench Press", 
                 timeout=10
             )
             data = response.json() if response.content else {}
