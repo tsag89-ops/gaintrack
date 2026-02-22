@@ -50,6 +50,7 @@ export default function RootLayout() {
         <Stack.Screen name="programs" options={{ presentation: 'card' }} />
         <Stack.Screen name="progression" options={{ presentation: 'card' }} />
         <Stack.Screen name="measurements" options={{ presentation: 'card' }} />
+        <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
       </Stack>
     </>
   );
