@@ -131,7 +131,16 @@ export default function NotificationsScreen() {
         </View>
       </View>
 
-      {hasPermission === false && (
+      {isExpoGo && (
+        <View style={styles.expoGoBanner}>
+          <Ionicons name="information-circle" size={24} color="#3B82F6" />
+          <Text style={styles.expoGoText}>
+            Running in Expo Go - Push notifications require a development build. Your settings will still be saved.
+          </Text>
+        </View>
+      )}
+
+      {!isExpoGo && hasPermission === false && (
         <View style={styles.permissionBanner}>
           <Ionicons name="warning" size={24} color="#F59E0B" />
           <Text style={styles.permissionText}>
