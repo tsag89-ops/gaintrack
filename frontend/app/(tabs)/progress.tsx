@@ -353,6 +353,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 8,
@@ -366,6 +369,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 2,
+  },
+  aiButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#10B98120',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   tabSelector: {
     flexDirection: 'row',
