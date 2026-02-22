@@ -1,0 +1,1422 @@
+[
+  {
+    "endpoint": "/api/health",
+    "method": "GET",
+    "status_code": 200,
+    "expected_status": 200,
+    "success": true,
+    "response_data": {
+      "status": "healthy",
+      "timestamp": "2026-02-22T08:07:18.154148+00:00"
+    },
+    "error": null,
+    "timestamp": "2026-02-22T08:07:18.397654"
+  },
+  {
+    "endpoint": "/api/exercises",
+    "method": "GET",
+    "status_code": 200,
+    "expected_status": 200,
+    "success": true,
+    "response_data": [
+      {
+        "exercise_id": "ex_773bf9f1d797",
+        "name": "Bench Press",
+        "category": "chest",
+        "equipment_required": [
+          "barbell",
+          "bench"
+        ],
+        "muscle_groups": [
+          "chest",
+          "triceps",
+          "shoulders"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_59b4e99baeca",
+        "name": "Dumbbell Bench Press",
+        "category": "chest",
+        "equipment_required": [
+          "dumbbells",
+          "bench"
+        ],
+        "muscle_groups": [
+          "chest",
+          "triceps",
+          "shoulders"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_bf5de02dd6f5",
+        "name": "Incline Dumbbell Press",
+        "category": "chest",
+        "equipment_required": [
+          "dumbbells",
+          "bench"
+        ],
+        "muscle_groups": [
+          "upper_chest",
+          "triceps"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_181055813f9f",
+        "name": "Push-ups",
+        "category": "chest",
+        "equipment_required": [],
+        "muscle_groups": [
+          "chest",
+          "triceps",
+          "shoulders"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_9ff173bdc923",
+        "name": "Dumbbell Flyes",
+        "category": "chest",
+        "equipment_required": [
+          "dumbbells",
+          "bench"
+        ],
+        "muscle_groups": [
+          "chest"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_509f8fbdbd62",
+        "name": "Pull-ups",
+        "category": "back",
+        "equipment_required": [
+          "pullup_bar"
+        ],
+        "muscle_groups": [
+          "lats",
+          "biceps",
+          "back"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_8ee1b54aaa64",
+        "name": "Chin-ups",
+        "category": "back",
+        "equipment_required": [
+          "pullup_bar"
+        ],
+        "muscle_groups": [
+          "lats",
+          "biceps"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_c49b2be6e35f",
+        "name": "Barbell Rows",
+        "category": "back",
+        "equipment_required": [
+          "barbell"
+        ],
+        "muscle_groups": [
+          "back",
+          "lats",
+          "biceps"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_792d4f205abf",
+        "name": "Dumbbell Rows",
+        "category": "back",
+        "equipment_required": [
+          "dumbbells"
+        ],
+        "muscle_groups": [
+          "back",
+          "lats",
+          "biceps"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_a7df17409cdb",
+        "name": "Deadlift",
+        "category": "back",
+        "equipment_required": [
+          "barbell"
+        ],
+        "muscle_groups": [
+          "back",
+          "hamstrings",
+          "glutes"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_ef2eabf5cae3",
+        "name": "Overhead Press",
+        "category": "shoulders",
+        "equipment_required": [
+          "barbell"
+        ],
+        "muscle_groups": [
+          "shoulders",
+          "triceps"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_fb241aa482e1",
+        "name": "Dumbbell Shoulder Press",
+        "category": "shoulders",
+        "equipment_required": [
+          "dumbbells"
+        ],
+        "muscle_groups": [
+          "shoulders",
+          "triceps"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_73d297d27110",
+        "name": "Lateral Raises",
+        "category": "shoulders",
+        "equipment_required": [
+          "dumbbells"
+        ],
+        "muscle_groups": [
+          "side_delts"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_df17021f99a7",
+        "name": "Front Raises",
+        "category": "shoulders",
+        "equipment_required": [
+          "dumbbells"
+        ],
+        "muscle_groups": [
+          "front_delts"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_e7cea9351bda",
+        "name": "Face Pulls",
+        "category": "shoulders",
+        "equipment_required": [
+          "cables"
+        ],
+        "muscle_groups": [
+          "rear_delts",
+          "traps"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_c8badd8bb877",
+        "name": "Squats",
+        "category": "legs",
+        "equipment_required": [
+          "barbell"
+        ],
+        "muscle_groups": [
+          "quads",
+          "glutes",
+          "hamstrings"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_71a77a2951e4",
+        "name": "Goblet Squats",
+        "category": "legs",
+        "equipment_required": [
+          "dumbbells"
+        ],
+        "muscle_groups": [
+          "quads",
+          "glutes"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_f76cdbc971e7",
+        "name": "Romanian Deadlift",
+        "category": "legs",
+        "equipment_required": [
+          "barbell"
+        ],
+        "muscle_groups": [
+          "hamstrings",
+          "glutes"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_3ad92f587616",
+        "name": "Dumbbell Lunges",
+        "category": "legs",
+        "equipment_required": [
+          "dumbbells"
+        ],
+        "muscle_groups": [
+          "quads",
+          "glutes"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_c87e3e44fbd9",
+        "name": "Leg Press",
+        "category": "legs",
+        "equipment_required": [
+          "machines"
+        ],
+        "muscle_groups": [
+          "quads",
+          "glutes"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_2653e8a129d1",
+        "name": "Calf Raises",
+        "category": "legs",
+        "equipment_required": [],
+        "muscle_groups": [
+          "calves"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_b7a5880c58d2",
+        "name": "Barbell Curls",
+        "category": "arms",
+        "equipment_required": [
+          "barbell"
+        ],
+        "muscle_groups": [
+          "biceps"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_8bab3c6aff36",
+        "name": "Dumbbell Curls",
+        "category": "arms",
+        "equipment_required": [
+          "dumbbells"
+        ],
+        "muscle_groups": [
+          "biceps"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_b106877a5aa0",
+        "name": "Hammer Curls",
+        "category": "arms",
+        "equipment_required": [
+          "dumbbells"
+        ],
+        "muscle_groups": [
+          "biceps",
+          "forearms"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_9fb89863f2bc",
+        "name": "Tricep Dips",
+        "category": "arms",
+        "equipment_required": [],
+        "muscle_groups": [
+          "triceps"
+        ],
+        "is_compound": true
+      },
+      {
+        "exercise_id": "ex_3e2eff242cad",
+        "name": "Skull Crushers",
+        "category": "arms",
+        "equipment_required": [
+          "barbell",
+          "bench"
+        ],
+        "muscle_groups": [
+          "triceps"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_293f13f51972",
+        "name": "Tricep Pushdowns",
+        "category": "arms",
+        "equipment_required": [
+          "cables"
+        ],
+        "muscle_groups": [
+          "triceps"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_fc202695fbe3",
+        "name": "Planks",
+        "category": "core",
+        "equipment_required": [],
+        "muscle_groups": [
+          "abs",
+          "core"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_c6cbf39fa6c3",
+        "name": "Crunches",
+        "category": "core",
+        "equipment_required": [],
+        "muscle_groups": [
+          "abs"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_e49745ed3c8c",
+        "name": "Leg Raises",
+        "category": "core",
+        "equipment_required": [
+          "pullup_bar"
+        ],
+        "muscle_groups": [
+          "lower_abs"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_13d98548d306",
+        "name": "Russian Twists",
+        "category": "core",
+        "equipment_required": [],
+        "muscle_groups": [
+          "obliques"
+        ],
+        "is_compound": false
+      },
+      {
+        "exercise_id": "ex_c31e801415ca",
+        "name": "Ab Wheel Rollouts",
+        "category": "core",
+        "equipment_required": [],
+        "muscle_groups": [
+          "abs",
+          "core"
+        ],
+        "is_compound": true
+      }
+    ],
+    "error": null,
+    "timestamp": "2026-02-22T08:07:18.830229"
+  },
+  {
+    "endpoint": "/api/foods",
+    "method": "GET",
+    "status_code": 200,
+    "expected_status": 200,
+    "success": true,
+    "response_data": [
+      {
+        "food_id": "fd_2e9b1cbbdb1c",
+        "name": "Chicken Breast",
+        "category": "protein",
+        "serving_size": "100g",
+        "calories": 165.0,
+        "protein": 31.0,
+        "carbs": 0.0,
+        "fat": 3.6,
+        "fiber": 0.0
+      },
+      {
+        "food_id": "fd_ad6686a61320",
+        "name": "Salmon",
+        "category": "protein",
+        "serving_size": "100g",
+        "calories": 208.0,
+        "protein": 20.0,
+        "carbs": 0.0,
+        "fat": 13.0,
+        "fiber": 0.0
+      },
+      {
+        "food_id": "fd_5faf3eff607e",
+        "name": "Ground Beef (93% lean)",
+        "category": "protein",
+        "serving_size": "100g",
+        "calories": 164.0,
+        "protein": 26.0,
+        "carbs": 0.0,
+        "fat": 6.0,
+        "fiber": 0.0
+      },
+      {
+        "food_id": "fd_e1d2daa6cd43",
+        "name": "Eggs",
+        "category": "protein",
+        "serving_size": "1 large",
+        "calories": 72.0,
+        "protein": 6.0,
+        "carbs": 0.4,
+        "fat": 5.0,
+        "fiber": 0.0
+      },
+      {
+        "food_id": "fd_6c5a0c8335d6",
+        "name": "Greek Yogurt",
+        "category": "protein",
+        "serving_size": "170g",
+        "calories": 100.0,
+        "protein": 17.0,
+        "carbs": 6.0,
+        "fat": 0.7,
+        "fiber": 0.0
+      },
+      {
+        "food_id": "fd_81d531120016",
+        "name": "Tuna",
+        "category": "protein",
+        "serving_size": "100g",
+        "calories": 132.0,
+        "protein": 29.0,
+        "carbs": 0.0,
+        "fat": 1.0,
+        "fiber": 0.0
+      },
+      {
+        "food_id": "fd_276efd3a31c0",
+        "name": "Turkey Breast",
+        "category": "protein",
+        "serving_size": "100g",
+        "calories": 135.0,
+        "protein": 30.0,
+        "carbs": 0.0,
+        "fat": 1.0,
+        "fiber": 0.0
+      },
+      {
+        "food_id": "fd_a80826ca6c21",
+        "name": "Whey Protein",
+        "category": "protein",
+        "serving_size": "1 scoop (30g)",
+        "calories": 120.0,
+        "protein": 24.0,
+        "carbs": 3.0,
+        "fat": 1.0,
+        "fiber": 0.0
+      },
+      {
+        "food_id": "fd_2dba6b824cbf",
+        "name": "Cottage Cheese",
+        "category": "protein",
+        "serving_size": "100g",
+        "calories": 98.0,
+        "protein": 11.0,
+        "carbs": 3.4,
+        "fat": 4.3,
+        "fiber": 0.0
+      },
+      {
+        "food_id": "fd_4047eddeffd2",
+        "name": "Tofu",
+        "category": "protein",
+        "serving_size": "100g",
+        "calories": 76.0,
+        "protein": 8.0,
+        "carbs": 2.0,
+        "fat": 4.8,
+        "fiber": 0.3
+      },
+      {
+        "food_id": "fd_ac116546d14f",
+        "name": "White Rice",
+        "category": "carbs",
+        "serving_size": "100g cooked",
+        "calories": 130.0,
+        "protein": 2.7,
+        "carbs": 28.0,
+        "fat": 0.3,
+        "fiber": 0.4
+      },
+      {
+        "food_id": "fd_9fe768a54928",
+        "name": "Brown Rice",
+        "category": "carbs",
+        "serving_size": "100g cooked",
+        "calories": 112.0,
+        "protein": 2.6,
+        "carbs": 24.0,
+        "fat": 0.9,
+        "fiber": 1.8
+      },
+      {
+        "food_id": "fd_b9f28639a0cf",
+        "name": "Sweet Potato",
+        "category": "carbs",
+        "serving_size": "100g",
+        "calories": 86.0,
+        "protein": 1.6,
+        "carbs": 20.0,
+        "fat": 0.1,
+        "fiber": 3.0
+      },
+      {
+        "food_id": "fd_1dce95788e1e",
+        "name": "Oats",
+        "category": "carbs",
+        "serving_size": "100g dry",
+        "calories": 389.0,
+        "protein": 17.0,
+        "carbs": 66.0,
+        "fat": 7.0,
+        "fiber": 11.0
+      },
+      {
+        "food_id": "fd_dde5f2e4e910",
+        "name": "Quinoa",
+        "category": "carbs",
+        "serving_size": "100g cooked",
+        "calories": 120.0,
+        "protein": 4.4,
+        "carbs": 21.0,
+        "fat": 1.9,
+        "fiber": 2.8
+      },
+      {
+        "food_id": "fd_630057c7a4ad",
+        "name": "Whole Wheat Bread",
+        "category": "carbs",
+        "serving_size": "1 slice",
+        "calories": 81.0,
+        "protein": 4.0,
+        "carbs": 14.0,
+        "fat": 1.0,
+        "fiber": 2.0
+      },
+      {
+        "food_id": "fd_b1ca94119850",
+        "name": "Pasta",
+        "category": "carbs",
+        "serving_size": "100g cooked",
+        "calories": 131.0,
+        "protein": 5.0,
+        "carbs": 25.0,
+        "fat": 1.1,
+        "fiber": 1.8
+      },
+      {
+        "food_id": "fd_cf92c22a04b8",
+        "name": "Banana",
+        "category": "carbs",
+        "serving_size": "1 medium",
+        "calories": 105.0,
+        "protein": 1.3,
+        "carbs": 27.0,
+        "fat": 0.4,
+        "fiber": 3.1
+      },
+      {
+        "food_id": "fd_645a3f2ccd18",
+        "name": "Avocado",
+        "category": "fats",
+        "serving_size": "100g",
+        "calories": 160.0,
+        "protein": 2.0,
+        "carbs": 9.0,
+        "fat": 15.0,
+        "fiber": 7.0
+      },
+      {
+        "food_id": "fd_0048cfeba00b",
+        "name": "Almonds",
+        "category": "fats",
+        "serving_size": "28g (1 oz)",
+        "calories": 164.0,
+        "protein": 6.0,
+        "carbs": 6.0,
+        "fat": 14.0,
+        "fiber": 3.5
+      },
+      {
+        "food_id": "fd_fddad42ec596",
+        "name": "Peanut Butter",
+        "category": "fats",
+        "serving_size": "2 tbsp",
+        "calories": 188.0,
+        "protein": 8.0,
+        "carbs": 6.0,
+        "fat": 16.0,
+        "fiber": 2.0
+      },
+      {
+        "food_id": "fd_35f8bd323369",
+        "name": "Olive Oil",
+        "category": "fats",
+        "serving_size": "1 tbsp",
+        "calories": 119.0,
+        "protein": 0.0,
+        "carbs": 0.0,
+        "fat": 14.0,
+        "fiber": 0.0
+      },
+      {
+        "food_id": "fd_4146f2163022",
+        "name": "Walnuts",
+        "category": "fats",
+        "serving_size": "28g (1 oz)",
+        "calories": 185.0,
+        "protein": 4.3,
+        "carbs": 4.0,
+        "fat": 18.5,
+        "fiber": 1.9
+      },
+      {
+        "food_id": "fd_8b0aec28ce70",
+        "name": "Cheese (Cheddar)",
+        "category": "fats",
+        "serving_size": "28g (1 oz)",
+        "calories": 113.0,
+        "protein": 7.0,
+        "carbs": 0.4,
+        "fat": 9.3,
+        "fiber": 0.0
+      },
+      {
+        "food_id": "fd_b1e537af7e2d",
+        "name": "Broccoli",
+        "category": "vegetables",
+        "serving_size": "100g",
+        "calories": 34.0,
+        "protein": 2.8,
+        "carbs": 7.0,
+        "fat": 0.4,
+        "fiber": 2.6
+      },
+      {
+        "food_id": "fd_44edfea6948d",
+        "name": "Spinach",
+        "category": "vegetables",
+        "serving_size": "100g",
+        "calories": 23.0,
+        "protein": 2.9,
+        "carbs": 3.6,
+        "fat": 0.4,
+        "fiber": 2.2
+      },
+      {
+        "food_id": "fd_fc06080fbe97",
+        "name": "Bell Peppers",
+        "category": "vegetables",
+        "serving_size": "100g",
+        "calories": 31.0,
+        "protein": 1.0,
+        "carbs": 6.0,
+        "fat": 0.3,
+        "fiber": 2.1
+      },
+      {
+        "food_id": "fd_825dd70186c0",
+        "name": "Asparagus",
+        "category": "vegetables",
+        "serving_size": "100g",
+        "calories": 20.0,
+        "protein": 2.2,
+        "carbs": 3.9,
+        "fat": 0.1,
+        "fiber": 2.1
+      },
+      {
+        "food_id": "fd_63bf9eaafa40",
+        "name": "Green Beans",
+        "category": "vegetables",
+        "serving_size": "100g",
+        "calories": 31.0,
+        "protein": 1.8,
+        "carbs": 7.0,
+        "fat": 0.1,
+        "fiber": 3.4
+      }
+    ],
+    "error": null,
+    "timestamp": "2026-02-22T08:07:19.242324"
+  },
+  {
+    "endpoint": "/api/templates",
+    "method": "GET",
+    "status_code": 200,
+    "expected_status": 200,
+    "success": true,
+    "response_data": [
+      {
+        "template_id": "tmpl_6005c5272e2a",
+        "name": "Beginner 5x5",
+        "description": "Classic strength program. 5 sets of 5 reps on compound lifts. Perfect for building a strength foundation.",
+        "difficulty": "beginner",
+        "duration_weeks": 12,
+        "workouts_per_week": 3,
+        "type": "strength",
+        "exercises": [
+          {
+            "day": "A",
+            "exercises": [
+              {
+                "name": "Squats",
+                "sets": 5,
+                "reps": 5,
+                "rest_seconds": 180
+              },
+              {
+                "name": "Bench Press",
+                "sets": 5,
+                "reps": 5,
+                "rest_seconds": 180
+              },
+              {
+                "name": "Barbell Rows",
+                "sets": 5,
+                "reps": 5,
+                "rest_seconds": 180
+              }
+            ]
+          },
+          {
+            "day": "B",
+            "exercises": [
+              {
+                "name": "Squats",
+                "sets": 5,
+                "reps": 5,
+                "rest_seconds": 180
+              },
+              {
+                "name": "Overhead Press",
+                "sets": 5,
+                "reps": 5,
+                "rest_seconds": 180
+              },
+              {
+                "name": "Deadlift",
+                "sets": 1,
+                "reps": 5,
+                "rest_seconds": 180
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "template_id": "tmpl_0907fb199361",
+        "name": "Push Pull Legs (PPL)",
+        "description": "6-day split targeting push muscles, pull muscles, and legs separately for maximum volume.",
+        "difficulty": "intermediate",
+        "duration_weeks": 8,
+        "workouts_per_week": 6,
+        "type": "hypertrophy",
+        "exercises": [
+          {
+            "day": "Push",
+            "exercises": [
+              {
+                "name": "Bench Press",
+                "sets": 4,
+                "reps": 8,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Overhead Press",
+                "sets": 3,
+                "reps": 10,
+                "rest_seconds": 90
+              },
+              {
+                "name": "Incline Dumbbell Press",
+                "sets": 3,
+                "reps": 12,
+                "rest_seconds": 90
+              },
+              {
+                "name": "Lateral Raises",
+                "sets": 3,
+                "reps": 15,
+                "rest_seconds": 60
+              },
+              {
+                "name": "Tricep Pushdowns",
+                "sets": 3,
+                "reps": 12,
+                "rest_seconds": 60
+              }
+            ]
+          },
+          {
+            "day": "Pull",
+            "exercises": [
+              {
+                "name": "Deadlift",
+                "sets": 3,
+                "reps": 5,
+                "rest_seconds": 180
+              },
+              {
+                "name": "Pull-ups",
+                "sets": 4,
+                "reps": 8,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Barbell Rows",
+                "sets": 3,
+                "reps": 10,
+                "rest_seconds": 90
+              },
+              {
+                "name": "Face Pulls",
+                "sets": 3,
+                "reps": 15,
+                "rest_seconds": 60
+              },
+              {
+                "name": "Barbell Curls",
+                "sets": 3,
+                "reps": 12,
+                "rest_seconds": 60
+              }
+            ]
+          },
+          {
+            "day": "Legs",
+            "exercises": [
+              {
+                "name": "Squats",
+                "sets": 4,
+                "reps": 8,
+                "rest_seconds": 150
+              },
+              {
+                "name": "Romanian Deadlift",
+                "sets": 3,
+                "reps": 10,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Dumbbell Lunges",
+                "sets": 3,
+                "reps": 12,
+                "rest_seconds": 90
+              },
+              {
+                "name": "Leg Press",
+                "sets": 3,
+                "reps": 15,
+                "rest_seconds": 90
+              },
+              {
+                "name": "Calf Raises",
+                "sets": 4,
+                "reps": 15,
+                "rest_seconds": 60
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "template_id": "tmpl_de5c7724cc3f",
+        "name": "Upper/Lower Split",
+        "description": "4-day program alternating upper and lower body. Great balance of volume and recovery.",
+        "difficulty": "intermediate",
+        "duration_weeks": 10,
+        "workouts_per_week": 4,
+        "type": "hypertrophy",
+        "exercises": [
+          {
+            "day": "Upper A",
+            "exercises": [
+              {
+                "name": "Bench Press",
+                "sets": 4,
+                "reps": 6,
+                "rest_seconds": 150
+              },
+              {
+                "name": "Barbell Rows",
+                "sets": 4,
+                "reps": 6,
+                "rest_seconds": 150
+              },
+              {
+                "name": "Overhead Press",
+                "sets": 3,
+                "reps": 8,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Pull-ups",
+                "sets": 3,
+                "reps": 8,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Dumbbell Curls",
+                "sets": 2,
+                "reps": 12,
+                "rest_seconds": 60
+              },
+              {
+                "name": "Tricep Dips",
+                "sets": 2,
+                "reps": 12,
+                "rest_seconds": 60
+              }
+            ]
+          },
+          {
+            "day": "Lower A",
+            "exercises": [
+              {
+                "name": "Squats",
+                "sets": 4,
+                "reps": 6,
+                "rest_seconds": 180
+              },
+              {
+                "name": "Romanian Deadlift",
+                "sets": 3,
+                "reps": 8,
+                "rest_seconds": 150
+              },
+              {
+                "name": "Leg Press",
+                "sets": 3,
+                "reps": 10,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Dumbbell Lunges",
+                "sets": 2,
+                "reps": 12,
+                "rest_seconds": 90
+              },
+              {
+                "name": "Calf Raises",
+                "sets": 4,
+                "reps": 15,
+                "rest_seconds": 60
+              }
+            ]
+          },
+          {
+            "day": "Upper B",
+            "exercises": [
+              {
+                "name": "Dumbbell Bench Press",
+                "sets": 4,
+                "reps": 10,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Dumbbell Rows",
+                "sets": 4,
+                "reps": 10,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Dumbbell Shoulder Press",
+                "sets": 3,
+                "reps": 12,
+                "rest_seconds": 90
+              },
+              {
+                "name": "Chin-ups",
+                "sets": 3,
+                "reps": 10,
+                "rest_seconds": 90
+              },
+              {
+                "name": "Lateral Raises",
+                "sets": 3,
+                "reps": 15,
+                "rest_seconds": 60
+              },
+              {
+                "name": "Hammer Curls",
+                "sets": 2,
+                "reps": 12,
+                "rest_seconds": 60
+              }
+            ]
+          },
+          {
+            "day": "Lower B",
+            "exercises": [
+              {
+                "name": "Deadlift",
+                "sets": 3,
+                "reps": 5,
+                "rest_seconds": 180
+              },
+              {
+                "name": "Goblet Squats",
+                "sets": 3,
+                "reps": 12,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Romanian Deadlift",
+                "sets": 3,
+                "reps": 10,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Leg Raises",
+                "sets": 3,
+                "reps": 15,
+                "rest_seconds": 60
+              },
+              {
+                "name": "Calf Raises",
+                "sets": 4,
+                "reps": 15,
+                "rest_seconds": 60
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "template_id": "tmpl_b1dfce6c97b3",
+        "name": "Full Body 3x/Week",
+        "description": "Hit every muscle group 3 times per week. Efficient and effective for beginners.",
+        "difficulty": "beginner",
+        "duration_weeks": 8,
+        "workouts_per_week": 3,
+        "type": "strength",
+        "exercises": [
+          {
+            "day": "Workout",
+            "exercises": [
+              {
+                "name": "Squats",
+                "sets": 3,
+                "reps": 8,
+                "rest_seconds": 150
+              },
+              {
+                "name": "Bench Press",
+                "sets": 3,
+                "reps": 8,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Barbell Rows",
+                "sets": 3,
+                "reps": 8,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Overhead Press",
+                "sets": 3,
+                "reps": 10,
+                "rest_seconds": 90
+              },
+              {
+                "name": "Dumbbell Curls",
+                "sets": 2,
+                "reps": 12,
+                "rest_seconds": 60
+              },
+              {
+                "name": "Planks",
+                "sets": 3,
+                "reps": 30,
+                "rest_seconds": 60
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "template_id": "tmpl_b3965d84f15f",
+        "name": "Home Gym Basics",
+        "description": "Effective program using minimal equipment: dumbbells, pull-up bar only.",
+        "difficulty": "beginner",
+        "duration_weeks": 8,
+        "workouts_per_week": 4,
+        "type": "hypertrophy",
+        "exercises": [
+          {
+            "day": "Upper",
+            "exercises": [
+              {
+                "name": "Push-ups",
+                "sets": 4,
+                "reps": 15,
+                "rest_seconds": 60
+              },
+              {
+                "name": "Dumbbell Rows",
+                "sets": 4,
+                "reps": 12,
+                "rest_seconds": 90
+              },
+              {
+                "name": "Dumbbell Shoulder Press",
+                "sets": 3,
+                "reps": 12,
+                "rest_seconds": 90
+              },
+              {
+                "name": "Pull-ups",
+                "sets": 3,
+                "reps": 8,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Dumbbell Curls",
+                "sets": 3,
+                "reps": 12,
+                "rest_seconds": 60
+              },
+              {
+                "name": "Tricep Dips",
+                "sets": 3,
+                "reps": 12,
+                "rest_seconds": 60
+              }
+            ]
+          },
+          {
+            "day": "Lower",
+            "exercises": [
+              {
+                "name": "Goblet Squats",
+                "sets": 4,
+                "reps": 12,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Dumbbell Lunges",
+                "sets": 3,
+                "reps": 12,
+                "rest_seconds": 90
+              },
+              {
+                "name": "Romanian Deadlift",
+                "sets": 3,
+                "reps": 12,
+                "rest_seconds": 120
+              },
+              {
+                "name": "Calf Raises",
+                "sets": 4,
+                "reps": 20,
+                "rest_seconds": 60
+              },
+              {
+                "name": "Planks",
+                "sets": 3,
+                "reps": 45,
+                "rest_seconds": 60
+              },
+              {
+                "name": "Russian Twists",
+                "sets": 3,
+                "reps": 20,
+                "rest_seconds": 60
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "error": null,
+    "timestamp": "2026-02-22T08:07:19.767780"
+  },
+  {
+    "endpoint": "/api/workouts/warmup-sets",
+    "method": "POST",
+    "status_code": 422,
+    "expected_status": 200,
+    "success": false,
+    "response_data": {
+      "detail": [
+        {
+          "type": "missing",
+          "loc": [
+            "query",
+            "working_weight"
+          ],
+          "msg": "Field required",
+          "input": null,
+          "url": "https://errors.pydantic.dev/2.12/v/missing"
+        },
+        {
+          "type": "missing",
+          "loc": [
+            "query",
+            "exercise_name"
+          ],
+          "msg": "Field required",
+          "input": null,
+          "url": "https://errors.pydantic.dev/2.12/v/missing"
+        }
+      ]
+    },
+    "error": null,
+    "timestamp": "2026-02-22T08:07:20.194544"
+  },
+  {
+    "endpoint": "/api/progression/suggestions",
+    "method": "GET",
+    "status_code": 200,
+    "expected_status": 200,
+    "success": true,
+    "response_data": {
+      "suggestions": [],
+      "total_exercises_analyzed": 0,
+      "generated_at": "2026-02-22T08:07:20.370297+00:00"
+    },
+    "error": null,
+    "timestamp": "2026-02-22T08:07:20.609466"
+  },
+  {
+    "endpoint": "/api/measurements",
+    "method": "GET",
+    "status_code": 200,
+    "expected_status": 200,
+    "success": true,
+    "response_data": [
+      {
+        "measurement_id": "bm_76f37d1ec76d",
+        "user_id": "test-user-1771746329648",
+        "date": "2026-02-22",
+        "weight": 175.5,
+        "body_fat": 15.2,
+        "chest": 42.5,
+        "waist": 32.0,
+        "hips": null,
+        "biceps_left": null,
+        "biceps_right": null,
+        "thighs_left": null,
+        "thighs_right": null,
+        "calves_left": null,
+        "calves_right": null,
+        "neck": null,
+        "shoulders": null,
+        "notes": null,
+        "created_at": "2026-02-22T08:03:21.762000"
+      }
+    ],
+    "error": null,
+    "timestamp": "2026-02-22T08:07:21.026703"
+  },
+  {
+    "endpoint": "/api/measurements/stats/progress",
+    "method": "GET",
+    "status_code": 200,
+    "expected_status": 200,
+    "success": true,
+    "response_data": {
+      "measurements": [
+        {
+          "measurement_id": "bm_76f37d1ec76d",
+          "user_id": "test-user-1771746329648",
+          "date": "2026-02-22",
+          "weight": 175.5,
+          "body_fat": 15.2,
+          "chest": 42.5,
+          "waist": 32.0,
+          "hips": null,
+          "biceps_left": null,
+          "biceps_right": null,
+          "thighs_left": null,
+          "thighs_right": null,
+          "calves_left": null,
+          "calves_right": null,
+          "neck": null,
+          "shoulders": null,
+          "notes": null,
+          "created_at": "2026-02-22T08:03:21.762000"
+        }
+      ],
+      "changes": {
+        "weight": {
+          "first": 175.5,
+          "latest": 175.5,
+          "change": 0.0,
+          "change_percent": 0.0
+        },
+        "body_fat": {
+          "first": 15.2,
+          "latest": 15.2,
+          "change": 0.0,
+          "change_percent": 0.0
+        },
+        "chest": {
+          "first": 42.5,
+          "latest": 42.5,
+          "change": 0.0,
+          "change_percent": 0.0
+        },
+        "waist": {
+          "first": 32.0,
+          "latest": 32.0,
+          "change": 0.0,
+          "change_percent": 0.0
+        }
+      },
+      "has_data": true,
+      "date_range": {
+        "start": "2026-02-22",
+        "end": "2026-02-22"
+      }
+    },
+    "error": null,
+    "timestamp": "2026-02-22T08:07:21.418228"
+  },
+  {
+    "endpoint": "/api/auth/me",
+    "method": "GET",
+    "status_code": 200,
+    "expected_status": 200,
+    "success": true,
+    "response_data": {
+      "user_id": "test-user-1771746329648",
+      "email": "test.user.1771746329649@example.com",
+      "name": "Test User",
+      "picture": "https://via.placeholder.com/150",
+      "created_at": "2026-02-22T07:45:29.649000",
+      "goals": {
+        "daily_calories": 2000,
+        "protein_grams": 150,
+        "carbs_grams": 200,
+        "fat_grams": 65,
+        "workouts_per_week": 4
+      },
+      "equipment": [
+        "dumbbells",
+        "barbell",
+        "pullup_bar",
+        "bench"
+      ]
+    },
+    "error": null,
+    "timestamp": "2026-02-22T08:07:21.835396"
+  }
+]
