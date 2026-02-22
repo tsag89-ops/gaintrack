@@ -224,6 +224,146 @@ def test_warmup_calculator():
         print(f"❌ Error parsing warmup calculator JSON response: {e}")
         return False
 
+def test_workout_templates():
+    """Test the workout templates endpoints"""
+    print("\nTesting GET /api/templates...")
+    try:
+        response = requests.get(f"{BASE_URL}/templates")
+        print(f"Status Code: {response.status_code}")
+        
+        if response.status_code == 200:
+            templates = response.json()
+            print(f"Number of templates returned: {len(templates)}")
+            
+            # Check if we get 5 templates as expected
+            if len(templates) == 5:
+                print("✅ Templates endpoint returns correct number of programs (5)")
+                
+                # Expected template names
+                expected_names = [
+                    "Beginner 5x5",
+                    "Push Pull Legs (PPL)", 
+                    "Upper/Lower Split",
+                    "Full Body 3x/Week",
+                    "Home Gym Basics"
+                ]
+                
+                actual_names = [t.get("name", "") for t in templates]
+                print(f"Template names: {actual_names}")
+                
+                # Check if all expected templates are present
+                missing_templates = [name for name in expected_names if name not in actual_names]
+                if not missing_templates:
+                    print("✅ All expected workout templates present")
+                    
+                    # Check structure of first template
+                    if templates:
+                        first_template = templates[0]
+                        required_fields = ["template_id", "name", "description", "difficulty", "duration_weeks", "workouts_per_week", "type", "exercises"]
+                        missing_fields = [field for field in required_fields if field not in first_template]
+                        
+                        if not missing_fields:
+                            print("✅ Template objects have correct structure")
+                            
+                            # Print sample template info
+                            print("Sample templates:")
+                            for i, template in enumerate(templates[:3]):
+                                print(f"  {i+1}. {template['name']} - {template['difficulty']} - {template['workouts_per_week']}x/week")
+                            
+                            return True, templates[0].get("template_id")  # Return first template ID for individual test
+                        else:
+                            print(f"❌ Template objects missing fields: {missing_fields}")
+                            return False, None
+                    else:
+                        print("❌ No templates returned in response")
+                        return False, None
+                else:
+                    print(f"❌ Missing expected templates: {missing_templates}")
+                    return False, None
+            else:
+                print(f"❌ Expected 5 templates, got {len(templates)}")
+                return False, None
+        else:
+            print(f"❌ Templates endpoint returned status code: {response.status_code}")
+            print(f"Response: {response.text}")
+            return False, None
+            
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error connecting to templates endpoint: {e}")
+        return False, None
+    except json.JSONDecodeError as e:
+        print(f"❌ Error parsing templates JSON response: {e}")
+        return False, None
+
+def test_workout_template_detail(template_id):
+    """Test the individual workout template endpoint"""
+    if not template_id:
+        print("\nSkipping individual template test - no template ID available")
+        return False
+        
+    print(f"\nTesting GET /api/templates/{template_id}...")
+    try:
+        response = requests.get(f"{BASE_URL}/templates/{template_id}")
+        print(f"Status Code: {response.status_code}")
+        
+        if response.status_code == 200:
+            template = response.json()
+            print(f"Template retrieved: {template.get('name', 'Unknown')}")
+            
+            # Check response structure
+            required_fields = ["template_id", "name", "description", "difficulty", "duration_weeks", "workouts_per_week", "type", "exercises"]
+            missing_fields = [field for field in required_fields if field not in template]
+            
+            if not missing_fields:
+                print("✅ Individual template has correct structure")
+                
+                # Verify it has exercise data
+                exercises = template.get("exercises", [])
+                if exercises:
+                    print(f"Template has {len(exercises)} workout days")
+                    
+                    # Check first day structure
+                    first_day = exercises[0]
+                    if "day" in first_day and "exercises" in first_day:
+                        day_exercises = first_day["exercises"]
+                        print(f"Day '{first_day['day']}' has {len(day_exercises)} exercises")
+                        
+                        if day_exercises:
+                            first_ex = day_exercises[0]
+                            exercise_fields = ["name", "sets", "reps", "rest_seconds"]
+                            ex_missing = [field for field in exercise_fields if field not in first_ex]
+                            
+                            if not ex_missing:
+                                print("✅ Exercise structure is correct")
+                                print(f"Sample exercise: {first_ex['name']} - {first_ex['sets']}x{first_ex['reps']}")
+                                return True
+                            else:
+                                print(f"❌ Exercise missing fields: {ex_missing}")
+                                return False
+                        else:
+                            print("❌ No exercises in first day")
+                            return False
+                    else:
+                        print("❌ Day structure missing 'day' or 'exercises' fields")
+                        return False
+                else:
+                    print("❌ Template has no exercises")
+                    return False
+            else:
+                print(f"❌ Template missing required fields: {missing_fields}")
+                return False
+        else:
+            print(f"❌ Template detail endpoint returned status code: {response.status_code}")
+            print(f"Response: {response.text}")
+            return False
+            
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error connecting to template detail endpoint: {e}")
+        return False
+    except json.JSONDecodeError as e:
+        print(f"❌ Error parsing template detail JSON response: {e}")
+        return False
+
 def run_all_tests():
     """Run all backend API tests"""
     print("=== GainTrack Backend API Test Suite ===")
