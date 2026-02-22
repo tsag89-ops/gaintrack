@@ -475,6 +475,202 @@ async def calculate_warmup_sets(working_weight: float, exercise_name: str):
     
     return {"warmup_sets": warmup_sets, "working_weight": working_weight}
 
+# ============== Adaptive Progression AI ==============
+
+class ProgressionSuggestion(BaseModel):
+    exercise_name: str
+    current_weight: float
+    suggested_weight: float
+    increase_amount: float
+    increase_percentage: float
+    confidence: str  # high, medium, low
+    reason: str
+    recent_performance: List[Dict[str, Any]]
+
+@api_router.get("/progression/suggestions")
+async def get_progression_suggestions(user: User = Depends(get_current_user)):
+    """
+    AI-powered progression suggestions based on workout history.
+    Analyzes recent performance and suggests weight increases.
+    """
+    # Get user's workouts from last 30 days
+    start_date = datetime.now(timezone.utc) - timedelta(days=30)
+    workouts = await db.workouts.find(
+        {"user_id": user.user_id, "date": {"$gte": start_date}},
+        {"_id": 0}
+    ).sort("date", -1).to_list(50)
+    
+    # Analyze exercise performance
+    exercise_history: Dict[str, List[Dict]] = {}
+    
+    for workout in workouts:
+        workout_date = workout.get("date")
+        for exercise in workout.get("exercises", []):
+            ex_name = exercise.get("exercise_name")
+            if not ex_name:
+                continue
+            
+            if ex_name not in exercise_history:
+                exercise_history[ex_name] = []
+            
+            # Get working sets (non-warmup)
+            working_sets = [s for s in exercise.get("sets", []) if not s.get("is_warmup", False)]
+            
+            if working_sets:
+                max_weight = max(s.get("weight", 0) for s in working_sets)
+                total_reps = sum(s.get("reps", 0) for s in working_sets)
+                avg_rpe = sum(s.get("rpe", 7) for s in working_sets if s.get("rpe")) / len([s for s in working_sets if s.get("rpe")]) if any(s.get("rpe") for s in working_sets) else 7
+                sets_completed = len(working_sets)
+                
+                exercise_history[ex_name].append({
+                    "date": workout_date.isoformat() if isinstance(workout_date, datetime) else str(workout_date),
+                    "max_weight": max_weight,
+                    "sets_completed": sets_completed,
+                    "total_reps": total_reps,
+                    "avg_rpe": round(avg_rpe, 1)
+                })
+    
+    suggestions = []
+    
+    for ex_name, history in exercise_history.items():
+        if len(history) < 2:
+            continue  # Need at least 2 sessions for analysis
+        
+        # Get recent sessions (last 3)
+        recent = history[:3]
+        
+        # Check for consistent performance
+        current_weight = recent[0]["max_weight"]
+        
+        if current_weight <= 0:
+            continue
+        
+        # Analyze if ready for progression
+        # Criteria:
+        # 1. Completed 3+ sets in recent sessions
+        # 2. RPE is manageable (7 or below average)
+        # 3. Consistent or improving performance
+        
+        avg_sets = sum(r["sets_completed"] for r in recent) / len(recent)
+        avg_rpe = sum(r["avg_rpe"] for r in recent) / len(recent)
+        weights = [r["max_weight"] for r in recent]
+        
+        # Determine progression
+        should_progress = False
+        confidence = "low"
+        reason = ""
+        increase_pct = 0
+        
+        if avg_sets >= 3 and avg_rpe <= 7:
+            should_progress = True
+            confidence = "high"
+            increase_pct = 5  # 5% increase for good performance
+            reason = f"Excellent! Completed avg {avg_sets:.1f} sets at RPE {avg_rpe:.1f}. Ready for progression."
+        elif avg_sets >= 3 and avg_rpe <= 8:
+            should_progress = True
+            confidence = "medium"
+            increase_pct = 2.5  # 2.5% increase for moderate performance
+            reason = f"Good progress! Completed avg {avg_sets:.1f} sets at RPE {avg_rpe:.1f}. Small increase recommended."
+        elif avg_rpe >= 9:
+            should_progress = False
+            confidence = "high"
+            reason = f"RPE is high ({avg_rpe:.1f}). Focus on current weight before progressing."
+        else:
+            # Check if weights are stagnant
+            if len(set(weights)) == 1 and len(recent) >= 3:
+                should_progress = True
+                confidence = "low"
+                increase_pct = 2.5
+                reason = "Weight has been constant. Try a small increase to test limits."
+        
+        if should_progress and increase_pct > 0:
+            increase_amount = round(current_weight * (increase_pct / 100) / 2.5) * 2.5  # Round to 2.5
+            if increase_amount < 2.5:
+                increase_amount = 2.5
+            
+            suggested_weight = current_weight + increase_amount
+            
+            suggestions.append({
+                "exercise_name": ex_name,
+                "current_weight": current_weight,
+                "suggested_weight": suggested_weight,
+                "increase_amount": increase_amount,
+                "increase_percentage": round((increase_amount / current_weight) * 100, 1),
+                "confidence": confidence,
+                "reason": reason,
+                "recent_performance": recent
+            })
+    
+    # Sort by confidence (high first)
+    confidence_order = {"high": 0, "medium": 1, "low": 2}
+    suggestions.sort(key=lambda x: confidence_order.get(x["confidence"], 3))
+    
+    return {
+        "suggestions": suggestions,
+        "total_exercises_analyzed": len(exercise_history),
+        "generated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+@api_router.get("/progression/exercise/{exercise_name}")
+async def get_exercise_progression(exercise_name: str, user: User = Depends(get_current_user)):
+    """Get detailed progression history for a specific exercise"""
+    # Get all workouts with this exercise
+    workouts = await db.workouts.find(
+        {"user_id": user.user_id, "exercises.exercise_name": exercise_name},
+        {"_id": 0}
+    ).sort("date", -1).to_list(100)
+    
+    history = []
+    for workout in workouts:
+        workout_date = workout.get("date")
+        for exercise in workout.get("exercises", []):
+            if exercise.get("exercise_name") == exercise_name:
+                working_sets = [s for s in exercise.get("sets", []) if not s.get("is_warmup", False)]
+                if working_sets:
+                    history.append({
+                        "date": workout_date.isoformat() if isinstance(workout_date, datetime) else str(workout_date),
+                        "workout_id": workout.get("workout_id"),
+                        "max_weight": max(s.get("weight", 0) for s in working_sets),
+                        "total_volume": sum(s.get("weight", 0) * s.get("reps", 0) for s in working_sets),
+                        "sets": len(working_sets),
+                        "total_reps": sum(s.get("reps", 0) for s in working_sets),
+                        "avg_rpe": round(sum(s.get("rpe", 7) for s in working_sets) / len(working_sets), 1)
+                    })
+    
+    # Calculate personal records
+    if history:
+        max_weight_ever = max(h["max_weight"] for h in history)
+        max_volume_ever = max(h["total_volume"] for h in history)
+        
+        # Calculate trend (improving, stable, declining)
+        if len(history) >= 3:
+            recent_avg = sum(h["max_weight"] for h in history[:3]) / 3
+            older_avg = sum(h["max_weight"] for h in history[3:6]) / min(3, len(history[3:6])) if len(history) > 3 else recent_avg
+            
+            if recent_avg > older_avg * 1.05:
+                trend = "improving"
+            elif recent_avg < older_avg * 0.95:
+                trend = "declining"
+            else:
+                trend = "stable"
+        else:
+            trend = "not_enough_data"
+    else:
+        max_weight_ever = 0
+        max_volume_ever = 0
+        trend = "no_data"
+    
+    return {
+        "exercise_name": exercise_name,
+        "history": history[:20],  # Last 20 sessions
+        "personal_records": {
+            "max_weight": max_weight_ever,
+            "max_volume": max_volume_ever
+        },
+        "trend": trend,
+        "total_sessions": len(history)
+    }
+
 # ============== Food Database ==============
 
 DEFAULT_FOODS = [
