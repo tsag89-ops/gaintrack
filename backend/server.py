@@ -387,7 +387,17 @@ async def get_exercises_for_user(user: User = Depends(get_current_user), categor
     if category:
         query["category"] = category
     
-    exercises = await db.exercises.find(query, {"_id": 0}).to_list(100)
+    # Optimized projection for exercises
+    projection = {
+        "_id": 0,
+        "exercise_id": 1,
+        "name": 1,
+        "category": 1,
+        "equipment_required": 1,
+        "muscle_groups": 1,
+        "description": 1
+    }
+    exercises = await db.exercises.find(query, projection).to_list(100)
     
     # Filter: include if no equipment needed OR user has the required equipment
     filtered = [
