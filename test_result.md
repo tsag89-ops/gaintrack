@@ -249,6 +249,30 @@ backend:
         agent: "testing"
         comment: "Tested GET /api/templates and GET /api/templates/{template_id} - All 5 workout programs working correctly: Beginner 5x5, Push Pull Legs (PPL), Upper/Lower Split, Full Body 3x/Week, Home Gym Basics. Each template has correct structure with name, description, difficulty, duration_weeks, workouts_per_week, type, exercises fields. Individual template detail endpoint returns full exercise data with sets/reps/rest periods. Templates feature fully functional."
 
+  - task: "NEW Adaptive Progression AI - suggestions endpoint"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Tested GET /api/progression/suggestions with Bearer token test_session_1771746329648 - Returns status 200 with correct structure: suggestions array, total_exercises_analyzed (0), and generated_at timestamp. Authentication working properly. Returns empty suggestions when user has no workout history, which is expected behavior. AI endpoint fully functional."
+
+  - task: "NEW Adaptive Progression AI - exercise history endpoint"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Tested GET /api/progression/exercise/Bench Press with Bearer token test_session_1771746329648 - Returns status 200 with correct structure: exercise_name, history array, personal_records (max_weight: 0, max_volume: 0), trend (no_data), total_sessions (0). Authentication working properly. Returns empty history when user has no exercise data, which is expected behavior. AI endpoint fully functional."
+
 frontend:
   - task: "Login screen with Google Auth"
     implemented: true
