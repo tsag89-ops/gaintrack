@@ -171,4 +171,32 @@ export const progressionApi = {
   },
 };
 
+// Body Measurements APIs
+export const measurementsApi = {
+  getAll: async (limit = 30) => {
+    const response = await api.get('/measurements', { params: { limit } });
+    return response.data;
+  },
+
+  get: async (date: string) => {
+    const response = await api.get(`/measurements/${date}`);
+    return response.data;
+  },
+
+  create: async (measurement: any) => {
+    const response = await api.post('/measurements', measurement);
+    return response.data;
+  },
+
+  delete: async (date: string) => {
+    const response = await api.delete(`/measurements/${date}`);
+    return response.data;
+  },
+
+  getProgress: async (days = 90) => {
+    const response = await api.get('/measurements/stats/progress', { params: { days } });
+    return response.data;
+  },
+};
+
 export default api;
