@@ -373,11 +373,12 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Workout templates database"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -387,3 +388,7 @@ agent_communication:
     message: "Initial implementation complete. Backend has auth endpoints, exercise/food databases, workout/nutrition CRUD, stats endpoints. Frontend has 5-tab navigation, login screen, workout tracking with set logger, nutrition logging with macro calculator, progress charts, calendar, and profile settings. Please test the backend endpoints first, especially the public ones (health, exercises, foods) and the warm-up calculator."
   - agent: "testing"
     message: "Backend testing complete. All 4 priority endpoints tested successfully: (1) Health check returns status 200 with healthy status, (2) Exercise database returns exactly 32 exercises with correct structure, (3) Food database returns exactly 29 foods with correct structure, (4) Warmup calculator working correctly - tested with 135lbs returns sets at 40%/60%/80% (55/80/110lbs). All public endpoints functional. Backend API is ready for production use."
+  - agent: "main"
+    message: "NEW workout templates feature implemented. Added 5 pre-built workout programs with full exercise data and structure."
+  - agent: "testing"
+    message: "Workout templates testing COMPLETE. All endpoints working perfectly: (1) GET /api/templates returns exactly 5 workout programs as expected: Beginner 5x5, Push Pull Legs (PPL), Upper/Lower Split, Full Body 3x/Week, Home Gym Basics. (2) GET /api/templates/{template_id} returns detailed template with proper structure including name, description, difficulty, duration_weeks, workouts_per_week, type, and exercises. (3) Each template contains well-structured workout days with exercises, sets, reps, and rest periods. Backend API fully functional - all 6 test suites PASSED (health, exercises, foods, warmup calculator, templates, template details)."
