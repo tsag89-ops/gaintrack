@@ -10,8 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { workoutApi } from '../../src/services/api';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import { WorkoutCard } from '../../src/components/WorkoutCard';
