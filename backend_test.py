@@ -1,9 +1,16 @@
+#!/usr/bin/env python3
+"""
+GainTrack Backend API Testing Suite
+Tests all major endpoints including auth-protected endpoints.
+"""
+
 import requests
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
-# Base URL from environment configuration
-BASE_URL = "https://gaintrack-pro-5.preview.emergentagent.com/api"
+# Test Configuration
+BASE_URL = "https://gaintrack-pro-5.preview.emergentagent.com"
+AUTH_TOKEN = "Bearer test_session_1771746329648"
 
 def test_health_endpoint():
     """Test the health check endpoint"""
