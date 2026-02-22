@@ -54,6 +54,10 @@ export default function NotificationsScreen() {
 
   const checkPermissions = async () => {
     const token = await registerForPushNotificationsAsync();
+    if (token === null) {
+      // Check if running in Expo Go
+      setIsExpoGo(true);
+    }
     setHasPermission(token !== null);
   };
 
@@ -61,7 +65,11 @@ export default function NotificationsScreen() {
     try {
       setIsSaving(true);
       await saveNotificationSettings(settings);
-      Alert.alert('Success', 'Notification settings saved!');
+      if (isExpoGo) {
+        Alert.alert('Settings Saved', 'Notification preferences saved! Note: Push notifications require a development build to work on mobile.');
+      } else {
+        Alert.alert('Success', 'Notification settings saved!');
+      }
     } catch (error) {
       console.error('Error saving settings:', error);
       Alert.alert('Error', 'Failed to save notification settings');
@@ -71,12 +79,24 @@ export default function NotificationsScreen() {
   };
 
   const handleTestNotification = async () => {
+    if (isExpoGo) {
+      Alert.alert(
+        'Not Available in Expo Go',
+        'Push notifications require a development build. Your settings will be saved and work when you build the app.'
+      );
+      return;
+    }
+    
     try {
-      await sendImmediateNotification(
+      const sent = await sendImmediateNotification(
         '🔔 Test Notification',
         'Your notifications are working! Keep crushing those goals!'
       );
-      Alert.alert('Sent!', 'Check your notification panel.');
+      if (sent) {
+        Alert.alert('Sent!', 'Check your notification panel.');
+      } else {
+        Alert.alert('Not Available', 'Push notifications are not available in this environment.');
+      }
     } catch (error) {
       console.error('Error sending test notification:', error);
       Alert.alert('Error', 'Failed to send test notification');
