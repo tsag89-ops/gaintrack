@@ -520,7 +520,7 @@ def run_all_tests():
     
     results = {}
     
-    # Run each test
+    # Run existing tests first
     results['health'] = test_health_endpoint()
     results['exercises'] = test_exercises_endpoint()
     results['foods'] = test_foods_endpoint()
@@ -530,6 +530,13 @@ def run_all_tests():
     templates_result, template_id = test_workout_templates()
     results['templates'] = templates_result
     results['template_detail'] = test_workout_template_detail(template_id)
+    
+    # Test NEW Adaptive Progression AI endpoints
+    print("\n" + "="*50)
+    print("TESTING NEW ADAPTIVE PROGRESSION AI FEATURE:")
+    print("="*50)
+    results['progression_suggestions'] = test_progression_suggestions()
+    results['exercise_progression'] = test_exercise_progression()
     
     # Summary
     print("\n" + "="*50)
@@ -541,7 +548,10 @@ def run_all_tests():
     
     for test_name, result in results.items():
         status = "✅ PASS" if result else "❌ FAIL"
-        print(f"{test_name.replace('_', ' ').title()}: {status}")
+        test_display = test_name.replace('_', ' ').title()
+        if 'progression' in test_name.lower():
+            test_display = f"[NEW AI] {test_display}"
+        print(f"{test_display}: {status}")
     
     print(f"\nOverall: {passed}/{total} tests passed")
     
