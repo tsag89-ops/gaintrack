@@ -237,6 +237,18 @@ backend:
         agent: "main"
         comment: "GET /api/stats/workout-volume, /api/stats/nutrition-adherence, /api/calendar/{year}/{month}"
 
+  - task: "Workout templates database"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Tested GET /api/templates and GET /api/templates/{template_id} - All 5 workout programs working correctly: Beginner 5x5, Push Pull Legs (PPL), Upper/Lower Split, Full Body 3x/Week, Home Gym Basics. Each template has correct structure with name, description, difficulty, duration_weeks, workouts_per_week, type, exercises fields. Individual template detail endpoint returns full exercise data with sets/reps/rest periods. Templates feature fully functional."
+
 frontend:
   - task: "Login screen with Google Auth"
     implemented: true
