@@ -148,8 +148,13 @@ export default function ProgressScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Progress</Text>
-        <Text style={styles.headerSubtitle}>Track your gains over time</Text>
+        <View>
+          <Text style={styles.headerTitle}>Progress</Text>
+          <Text style={styles.headerSubtitle}>Track your gains over time</Text>
+        </View>
+        <TouchableOpacity style={styles.aiButton} onPress={() => router.push('/progression')}>
+          <Ionicons name="sparkles" size={22} color="#10B981" />
+        </TouchableOpacity>
       </View>
 
       {/* Tab Selector */}
