@@ -379,6 +379,11 @@ def run_all_tests():
     results['foods'] = test_foods_endpoint()
     results['warmup_calculator'] = test_warmup_calculator()
     
+    # Test workout templates
+    templates_result, template_id = test_workout_templates()
+    results['templates'] = templates_result
+    results['template_detail'] = test_workout_template_detail(template_id)
+    
     # Summary
     print("\n" + "="*50)
     print("TEST SUMMARY:")
