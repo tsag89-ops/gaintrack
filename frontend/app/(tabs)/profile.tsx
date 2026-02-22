@@ -124,6 +124,27 @@ export default function ProfileScreen() {
           <Text style={styles.userEmail}>{user?.email || ''}</Text>
         </View>
 
+        {/* Body Measurements Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Body Tracking</Text>
+          
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push('/measurements')}
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons name="body-outline" size={22} color="#8B5CF6" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Body Measurements</Text>
+                <Text style={styles.settingValue}>
+                  Track chest, arms, waist, legs & more
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
+
         {/* Goals Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Daily Goals</Text>
