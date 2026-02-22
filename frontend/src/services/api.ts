@@ -158,4 +158,17 @@ export const statsApi = {
   },
 };
 
+// Progression AI APIs
+export const progressionApi = {
+  getSuggestions: async () => {
+    const response = await api.get('/progression/suggestions');
+    return response.data;
+  },
+
+  getExerciseProgression: async (exerciseName: string) => {
+    const response = await api.get(`/progression/exercise/${encodeURIComponent(exerciseName)}`);
+    return response.data;
+  },
+};
+
 export default api;
