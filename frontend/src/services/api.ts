@@ -1,202 +1,204 @@
-import axios from 'axios';
+// Local AsyncStorage-based API - replaces dead Emergent backend
+// All data is stored locally on device. No external server required.
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User, Workout, Exercise, Food, DailyNutrition, UserGoals, MealEntry } from '../types';
 
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+// Storage keys
+const WORKOUTS_KEY = 'gaintrack_workouts';
+const EXERCISES_KEY = 'gaintrack_exercises';
+const FOODS_KEY = 'gaintrack_foods';
+const NUTRITION_KEY = 'gaintrack_nutrition';
+const MEASUREMENTS_KEY = 'gaintrack_measurements';
 
-const api = axios.create({
-  baseURL: `${API_URL}/api`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add auth token to requests
-api.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem('sessionToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+// Helper functions
+const getStoredData = async <T,>(key: string): Promise<T[]> => {
+  try {
+    const data = await AsyncStorage.getItem(key);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error(`Error reading ${key}:`, error);
+    return [];
   }
-  return config;
-});
+};
 
-// Auth APIs
+const storeData = async <T,>(key: string, data: T[]): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error storing ${key}:`, error);
+  }
+};
+
+// Default exercise database (same as backend)
+const DEFAULT_EXERCISES = [
+  { exercise_id: 'ex_1', name: 'Bench Press', category: 'chest', equipment_required: ['barbell', 'bench'], muscle_groups: ['chest', 'triceps', 'shoulders'], is_compound: true },
+  { exercise_id: 'ex_2', name: 'Squats', category: 'legs', equipment_required: ['barbell'], muscle_groups: ['quads', 'glutes', 'hamstrings'], is_compound: true },
+  { exercise_id: 'ex_3', name: 'Deadlift', category: 'back', equipment_required: ['barbell'], muscle_groups: ['back', 'hamstrings', 'glutes'], is_compound: true },
+  { exercise_id: 'ex_4', name: 'Pull-ups', category: 'back', equipment_required: ['pullup_bar'], muscle_groups: ['lats', 'biceps', 'back'], is_compound: true },
+  { exercise_id: 'ex_5', name: 'Overhead Press', category: 'shoulders', equipment_required: ['barbell'], muscle_groups: ['shoulders', 'triceps'], is_compound: true },
+  { exercise_id: 'ex_6', name: 'Barbell Rows', category: 'back', equipment_required: ['barbell'], muscle_groups: ['back', 'lats', 'biceps'], is_compound: true },
+  { exercise_id: 'ex_7', name: 'Dumbbell Bench Press', category: 'chest', equipment_required: ['dumbbells', 'bench'], muscle_groups: ['chest', 'triceps', 'shoulders'], is_compound: true },
+  { exercise_id: 'ex_8', name: 'Dumbbell Rows', category: 'back', equipment_required: ['dumbbells'], muscle_groups: ['back', 'lats', 'biceps'], is_compound: true },
+  { exercise_id: 'ex_9', name: 'Dumbbell Shoulder Press', category: 'shoulders', equipment_required: ['dumbbells'], muscle_groups: ['shoulders', 'triceps'], is_compound: true },
+  { exercise_id: 'ex_10', name: 'Goblet Squats', category: 'legs', equipment_required: ['dumbbells'], muscle_groups: ['quads', 'glutes'], is_compound: true },
+  { exercise_id: 'ex_11', name: 'Romanian Deadlift', category: 'legs', equipment_required: ['barbell'], muscle_groups: ['hamstrings', 'glutes'], is_compound: true },
+  { exercise_id: 'ex_12', name: 'Dumbbell Lunges', category: 'legs', equipment_required: ['dumbbells'], muscle_groups: ['quads', 'glutes'], is_compound: true },
+  { exercise_id: 'ex_13', name: 'Lateral Raises', category: 'shoulders', equipment_required: ['dumbbells'], muscle_groups: ['side_delts'], is_compound: false },
+  { exercise_id: 'ex_14', name: 'Barbell Curls', category: 'arms', equipment_required: ['barbell'], muscle_groups: ['biceps'], is_compound: false },
+  { exercise_id: 'ex_15', name: 'Dumbbell Curls', category: 'arms', equipment_required: ['dumbbells'], muscle_groups: ['biceps'], is_compound: false },
+  { exercise_id: 'ex_16', name: 'Tricep Dips', category: 'arms', equipment_required: [], muscle_groups: ['triceps'], is_compound: true },
+  { exercise_id: 'ex_17', name: 'Push-ups', category: 'chest', equipment_required: [], muscle_groups: ['chest', 'triceps', 'shoulders'], is_compound: true },
+  { exercise_id: 'ex_18', name: 'Planks', category: 'core', equipment_required: [], muscle_groups: ['abs', 'core'], is_compound: false },
+  { exercise_id: 'ex_19', name: 'Crunches', category: 'core', equipment_required: [], muscle_groups: ['abs'], is_compound: false },
+  { exercise_id: 'ex_20', name: 'Leg Raises', category: 'core', equipment_required: ['pullup_bar'], muscle_groups: ['lower_abs'], is_compound: false },
+];
+
+// Initialize default exercises
+const initializeExercises = async () => {
+  const exercises = await getStoredData(EXERCISES_KEY);
+  if (exercises.length === 0) {
+    await storeData(EXERCISES_KEY, DEFAULT_EXERCISES);
+  }
+};
+
+initializeExercises();
+
+// Auth API (now uses local storage from authStore)
 export const authApi = {
-  exchangeSession: async (sessionId: string): Promise<{ user: User; session_token: string }> => {
-    const response = await api.post('/auth/session', { session_id: sessionId });
-    return response.data;
-  },
-
-  getMe: async (): Promise<User> => {
-    const response = await api.get('/auth/me');
-    return response.data;
-  },
-
-  logout: async (): Promise<void> => {
-    await api.post('/auth/logout');
+  exchangeSession: async (sessionId: string) => {
+    // No-op: auth now handled locally in login.tsx
+    throw new Error('Auth is now handled locally. Use login screen.');
   },
 };
 
-// User APIs
-export const userApi = {
-  updateGoals: async (goals: UserGoals): Promise<{ goals: UserGoals }> => {
-    const response = await api.put('/user/goals', goals);
-    return response.data;
-  },
-
-  updateEquipment: async (equipment: string[]): Promise<{ equipment: string[] }> => {
-    const response = await api.put('/user/equipment', { equipment });
-    return response.data;
-  },
-};
-
-// Exercise APIs
+// Exercise API
 export const exerciseApi = {
-  getAll: async (category?: string): Promise<Exercise[]> => {
-    const params = category ? { category } : {};
-    const response = await api.get('/exercises', { params });
-    return response.data;
-  },
-
-  getForUser: async (category?: string): Promise<Exercise[]> => {
-    const params = category ? { category } : {};
-    const response = await api.get('/exercises/for-user', { params });
-    return response.data;
+  getExercises: async (category?: string, equipment?: string) => {
+    let exercises = await getStoredData<any>(EXERCISES_KEY);
+    if (category) {
+      exercises = exercises.filter((ex: any) => ex.category === category);
+    }
+    if (equipment) {
+      const equipmentList = equipment.split(',');
+      exercises = exercises.filter((ex: any) =>
+        !ex.equipment_required.length || ex.equipment_required.some((eq: string) => equipmentList.includes(eq))
+      );
+    }
+    return exercises;
   },
 };
 
-// Workout APIs
+// Workout API
 export const workoutApi = {
-  getAll: async (limit = 20, skip = 0): Promise<Workout[]> => {
-    const response = await api.get('/workouts', { params: { limit, skip } });
-    return response.data;
+  getWorkouts: async (limit = 20) => {
+    const workouts = await getStoredData<any>(WORKOUTS_KEY);
+    return workouts.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, limit);
   },
 
-  get: async (workoutId: string): Promise<Workout> => {
-    const response = await api.get(`/workouts/${workoutId}`);
-    return response.data;
+  createWorkout: async (workout: any) => {
+    const workouts = await getStoredData<any>(WORKOUTS_KEY);
+    const newWorkout = {
+      ...workout,
+      workout_id: 'wk_' + Date.now(),
+      created_at: new Date().toISOString(),
+      date: workout.date || new Date().toISOString(),
+    };
+    workouts.push(newWorkout);
+    await storeData(WORKOUTS_KEY, workouts);
+    return newWorkout;
   },
 
-  create: async (workout: Partial<Workout>): Promise<Workout> => {
-    const response = await api.post('/workouts', workout);
-    return response.data;
+  updateWorkout: async (workoutId: string, updates: any) => {
+    const workouts = await getStoredData<any>(WORKOUTS_KEY);
+    const index = workouts.findIndex((w: any) => w.workout_id === workoutId);
+    if (index >= 0) {
+      workouts[index] = { ...workouts[index], ...updates };
+      await storeData(WORKOUTS_KEY, workouts);
+      return workouts[index];
+    }
+    throw new Error('Workout not found');
   },
 
-  update: async (workoutId: string, workout: Partial<Workout>): Promise<Workout> => {
-    const response = await api.put(`/workouts/${workoutId}`, workout);
-    return response.data;
-  },
-
-  delete: async (workoutId: string): Promise<void> => {
-    await api.delete(`/workouts/${workoutId}`);
-  },
-
-  getWarmupSets: async (workingWeight: number, exerciseName: string) => {
-    const response = await api.post('/workouts/warmup-sets', {
-      working_weight: workingWeight,
-      exercise_name: exerciseName,
-    });
-    return response.data;
-  },
-};
-
-// Food APIs
-export const foodApi = {
-  getAll: async (category?: string, search?: string): Promise<Food[]> => {
-    const params: any = {};
-    if (category) params.category = category;
-    if (search) params.search = search;
-    const response = await api.get('/foods', { params });
-    return response.data;
+  deleteWorkout: async (workoutId: string) => {
+    const workouts = await getStoredData<any>(WORKOUTS_KEY);
+    const filtered = workouts.filter((w: any) => w.workout_id !== workoutId);
+    await storeData(WORKOUTS_KEY, filtered);
+    return { message: 'Workout deleted' };
   },
 };
 
-// Nutrition APIs
+// Food/Nutrition API
 export const nutritionApi = {
-  getDaily: async (date: string): Promise<DailyNutrition> => {
-    const response = await api.get(`/nutrition/${date}`);
-    return response.data;
+  getFoods: async (category?: string, search?: string) => {
+    let foods = await getStoredData<any>(FOODS_KEY);
+    if (category) {
+      foods = foods.filter((f: any) => f.category === category);
+    }
+    if (search) {
+      foods = foods.filter((f: any) => f.name.toLowerCase().includes(search.toLowerCase()));
+    }
+    return foods;
   },
 
-  addMealEntry: async (
-    date: string,
-    mealType: string,
-    entry: Omit<MealEntry, 'food_id'> & { food_id: string }
-  ): Promise<DailyNutrition> => {
-    const response = await api.post(`/nutrition/${date}/meal`, {
-      meal_type: mealType,
-      ...entry,
-    });
-    return response.data;
-  },
-
-  removeMealEntry: async (
-    date: string,
-    mealType: string,
-    index: number
-  ): Promise<DailyNutrition> => {
-    const response = await api.delete(`/nutrition/${date}/meal/${mealType}/${index}`);
-    return response.data;
+  getDailyNutrition: async (date: string) => {
+    const nutrition = await getStoredData<any>(NUTRITION_KEY);
+    const found = nutrition.find((n: any) => n.date === date);
+    return found || {
+      date,
+      meals: { breakfast: [], lunch: [], dinner: [], snacks: [] },
+      total_calories: 0,
+      total_protein: 0,
+      total_carbs: 0,
+      total_fat: 0,
+    };
   },
 };
 
-// Stats APIs
-export const statsApi = {
-  getWorkoutVolume: async (days = 30) => {
-    const response = await api.get('/stats/workout-volume', { params: { days } });
-    return response.data;
+// Measurements API
+export const measurementApi = {
+  getMeasurements: async (limit = 30) => {
+    const measurements = await getStoredData<any>(MEASUREMENTS_KEY);
+    return measurements.sort((a: any, b: any) => b.date.localeCompare(a.date)).slice(0, limit);
   },
 
-  getNutritionAdherence: async (days = 7) => {
-    const response = await api.get('/stats/nutrition-adherence', { params: { days } });
-    return response.data;
-  },
-
-  getCalendarData: async (year: number, month: number) => {
-    const response = await api.get(`/calendar/${year}/${month}`);
-    return response.data;
-  },
-};
-
-// Progression AI APIs
-export const progressionApi = {
-  getSuggestions: async () => {
-    const response = await api.get('/progression/suggestions');
-    return response.data;
-  },
-
-  getExerciseProgression: async (exerciseName: string) => {
-    const response = await api.get(`/progression/exercise/${encodeURIComponent(exerciseName)}`);
-    return response.data;
+  createMeasurement: async (measurement: any) => {
+    const measurements = await getStoredData<any>(MEASUREMENTS_KEY);
+    const existing = measurements.findIndex((m: any) => m.date === measurement.date);
+    if (existing >= 0) {
+      measurements[existing] = { ...measurements[existing], ...measurement };
+    } else {
+      measurements.push({
+        ...measurement,
+        measurement_id: 'bm_' + Date.now(),
+        created_at: new Date().toISOString(),
+      });
+    }
+    await storeData(MEASUREMENTS_KEY, measurements);
+    return measurements[existing >= 0 ? existing : measurements.length - 1];
   },
 };
 
-// Body Measurements APIs
-export const measurementsApi = {
-  getAll: async (limit = 30) => {
-    const response = await api.get('/measurements', { params: { limit } });
-    return response.data;
+// User API
+export const userApi = {
+  updateGoals: async (goals: any) => {
+    const userStr = await AsyncStorage.getItem('user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      user.goals = goals;
+      await AsyncStorage.setItem('user', JSON.stringify(user));
+      return { message: 'Goals updated', goals };
+    }
+    throw new Error('User not found');
   },
 
-  get: async (date: string) => {
-    const response = await api.get(`/measurements/${date}`);
-    return response.data;
-  },
-
-  create: async (measurement: any) => {
-    const response = await api.post('/measurements', measurement);
-    return response.data;
-  },
-
-  delete: async (date: string) => {
-    const response = await api.delete(`/measurements/${date}`);
-    return response.data;
-  },
-
-  getProgress: async (days = 90) => {
-    const response = await api.get('/measurements/stats/progress', { params: { days } });
-    return response.data;
+  updateEquipment: async (equipment: string[]) => {
+    const userStr = await AsyncStorage.getItem('user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      user.equipment = equipment;
+      await AsyncStorage.setItem('user', JSON.stringify(user));
+      return { message: 'Equipment updated', equipment };
+    }
+    throw new Error('User not found');
   },
 };
-
-export default api;
