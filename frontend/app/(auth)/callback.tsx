@@ -1,63 +1,29 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { authApi } from '../../src/services/api';
+import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
 
-// REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-
+// Callback screen: checks if user is already logged in via local storage.
+// With the new local auth flow, login happens directly in login.tsx.
+// This screen safely redirects authenticated users to the app,
+// or unauthenticated users back to login.
 export default function CallbackScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const hasProcessed = useRef(false);
-  const { setUser, setSessionToken, setLoading } = useAuthStore();
+  const { isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
-    const processAuth = async () => {
-      // Prevent double processing
-      if (hasProcessed.current) return;
-      hasProcessed.current = true;
-
-      try {
-        // Get session_id from params or URL hash
-        let sessionId = params.session_id as string;
-        
-        if (!sessionId && typeof window !== 'undefined') {
-          const hash = window.location.hash;
-          const match = hash.match(/session_id=([^&]+)/);
-          sessionId = match ? match[1] : '';
-        }
-
-        if (!sessionId) {
-          console.error('No session_id found');
-          router.replace('/login');
-          return;
-        }
-
-        // Exchange session_id for session data
-        const data = await authApi.exchangeSession(sessionId);
-        
-        // Store user and token
-        setUser(data.user);
-        setSessionToken(data.session_token);
-        
-        // Navigate to main app
-        router.replace('/(tabs)');
-      } catch (error) {
-        console.error('Auth callback error:', error);
-        router.replace('/login');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    processAuth();
-  }, []);
+    if (isLoading) return;
+    if (isAuthenticated) {
+      router.replace('/(tabs)');
+    } else {
+      router.replace('/login');
+    }
+  }, [isAuthenticated, isLoading]);
 
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color="#10B981" />
-      <Text style={styles.text}>Signing you in...</Text>
+      <Text style={styles.text}>Loading GainTrack...</Text>
     </View>
   );
 }
