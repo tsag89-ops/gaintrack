@@ -1,8 +1,6 @@
 {
-    
   "cli": {
-    "version": ">= 5.0.0",
-      "appDirectory": "frontend"
+    "version": ">= 5.0.0"
   },
   "build": {
     "production": {
@@ -20,13 +18,6 @@
         "buildType": "apk"
       }
     }
-  },
-  "submit": {
-    "production": {
-      "android": {
-        "serviceAccount": "assets/service-account.json",
-        "track": "internal"
-      }
-    }
   }
 }
+
