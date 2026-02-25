@@ -14,7 +14,9 @@
       "infoPlist": {
         "NSCameraUsageDescription": "Take progress photos for your fitness journey",
         "NSPhotoLibraryUsageDescription": "Save and share your progress photos",
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -50,19 +52,20 @@
       [
         "expo-splash-screen",
         {
-            "image": "./assets/images/splash-image.png",          "imageWidth": 200,
+          "image": "./assets/images/splash-image.png",
+          "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#000"
         }
       ]
     ],
-       "experiments": {
+    "experiments": {
       "typedRoutes": true
-    }
-  },
-  "extra": {
-    "eas": {
-      "projectId": "2b97fb07-e614-4bd8-99f3-5cd57476a980"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "2b97fb07-e614-4bd8-99f3-5cd57476a980"
+      }
     }
   },
   "cli": {
