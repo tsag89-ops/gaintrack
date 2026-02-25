@@ -1,5 +1,13 @@
+// frontend/app/(tabs)/nutrition.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Food } from '../types';
 import { getFoods } from '../services/storage';
@@ -7,10 +15,15 @@ import { SearchInput } from '../components/SearchInput';
 
 interface FoodItemProps {
   food: Food;
+  onPress: (food: Food) => void;
 }
 
-const FoodItem: React.FC<FoodItemProps> = ({ food }) => (
-  <View style={styles.item}>
+const FoodItem: React.FC<FoodItemProps> = ({ food, onPress }) => (
+  <TouchableOpacity
+    style={styles.item}
+    onPress={() => onPress(food)}
+    activeOpacity={0.7}
+  >
     <View style={styles.header}>
       <Text style={styles.name}>{food.name}</Text>
       <Text style={styles.calories}>{food.calories} kcal</Text>
@@ -30,7 +43,7 @@ const FoodItem: React.FC<FoodItemProps> = ({ food }) => (
         <Text style={styles.macroLabel}>Fats</Text>
       </View>
     </View>
-  </View>
+  </TouchableOpacity>
 );
 
 export default function NutritionScreen() {
@@ -54,12 +67,20 @@ export default function NutritionScreen() {
     if (searchQuery.trim() === '') {
       setFilteredFoods(foods);
     } else {
-      const filtered = foods.filter(food => 
-        food.name.toLowerCase().includes(searchQuery.toLowerCase())
+      const q = searchQuery.toLowerCase();
+      const filtered = foods.filter((food) =>
+        food.name.toLowerCase().includes(q)
       );
       setFilteredFoods(filtered);
     }
   }, [searchQuery, foods]);
+
+  const handleFoodPress = (food: Food) => {
+    Alert.alert(
+      'Food logging coming soon',
+      `${food.name}\n\nPer ${food.unit}:\n${food.calories} kcal\nProtein: ${food.protein}g\nCarbs: ${food.carbs}g\nFats: ${food.fats}g`
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -71,7 +92,9 @@ export default function NutritionScreen() {
       <FlatList
         data={filteredFoods}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <FoodItem food={item} />}
+        renderItem={({ item }) => (
+          <FoodItem food={item} onPress={handleFoodPress} />
+        )}
         contentContainerStyle={styles.list}
       />
     </View>
@@ -81,7 +104,7 @@ export default function NutritionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#111827', // dark to match the app
   },
   list: {
     paddingBottom: 20,
@@ -90,7 +113,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 16,
     marginVertical: 8,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#1F2937',
     borderRadius: 12,
   },
   header: {
@@ -102,15 +125,16 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#F9FAFB',
   },
   calories: {
     fontSize: 16,
-    color: '#ff6b6b',
+    color: '#F97373',
     fontWeight: '600',
   },
   unit: {
     fontSize: 14,
-    color: '#999',
+    color: '#9CA3AF',
     marginBottom: 12,
   },
   macros: {
@@ -123,11 +147,11 @@ const styles = StyleSheet.create({
   macroValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
+    color: '#E5E7EB',
   },
   macroLabel: {
     fontSize: 12,
-    color: '#999',
+    color: '#9CA3AF',
     marginTop: 2,
   },
 });
