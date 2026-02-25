@@ -16,6 +16,8 @@ import { workoutApi, exerciseApi } from '../../src/services/api';
 import { Exercise, WorkoutExercise, WorkoutSet } from '../../src/types';
 import { getCategoryColor } from '../../src/utils/helpers';
 import { SetLoggerSheet } from '../../src/components/SetLoggerSheet';
+import { seedExercises as localSeedExercises } from '../data/seedData';
+
 
 const CATEGORIES = ['all', 'chest', 'back', 'shoulders', 'legs', 'arms', 'core'];
 
@@ -37,23 +39,35 @@ export default function NewWorkoutScreen() {
   }, []);
 
   const fetchExercises = async () => {
+  try {
+    setIsLoading(true);
+    const data = await exerciseApi.getForUser();
+    setAvailableExercises(data);
+  } catch (error) {
+    console.error('Error fetching exercises:', error);
     try {
-      setIsLoading(true);
-      const data = await exerciseApi.getForUser();
-      setAvailableExercises(data);
-    } catch (error) {
-      console.error('Error fetching exercises:', error);
-      // Try to get all exercises if user-filtered fails
-      try {
-        const allExercises = await exerciseApi.getAll();
-        setAvailableExercises(allExercises);
-      } catch (e) {
-        console.error('Error fetching all exercises:', e);
-      }
-    } finally {
-      setIsLoading(false);
+      const allExercises = await exerciseApi.getAll();
+      setAvailableExercises(allExercises);
+    } catch (e) {
+      console.error('Error fetching all exercises:', e);
+
+      // Fallback: use local seeded exercises from app/data/seedData
+      const mapped = (localSeedExercises as any[]).map((ex: any, index: number) => ({
+        exercise_id: ex.id ?? String(index + 1),
+        name: ex.name,
+        category: (ex.muscleGroup || 'other').toLowerCase(),
+        is_compound: ['chest', 'back', 'legs', 'shoulders'].includes(
+          (ex.muscleGroup || '').toLowerCase()
+        ),
+      }));
+
+      setAvailableExercises(mapped as any);
     }
-  };
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const filteredExercises = availableExercises.filter((ex) => {
     const matchesCategory = selectedCategory === 'all' || ex.category === selectedCategory;
