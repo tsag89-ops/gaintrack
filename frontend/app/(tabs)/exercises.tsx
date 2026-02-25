@@ -143,7 +143,7 @@ export default function ExercisesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111827', // dark, same family as Nutrition
   },
   list: {
     paddingBottom: 20,
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 16,
     marginVertical: 8,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#1F2937',
     borderRadius: 12,
   },
   header: {
@@ -164,6 +164,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     flex: 1,
+    color: '#F9FAFB',
   },
   badge: {
     backgroundColor: '#4ecdc4',
@@ -178,7 +179,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontSize: 14,
-    color: '#999999',
+    color: '#9CA3AF',
     marginTop: 8,
   },
   // Modal styles
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
   modalContent: {
     width: '100%',
     maxHeight: '85%',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111827',
     borderRadius: 16,
     overflow: 'hidden',
   },
@@ -203,6 +204,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 8,
+    color: '#F9FAFB',
   },
   badgeLarge: {
     alignSelf: 'flex-start',
@@ -225,10 +227,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 4,
+    color: '#E5E7EB',
   },
   instructions: {
     fontSize: 14,
-    color: '#4b5563',
+    color: '#D1D5DB',
     marginBottom: 16,
   },
   closeButton: {
@@ -245,3 +248,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
