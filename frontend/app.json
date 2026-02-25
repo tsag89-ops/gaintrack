@@ -56,16 +56,16 @@
         }
       ]
     ],
-    "experiments": {
+       "experiments": {
       "typedRoutes": true
     }
-      },
+  },
   "extra": {
-        "eas": {
-      "projectId": "9be29eb3-4683-43ac-b4d1-76eac26c24c0"
-    },
-        "cli": {
-                "appVersionSource": "remote"
-                    }
+    "eas": {
+      "projectId": "2b97fb07-e614-4bd8-99f3-5cd57476a980"
+    }
+  },
+  "cli": {
+    "appVersionSource": "remote"
   }
-  }
+}
