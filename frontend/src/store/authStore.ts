@@ -1,58 +1,65 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User } from '../types';
+import { storage } from '../utils/storage';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  goals?: {
+    daily_calories: number;
+    protein_grams: number;
+    carbs_grams: number;
+    fat_grams: number;
+    workouts_per_week: number;
+  };
+  equipment?: string[];
+}
 
 interface AuthState {
   user: User | null;
+  sessionToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  sessionToken: string | null;
-  setUser: (user: User | null) => void;
-  setSessionToken: (token: string | null) => void;
-  setLoading: (loading: boolean) => void;
-  logout: () => void;
+  setUser: (user: User) => void;
+  setSession: (user: User, token: string) => Promise<void>;
+  logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
+  sessionToken: null,
   isAuthenticated: false,
   isLoading: true,
-  sessionToken: null,
 
-  setUser: (user) => {
-    set({ user, isAuthenticated: !!user });
-    if (user) {
-      AsyncStorage.setItem('user', JSON.stringify(user));
-    } else {
-      AsyncStorage.removeItem('user');
+  setUser: (user) => set({ user }),
+
+  setSession: async (user, token) => {
+    try {
+      await storage.setItem('user', JSON.stringify(user));
+      await storage.setItem('sessionToken', token);
+    } catch (e) {
+      console.warn('setSession storage error:', e);
     }
+    set({ user, sessionToken: token, isAuthenticated: true, isLoading: false });
   },
-
-  setSessionToken: (token) => {
-    set({ sessionToken: token });
-    if (token) {
-      AsyncStorage.setItem('sessionToken', token);
-    } else {
-      AsyncStorage.removeItem('sessionToken');
-    }
-  },
-
-  setLoading: (loading) => set({ isLoading: loading }),
 
   logout: async () => {
-    await AsyncStorage.removeItem('user');
-    await AsyncStorage.removeItem('sessionToken');
-    set({ user: null, isAuthenticated: false, sessionToken: null });
+    try {
+      await storage.removeItem('user');
+      await storage.removeItem('sessionToken');
+    } catch (e) {
+      console.warn('logout storage error:', e);
+    }
+    set({ user: null, sessionToken: null, isAuthenticated: false, isLoading: false });
   },
 
   loadStoredAuth: async () => {
     try {
       const [userStr, token] = await Promise.all([
-        AsyncStorage.getItem('user'),
-        AsyncStorage.getItem('sessionToken'),
+        storage.getItem('user'),
+        storage.getItem('sessionToken'),
       ]);
-      
       if (userStr && token) {
         const user = JSON.parse(userStr);
         set({ user, sessionToken: token, isAuthenticated: true, isLoading: false });

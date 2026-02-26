@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../utils/storage';
 
 const NOTIFICATION_SETTINGS_KEY = 'notification_settings';
 
@@ -106,7 +106,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
   try {
-    const settings = await AsyncStorage.getItem(NOTIFICATION_SETTINGS_KEY);
+    const settings = await storage.getItem(NOTIFICATION_SETTINGS_KEY);
     return settings ? JSON.parse(settings) : DEFAULT_SETTINGS;
   } catch {
     return DEFAULT_SETTINGS;
@@ -114,7 +114,7 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
 }
 
 export async function saveNotificationSettings(settings: NotificationSettings): Promise<void> {
-  await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+  await storage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
   await scheduleNotifications(settings);
 }
 

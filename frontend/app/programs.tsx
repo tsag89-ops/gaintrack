@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../src/utils/storage';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -83,7 +83,7 @@ export default function ProgramsScreen() {
 
     try {
       setIsStarting(true);
-      const token = await AsyncStorage.getItem('sessionToken');
+      const token = await storage.getItem('sessionToken');
       
       const response = await axios.post(
         `${API_URL}/api/templates/${selectedTemplate.template_id}/start`,

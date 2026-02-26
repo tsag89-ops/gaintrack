@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Switch,
   Alert,
   TextInput,
   Modal,
@@ -30,13 +29,12 @@ const EQUIPMENT_OPTIONS = [
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, setUser, logout } = useAuthStore();
+  const { user, setUser, logout } = useAuthStore(); // ✅ Only ONCE
+  const { signOut } = useAuth();                    // ✅ Only signOut, no 'user' conflict
+
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const { user, setUser, logout } = useAuthStore();
-  const { signOut } = useAuth();
-
 
   // Goals state
   const [calories, setCalories] = useState(String(user?.goals?.daily_calories || 2000));
@@ -55,14 +53,13 @@ export default function ProfileScreen() {
       style: 'destructive',
       onPress: async () => {
         try {
-          // Sign out from Firebase auth (no-op until you add real config)
           await signOut();
         } catch (error) {
           console.error('Logout error:', error);
         } finally {
-          // Clear local auth store so router guard redirects to login
-          await logout();
-          router.replace('/login');
+          await logout(); // clears useAuthStore
+          router.dismissAll(); // ✅ clears full nav stack
+          router.replace('/login'); // ✅ sends to login
         }
       },
     },
@@ -134,7 +131,6 @@ export default function ProfileScreen() {
         {/* Body Measurements Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Body Tracking</Text>
-          
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => router.push('/measurements')}
@@ -143,9 +139,7 @@ export default function ProfileScreen() {
               <Ionicons name="body-outline" size={22} color="#8B5CF6" />
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Body Measurements</Text>
-                <Text style={styles.settingValue}>
-                  Track chest, arms, waist, legs & more
-                </Text>
+                <Text style={styles.settingValue}>Track chest, arms, waist, legs & more</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
@@ -155,7 +149,6 @@ export default function ProfileScreen() {
         {/* Goals Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Daily Goals</Text>
-          
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => setShowGoalsModal(true)}
@@ -176,7 +169,6 @@ export default function ProfileScreen() {
         {/* Equipment Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Home Gym Equipment</Text>
-          
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => setShowEquipmentModal(true)}
@@ -192,7 +184,6 @@ export default function ProfileScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
           </TouchableOpacity>
-
           <Text style={styles.hint}>
             Exercises will be filtered based on your available equipment
           </Text>
@@ -201,7 +192,6 @@ export default function ProfileScreen() {
         {/* Notifications Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Reminders</Text>
-          
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => router.push('/notifications')}
@@ -210,9 +200,7 @@ export default function ProfileScreen() {
               <Ionicons name="notifications-outline" size={22} color="#F59E0B" />
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Push Notifications</Text>
-                <Text style={styles.settingValue}>
-                  Workout & nutrition reminders
-                </Text>
+                <Text style={styles.settingValue}>Workout & nutrition reminders</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
@@ -222,7 +210,6 @@ export default function ProfileScreen() {
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
-          
           <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
             <View style={styles.settingLeft}>
               <Ionicons name="log-out-outline" size={22} color="#EF4444" />
@@ -248,63 +235,24 @@ export default function ProfileScreen() {
                 <Ionicons name="close" size={24} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
-
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Daily Calories</Text>
-              <TextInput
-                style={styles.input}
-                value={calories}
-                onChangeText={setCalories}
-                keyboardType="numeric"
-                placeholder="2000"
-                placeholderTextColor="#6B7280"
-              />
+              <TextInput style={styles.input} value={calories} onChangeText={setCalories} keyboardType="numeric" placeholder="2000" placeholderTextColor="#6B7280" />
             </View>
-
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Protein (g)</Text>
-              <TextInput
-                style={styles.input}
-                value={protein}
-                onChangeText={setProtein}
-                keyboardType="numeric"
-                placeholder="150"
-                placeholderTextColor="#6B7280"
-              />
+              <TextInput style={styles.input} value={protein} onChangeText={setProtein} keyboardType="numeric" placeholder="150" placeholderTextColor="#6B7280" />
             </View>
-
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Carbs (g)</Text>
-              <TextInput
-                style={styles.input}
-                value={carbs}
-                onChangeText={setCarbs}
-                keyboardType="numeric"
-                placeholder="200"
-                placeholderTextColor="#6B7280"
-              />
+              <TextInput style={styles.input} value={carbs} onChangeText={setCarbs} keyboardType="numeric" placeholder="200" placeholderTextColor="#6B7280" />
             </View>
-
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Fat (g)</Text>
-              <TextInput
-                style={styles.input}
-                value={fat}
-                onChangeText={setFat}
-                keyboardType="numeric"
-                placeholder="65"
-                placeholderTextColor="#6B7280"
-              />
+              <TextInput style={styles.input} value={fat} onChangeText={setFat} keyboardType="numeric" placeholder="65" placeholderTextColor="#6B7280" />
             </View>
-
-            <TouchableOpacity
-              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-              onPress={saveGoals}
-              disabled={isSaving}
-            >
-              <Text style={styles.saveButtonText}>
-                {isSaving ? 'Saving...' : 'Save Goals'}
-              </Text>
+            <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={saveGoals} disabled={isSaving}>
+              <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save Goals'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -320,46 +268,23 @@ export default function ProfileScreen() {
                 <Ionicons name="close" size={24} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
-
-            <Text style={styles.modalSubtitle}>
-              Select the equipment you have at home
-            </Text>
-
+            <Text style={styles.modalSubtitle}>Select the equipment you have at home</Text>
             <View style={styles.equipmentGrid}>
               {EQUIPMENT_OPTIONS.map((eq) => (
                 <TouchableOpacity
                   key={eq.id}
-                  style={[
-                    styles.equipmentItem,
-                    selectedEquipment.includes(eq.id) && styles.equipmentItemSelected,
-                  ]}
+                  style={[styles.equipmentItem, selectedEquipment.includes(eq.id) && styles.equipmentItemSelected]}
                   onPress={() => toggleEquipment(eq.id)}
                 >
-                  <Ionicons
-                    name={eq.icon as any}
-                    size={28}
-                    color={selectedEquipment.includes(eq.id) ? '#10B981' : '#6B7280'}
-                  />
-                  <Text
-                    style={[
-                      styles.equipmentLabel,
-                      selectedEquipment.includes(eq.id) && styles.equipmentLabelSelected,
-                    ]}
-                  >
+                  <Ionicons name={eq.icon as any} size={28} color={selectedEquipment.includes(eq.id) ? '#10B981' : '#6B7280'} />
+                  <Text style={[styles.equipmentLabel, selectedEquipment.includes(eq.id) && styles.equipmentLabelSelected]}>
                     {getEquipmentLabel(eq.id)}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
-
-            <TouchableOpacity
-              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-              onPress={saveEquipment}
-              disabled={isSaving}
-            >
-              <Text style={styles.saveButtonText}>
-                {isSaving ? 'Saving...' : 'Save Equipment'}
-              </Text>
+            <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={saveEquipment} disabled={isSaving}>
+              <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save Equipment'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -369,180 +294,38 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#111827',
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  profileHeader: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#10B98120',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  userName: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontWeight: '700',
-  },
-  userEmail: {
-    color: '#6B7280',
-    fontSize: 14,
-    marginTop: 4,
-  },
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    color: '#6B7280',
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    marginBottom: 12,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#1F2937',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  settingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  settingInfo: {
-    marginLeft: 4,
-  },
-  settingLabel: {
-    color: '#FFFFFF',
-    fontSize: 16,
-  },
-  settingValue: {
-    color: '#6B7280',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  hint: {
-    color: '#6B7280',
-    fontSize: 12,
-    marginTop: 8,
-    paddingHorizontal: 4,
-  },
-  appInfo: {
-    alignItems: 'center',
-    paddingTop: 32,
-  },
-  appName: {
-    color: '#10B981',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  appVersion: {
-    color: '#6B7280',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#1F2937',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  modalSubtitle: {
-    color: '#9CA3AF',
-    fontSize: 14,
-    marginBottom: 20,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    color: '#9CA3AF',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#111827',
-    borderRadius: 12,
-    padding: 16,
-    color: '#FFFFFF',
-    fontSize: 16,
-  },
-  saveButton: {
-    backgroundColor: '#10B981',
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  saveButtonDisabled: {
-    opacity: 0.7,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  equipmentGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  equipmentItem: {
-    width: '30%',
-    aspectRatio: 1,
-    backgroundColor: '#111827',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  equipmentItemSelected: {
-    borderColor: '#10B981',
-    backgroundColor: '#10B98115',
-  },
-  equipmentLabel: {
-    color: '#6B7280',
-    fontSize: 11,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  equipmentLabelSelected: {
-    color: '#10B981',
-  },
+  container: { flex: 1, backgroundColor: '#111827' },
+  content: { flex: 1 },
+  scrollContent: { paddingBottom: 40 },
+  profileHeader: { alignItems: 'center', paddingVertical: 32 },
+  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#10B98120', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  userName: { color: '#FFFFFF', fontSize: 24, fontWeight: '700' },
+  userEmail: { color: '#6B7280', fontSize: 14, marginTop: 4 },
+  section: { paddingHorizontal: 20, marginBottom: 24 },
+  sectionTitle: { color: '#6B7280', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', marginBottom: 12 },
+  settingItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1F2937', padding: 16, borderRadius: 12, marginBottom: 8 },
+  settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  settingInfo: { marginLeft: 4 },
+  settingLabel: { color: '#FFFFFF', fontSize: 16 },
+  settingValue: { color: '#6B7280', fontSize: 12, marginTop: 2 },
+  hint: { color: '#6B7280', fontSize: 12, marginTop: 8, paddingHorizontal: 4 },
+  appInfo: { alignItems: 'center', paddingTop: 32 },
+  appName: { color: '#10B981', fontSize: 18, fontWeight: '700' },
+  appVersion: { color: '#6B7280', fontSize: 12, marginTop: 4 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#1F2937', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
+  modalSubtitle: { color: '#9CA3AF', fontSize: 14, marginBottom: 20 },
+  inputGroup: { marginBottom: 16 },
+  inputLabel: { color: '#9CA3AF', fontSize: 14, marginBottom: 8 },
+  input: { backgroundColor: '#111827', borderRadius: 12, padding: 16, color: '#FFFFFF', fontSize: 16 },
+  saveButton: { backgroundColor: '#10B981', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
+  saveButtonDisabled: { opacity: 0.7 },
+  saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  equipmentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  equipmentItem: { width: '30%', aspectRatio: 1, backgroundColor: '#111827', borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: 'transparent' },
+  equipmentItemSelected: { borderColor: '#10B981', backgroundColor: '#10B98115' },
+  equipmentLabel: { color: '#6B7280', fontSize: 11, marginTop: 6, textAlign: 'center' },
+  equipmentLabelSelected: { color: '#10B981' },
 });
