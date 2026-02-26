@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../../src/utils/storage';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
 
@@ -52,8 +52,8 @@ export default function LoginScreen() {
         },
         equipment: ['dumbbells', 'barbell', 'pullup_bar'],
       };
-      await AsyncStorage.setItem('user', JSON.stringify(user));
-      await AsyncStorage.setItem('sessionToken', sessionToken);
+      await storage.setItem('user', JSON.stringify(user));
+      await storage.setItem('sessionToken', sessionToken);
       setUser(user);
       setSessionToken(sessionToken);
       setLoading(false);

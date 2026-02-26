@@ -1,7 +1,7 @@
 // Local AsyncStorage-based API - replaces dead Emergent backend
 // All data is stored locally on device. No external server required.
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from '../utils/storage';
 
 // Storage keys
 const WORKOUTS_KEY = 'gaintrack_workouts';
@@ -13,7 +13,7 @@ const MEASUREMENTS_KEY = 'gaintrack_measurements';
 // Helper functions
 const getStoredData = async <T,>(key: string): Promise<T[]> => {
   try {
-    const data = await AsyncStorage.getItem(key);
+    const data = await storage.getItem(key);
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error(`Error reading ${key}:`, error);
@@ -23,7 +23,7 @@ const getStoredData = async <T,>(key: string): Promise<T[]> => {
 
 const storeData = async <T,>(key: string, data: T[]): Promise<void> => {
   try {
-    await AsyncStorage.setItem(key, JSON.stringify(data));
+    await storage.setItem(key, JSON.stringify(data));
   } catch (error) {
     console.error(`Error storing ${key}:`, error);
   }
@@ -181,22 +181,22 @@ export const measurementApi = {
 // User API
 export const userApi = {
   updateGoals: async (goals: any) => {
-    const userStr = await AsyncStorage.getItem('user');
+    const userStr = await storage.getItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
       user.goals = goals;
-      await AsyncStorage.setItem('user', JSON.stringify(user));
+      await storage.setItem('user', JSON.stringify(user));
       return { message: 'Goals updated', goals };
     }
     throw new Error('User not found');
   },
 
   updateEquipment: async (equipment: string[]) => {
-    const userStr = await AsyncStorage.getItem('user');
+    const userStr = await storage.getItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
       user.equipment = equipment;
-      await AsyncStorage.setItem('user', JSON.stringify(user));
+      await storage.setItem('user', JSON.stringify(user));
       return { message: 'Equipment updated', equipment };
     }
     throw new Error('User not found');
