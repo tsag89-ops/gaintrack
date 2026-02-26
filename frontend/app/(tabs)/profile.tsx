@@ -14,8 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
-import { userApi, authApi } from '../../src/services/api';
+import { userApi } from '../../src/services/api';
 import { getEquipmentLabel } from '../../src/utils/helpers';
+import { useAuth } from '../hooks/useAuth';
 
 const EQUIPMENT_OPTIONS = [
   { id: 'dumbbells', icon: 'fitness-outline' },
@@ -33,6 +34,9 @@ export default function ProfileScreen() {
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const { user, setUser, logout } = useAuthStore();
+  const { signOut } = useAuth();
+
 
   // Goals state
   const [calories, setCalories] = useState(String(user?.goals?.daily_calories || 2000));
@@ -44,24 +48,27 @@ export default function ProfileScreen() {
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(user?.equipment || []);
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await authApi.logout();
-          } catch (error) {
-            console.error('Logout error:', error);
-          } finally {
-            await logout();
-            router.replace('/login');
-          }
-        },
+  Alert.alert('Logout', 'Are you sure you want to logout?', [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Logout',
+      style: 'destructive',
+      onPress: async () => {
+        try {
+          // Sign out from Firebase auth (no-op until you add real config)
+          await signOut();
+        } catch (error) {
+          console.error('Logout error:', error);
+        } finally {
+          // Clear local auth store so router guard redirects to login
+          await logout();
+          router.replace('/login');
+        }
       },
-    ]);
-  };
+    },
+  ]);
+};
+
 
   const saveGoals = async () => {
     try {

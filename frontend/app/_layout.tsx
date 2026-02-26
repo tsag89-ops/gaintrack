@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuthStore } from '../src/store/authStore';
+import { AuthProvider } from './context/AuthContext';
 
 // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
 
@@ -41,17 +42,19 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="workout/[id]" options={{ presentation: 'card' }} />
-        <Stack.Screen name="workout/new" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="add-food" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="programs" options={{ presentation: 'card' }} />
-        <Stack.Screen name="progression" options={{ presentation: 'card' }} />
-        <Stack.Screen name="measurements" options={{ presentation: 'card' }} />
-        <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
-      </Stack>
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="workout/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="workout/new" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="add-food" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="programs" options={{ presentation: 'card' }} />
+          <Stack.Screen name="progression" options={{ presentation: 'card' }} />
+          <Stack.Screen name="measurements" options={{ presentation: 'card' }} />
+          <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
+        </Stack>
+      </AuthProvider>
     </>
   );
 }
