@@ -6,6 +6,14 @@
   ],
   "scripts": {
     "start": "cd frontend && npm start",
-    "build": "cd frontend && npm run build"
+    "build": "cd frontend && npm run build",
+    "android": "expo run:android",
+    "ios": "expo run:ios"
+  },
+  "version": "1.0.0",
+  "dependencies": {
+    "expo": "~54.0.33",
+    "react": "19.1.0",
+    "react-native": "0.81.5"
   }
 }
