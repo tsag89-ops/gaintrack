@@ -69,14 +69,14 @@ Optimize: useEffect, data fetching, error handling for offline mode.
 Output: full refactored file."
 
 ## When to Use Each Tool
-- Copilot Chat (Claude 3.5 Sonnet): Expo screens, debugging, architecture, EAS fixes
+- Copilot Chat (GPT-4.1): Expo screens, debugging, architecture, EAS fixes
 - Copilot Chat (GPT-4o): Quick edits, autocomplete, short snippets
 - Gemini VS Code Extension: Firebase auth, Firestore sync, Android-specific issues
-- Perplexity (GainTrack Space): Research, workflow decisions, AI tool guidance
+
 
 ## Key Constraints
 - No local CLI — all commands run via GitHub Actions or Codespaces terminal
 - No Android Studio — all editing in GitHub VS Code online
 - No Mac — iOS builds via EAS cloud only
 - User has no coding experience — explain every change clearly
-- Always end response with: next suggested feature + EAS update command
+- Always end response with: next suggested feature + EAS update command and fix all problems with minimal code changes to avoid breaking existing functionality.
