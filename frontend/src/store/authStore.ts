@@ -51,7 +51,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (e) {
       console.warn('logout storage error:', e);
     }
-    set({ user: null, sessionToken: null, isAuthenticated: false, isLoading: false });
+    // Force state update synchronously after storage clear
+    set(() => ({ user: null, sessionToken: null, isAuthenticated: false, isLoading: false }));
   },
 
   loadStoredAuth: async () => {

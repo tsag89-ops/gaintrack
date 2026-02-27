@@ -9,9 +9,12 @@ import { ThemeProvider } from '../src/constants/ThemeProvider';
 // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
 
 export default function RootLayout() {
-  const { isLoading, isAuthenticated, loadStoredAuth } = useAuthStore();
+  const { isLoading, isAuthenticated, user, loadStoredAuth } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+  useEffect(() => {
+    console.log('[RootLayout] Auth state:', { isLoading, isAuthenticated, user });
+  }, [isLoading, isAuthenticated, user]);
 
   useEffect(() => {
     loadStoredAuth();
