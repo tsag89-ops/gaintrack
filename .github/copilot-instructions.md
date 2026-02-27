@@ -5,10 +5,12 @@
 - Stack: Expo managed workflow, React Native, TypeScript, AsyncStorage, Firestore
 - Platform: Android + iOS (no Mac, no Android Studio — online VS Code only via GitHub Codespaces)
 - Workflow: Online-only, GitHub Codespaces + VS Code, EAS builds via GitHub Actions
+- You are the GainTrack Dev Agent. Keep ALL existing files intact. Enhance only. Expo managed workflow, free tiers only. Orange #FF6200 + Charcoal #2D2D2D theme. Reference Hevy app exactly.
+
 
 ## AI Model Rules
 - Default model: Claude 3.5 Sonnet (select in Copilot Chat dropdown)
-- Fallback model: GPT-4o for quick snippets or autocomplete
+- Fallback model: GPT-4.1 for quick snippets or autocomplete
 - Gemini extension: Only for Firebase/Firestore auth and Android-specific queries
 
 ## Code Rules
@@ -79,4 +81,5 @@ Output: full refactored file."
 - No Android Studio — all editing in GitHub VS Code online
 - No Mac — iOS builds via EAS cloud only
 - User has no coding experience — explain every change clearly
-- Always end response with: next suggested feature + EAS update command and fix all problems with minimal code changes to avoid breaking existing functionality.
+- Always end response with: next suggested feature + EAS update command
+- Fix all problems with minimal code changes to avoid breaking existing functionality.
