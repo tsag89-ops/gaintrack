@@ -44,28 +44,26 @@ export default function ProfileScreen() {
   // Equipment state
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(user?.equipment || []);
 
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            console.log('[Profile] Logging out...');
-            await logout(); // clears useAuthStore
-            setTimeout(() => {
-              console.log('[Profile] After logout, user:', useAuthStore.getState().user);
-              router.dismissAll();
-              router.replace('/login');
-            }, 500);
-          } catch (error) {
-            console.error('Logout error:', error);
-          }
-        },
+ const handleLogout = () => {
+  Alert.alert('Logout', 'Are you sure you want to logout?', [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Logout',
+      style: 'destructive',
+      onPress: async () => {
+        try {
+          console.log('[Profile] Logging out...');
+          await logout();
+          console.log('[Profile] Logout complete, navigating to login...');
+          router.replace('/login');
+        } catch (error) {
+          console.error('Logout error:', error);
+        }
       },
-    ]);
-  };
+    },
+  ]);
+};
+
 
 
   const saveGoals = async () => {
