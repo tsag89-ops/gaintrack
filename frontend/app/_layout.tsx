@@ -12,6 +12,7 @@ export default function RootLayout() {
   const { isLoading, isAuthenticated, user, loadStoredAuth } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+
   useEffect(() => {
     console.log('[RootLayout] Auth state:', { isLoading, isAuthenticated, user });
   }, [isLoading, isAuthenticated, user]);
@@ -24,50 +25,39 @@ export default function RootLayout() {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const inTabGroup = segments[0] === '(tabs)';
 
     if (!isAuthenticated && !inAuthGroup) {
-      // Redirect to login
       router.replace('/login');
     } else if (isAuthenticated && inAuthGroup) {
-      // Redirect to home
       router.replace('/(tabs)');
     }
   }, [isLoading, isAuthenticated, segments]);
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#10B981" />
-      </View>
-    );
-  }
-
   return (
-  <ThemeProvider>
-    <AuthProvider>  {/* ✅ move OUTSIDE the isLoading check */}
-      <StatusBar style="light" />
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#10B981" />
-        </View>
-      ) : (
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="workout/[id]" options={{ presentation: 'card' }} />
-          <Stack.Screen name="workout/new" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="add-food" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="programs" options={{ presentation: 'card' }} />
-          <Stack.Screen name="progression" options={{ presentation: 'card' }} />
-          <Stack.Screen name="measurements" options={{ presentation: 'card' }} />
-          <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
-        </Stack>
-      )}
-    </AuthProvider>
-  </ThemeProvider>
-);
-
+    <ThemeProvider>
+      <AuthProvider>
+        <StatusBar style="light" />
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#10B981" />
+          </View>
+        ) : (
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="workout/[id]" options={{ presentation: 'card' }} />
+            <Stack.Screen name="workout/new" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="add-food" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="programs" options={{ presentation: 'card' }} />
+            <Stack.Screen name="progression" options={{ presentation: 'card' }} />
+            <Stack.Screen name="measurements" options={{ presentation: 'card' }} />
+            <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
+          </Stack>
+        )}
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
 
 const styles = StyleSheet.create({
   loadingContainer: {
