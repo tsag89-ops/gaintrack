@@ -24,7 +24,7 @@ export default function WorkoutsScreen() {
   const fetchWorkouts = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await workoutApi.getAll();
+      const data = await workoutApi.getWorkouts();
       setWorkouts(data);
     } catch (error) {
       console.error('Error fetching workouts:', error);
