@@ -16,7 +16,7 @@ import { workoutApi, exerciseApi } from '../../src/services/api';
 import { Exercise, WorkoutExercise, WorkoutSet } from '../../src/types';
 import { getCategoryColor } from '../../src/utils/helpers';
 import { SetLoggerSheet } from '../../src/components/SetLoggerSheet';
-import { seedExercises as localSeedExercises } from '../data/seedData';
+import { seedExercises as localSeedExercises } from '../../src/data/seedData';
 
 
 const CATEGORIES = ['all', 'chest', 'back', 'shoulders', 'legs', 'arms', 'core'];
@@ -138,7 +138,7 @@ export default function NewWorkoutScreen() {
 
     try {
       setIsSaving(true);
-      await workoutApi.create({
+      await workoutApi.createWorkout({
         name: workoutName,
         exercises,
         date: new Date().toISOString(),

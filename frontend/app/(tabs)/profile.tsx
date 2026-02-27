@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
 import { userApi } from '../../src/services/api';
 import { getEquipmentLabel } from '../../src/utils/helpers';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../../src/hooks/useAuth';
 
 const EQUIPMENT_OPTIONS = [
   { id: 'dumbbells', icon: 'fitness-outline' },
@@ -29,8 +29,7 @@ const EQUIPMENT_OPTIONS = [
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, setUser, logout } = useAuthStore(); // ✅ Only ONCE
-  const { signOut } = useAuth();                    // ✅ Only signOut, no 'user' conflict
+  const { user, setUser, logout } = useAuthStore();
 
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
@@ -46,25 +45,23 @@ export default function ProfileScreen() {
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(user?.equipment || []);
 
   const handleLogout = () => {
-  Alert.alert('Logout', 'Are you sure you want to logout?', [
-    { text: 'Cancel', style: 'cancel' },
-    {
-      text: 'Logout',
-      style: 'destructive',
-      onPress: async () => {
-        try {
-          await signOut();
-        } catch (error) {
-          console.error('Logout error:', error);
-        } finally {
-          await logout(); // clears useAuthStore
-          router.dismissAll(); // ✅ clears full nav stack
-          router.replace('/login'); // ✅ sends to login
-        }
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await logout(); // clears useAuthStore
+            router.dismissAll(); // clears full nav stack
+            router.replace('/login'); // sends to login
+          } catch (error) {
+            console.error('Logout error:', error);
+          }
+        },
       },
-    },
-  ]);
-};
+    ]);
+  };
 
 
   const saveGoals = async () => {

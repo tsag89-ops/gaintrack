@@ -3,8 +3,8 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuthStore } from '../src/store/authStore';
-import { AuthProvider } from './context/AuthContext';
-import { ThemeProvider } from './constants/ThemeProvider';
+import { AuthProvider } from '../src/context/AuthContext';
+import { ThemeProvider } from '../src/constants/ThemeProvider';
 
 // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
 

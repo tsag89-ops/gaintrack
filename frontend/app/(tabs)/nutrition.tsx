@@ -9,9 +9,9 @@ import {
   Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Food } from '../types';
-import { getFoods } from '../services/storage';
-import { SearchInput } from '../components/SearchInput';
+import { Food } from '../../src/types';
+import { getFoods } from '../../src/services/storage';
+import { SearchInput } from '../../src/components/SearchInput';
 
 interface FoodItemProps {
   food: Food;

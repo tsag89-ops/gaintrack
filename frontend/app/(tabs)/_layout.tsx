@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
-import { initializeData } from '../services/storage';
+import { initializeData } from '../../src/services/storage';
 
 export default function TabLayout() {
   // Run once when the tab layout mounts to seed foods & exercises

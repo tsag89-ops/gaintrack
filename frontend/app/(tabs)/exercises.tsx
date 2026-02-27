@@ -10,10 +10,10 @@ import {
   ScrollView,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { Exercise } from '../types';
-import { getExercises } from '../services/storage';
-import { SearchInput } from '../components/SearchInput';
-import { ExerciseVideo } from '../components/ExerciseVideo';
+import { Exercise } from '../../src/types';
+import { getExercises } from '../../src/services/storage';
+import { SearchInput } from '../../src/components/SearchInput';
+import { ExerciseVideo } from '../../src/components/ExerciseVideo';
 
 interface ExerciseItemProps {
   exercise: Exercise;
