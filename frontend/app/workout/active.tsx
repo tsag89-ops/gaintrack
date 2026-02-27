@@ -115,10 +115,10 @@ const ActiveWorkoutScreen: React.FC = () => {
     setSaving(true);
     try {
       // Save to AsyncStorage
-      const prev = await AsyncStorage.getItem('workouts');
+      const prev = await AsyncStorage.getItem('gaintrack_workouts');
       const workouts = prev ? JSON.parse(prev) : [];
       const updatedWorkout = { ...currentWorkout, exercises: exerciseList };
-      await AsyncStorage.setItem('workouts', JSON.stringify([...workouts, updatedWorkout]));
+      await AsyncStorage.setItem('gaintrack_workouts', JSON.stringify([...workouts, updatedWorkout]));
       // [PRO] Save to Firestore here
       // await saveWorkoutToFirestore(updatedWorkout);
       Alert.alert('Workout saved!');
@@ -274,7 +274,7 @@ const ActiveWorkoutScreen: React.FC = () => {
 export default ActiveWorkoutScreen;
 
 // Helper functions to get videoUrl/instructions by exercise name
-import { seedExercises } from '../data/seedData';
+import { seedExercises } from '../../src/data/seedData';
 function getExerciseVideoUrl(name: string) {
   const ex = seedExercises.find(e => e.name === name);
   return ex?.videoUrl || 'https://www.youtube.com/embed/rT7DgCr-3pg';
