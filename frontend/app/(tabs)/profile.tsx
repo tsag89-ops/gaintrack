@@ -52,9 +52,13 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
+            console.log('[Profile] Logging out...');
             await logout(); // clears useAuthStore
-            router.dismissAll(); // clears full nav stack
-            router.replace('/login'); // sends to login
+            setTimeout(() => {
+              console.log('[Profile] After logout, user:', useAuthStore.getState().user);
+              router.dismissAll();
+              router.replace('/login');
+            }, 500);
           } catch (error) {
             console.error('Logout error:', error);
           }
