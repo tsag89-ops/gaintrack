@@ -18,54 +18,49 @@ import { useAuthStore } from '../../src/store/authStore';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { setUser, setSessionToken, setLoading } = useAuthStore();
+  const { setSession } = useAuthStore();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleLogin = async () => {
-    if (!name.trim() || !email.trim()) {
-      Alert.alert('Missing Info', 'Please enter your name and email to continue.');
-      return;
-    }
-    if (!email.includes('@')) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.');
-      return;
-    }
-    try {
-      setIsSubmitting(true);
-      setLoading(true);
-      const userId = 'user_' + email.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-      const sessionToken = 'local_token_' + Date.now();
-      const user = {
-        user_id: userId,
-        email: email.trim().toLowerCase(),
-        name: name.trim(),
-        picture: null,
-        created_at: new Date().toISOString(),
-        goals: {
-          daily_calories: 2000,
-          protein_grams: 150,
-          carbs_grams: 200,
-          fat_grams: 65,
-          workouts_per_week: 4,
-        },
-        equipment: ['dumbbells', 'barbell', 'pullup_bar'],
-      };
-      await storage.setItem('user', JSON.stringify(user));
-      await storage.setItem('sessionToken', sessionToken);
-      setUser(user);
-      setSessionToken(sessionToken);
-      setLoading(false);
-      router.replace('/(tabs)');
-    } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-      setLoading(false);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  if (!name.trim() || !email.trim()) {
+    Alert.alert('Missing Info', 'Please enter your name and email to continue.');
+    return;
+  }
+  if (!email.includes('@')) {
+    Alert.alert('Invalid Email', 'Please enter a valid email address.');
+    return;
+  }
+  try {
+    setIsSubmitting(true);
+    const userId = 'user_' + email.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const sessionToken = 'local_token_' + Date.now();
+    const user = {
+      user_id: userId,
+      email: email.trim().toLowerCase(),
+      name: name.trim(),
+      picture: null,
+      created_at: new Date().toISOString(),
+      goals: {
+        daily_calories: 2000,
+        protein_grams: 150,
+        carbs_grams: 200,
+        fat_grams: 65,
+        workouts_per_week: 4,
+      },
+      equipment: ['dumbbells', 'barbell', 'pullup_bar'],
+    };
+    await setSession(user, sessionToken); // ✅ setSession saves to storage AND updates state
+    router.replace('/(tabs)');
+  } catch (error) {
+    console.error('Login error:', error);
+    Alert.alert('Error', 'Something went wrong. Please try again.');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   return (
     <SafeAreaView style={styles.container}>
