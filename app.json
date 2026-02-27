@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "bc70c02e-50b6-456b-a2e5-048015270e3b"
+      }
+    },
+    "android": {
+      "package": "com.tsag89ops.gaintrack"
+    },
+    "ios": {
+      "bundleIdentifier": "com.tsag89ops.gaintrack"
+    }
+  }
+}
