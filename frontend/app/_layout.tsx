@@ -44,9 +44,14 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
+  <ThemeProvider>
+    <AuthProvider>  {/* ✅ move OUTSIDE the isLoading check */}
       <StatusBar style="light" />
-      <AuthProvider>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#10B981" />
+        </View>
+      ) : (
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
@@ -58,10 +63,11 @@ export default function RootLayout() {
           <Stack.Screen name="measurements" options={{ presentation: 'card' }} />
           <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
         </Stack>
-      </AuthProvider>
-    </ThemeProvider>
-  );
-}
+      )}
+    </AuthProvider>
+  </ThemeProvider>
+);
+
 
 const styles = StyleSheet.create({
   loadingContainer: {
