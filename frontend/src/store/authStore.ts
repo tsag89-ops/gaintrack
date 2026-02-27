@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { storage } from '../utils/storage';
+import { auth } from '../config/firebase';
 
 interface User {
   id: string;
@@ -48,6 +49,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await storage.removeItem('user');
       await storage.removeItem('sessionToken');
+      if (auth) await auth.signOut();
     } catch (e) {
       console.warn('logout storage error:', e);
     }
