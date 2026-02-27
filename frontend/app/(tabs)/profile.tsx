@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   View,
+  Platform,
   Text,
   StyleSheet,
   ScrollView,
@@ -44,25 +45,27 @@ export default function ProfileScreen() {
   // Equipment state
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(user?.equipment || []);
 
- const handleLogout = () => {
-  Alert.alert('Logout', 'Are you sure you want to logout?', [
-    { text: 'Cancel', style: 'cancel' },
-    {
-      text: 'Logout',
-      style: 'destructive',
-      onPress: async () => {
-        try {
-          console.log('[Profile] Logging out...');
-          await logout();
-          console.log('[Profile] Logout complete, navigating to login...');
-          router.replace('/login');
-        } catch (error) {
-          console.error('Logout error:', error);
-        }
-      },
-    },
-  ]);
+const handleLogout = async () => {
+  const proceed = Platform.OS === 'web'
+    ? window.confirm('Are you sure you want to logout?')
+    : await new Promise((resolve) =>
+        Alert.alert('Logout', 'Are you sure?', [
+          { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
+          { text: 'Logout', onPress: () => resolve(true), style: 'destructive' },
+        ])
+      );
+
+  if (!proceed) return;
+
+  try {
+    console.log('[Profile] Logging out...');
+    await logout();
+    router.replace('/login');
+  } catch (error) {
+    console.error('Logout error:', error);
+  }
 };
+
 
 
 
@@ -225,7 +228,7 @@ export default function ProfileScreen() {
       </ScrollView>
 
       {/* Goals Modal */}
-      <Modal visible={showGoalsModal} animationType="slide" transparent>
+      <Modal visible={showGoalsModal} animationType="slide" transparent onRequestClose={() => setShowGoalsModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -258,7 +261,7 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* Equipment Modal */}
-      <Modal visible={showEquipmentModal} animationType="slide" transparent>
+      <Modal visible={showEquipmentModal} animationType="slide" transparent onRequestClose={() => setShowEquipmentModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
