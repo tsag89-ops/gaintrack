@@ -37,6 +37,7 @@ export default function LoginScreen() {
     const userId = 'user_' + email.replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const sessionToken = 'local_token_' + Date.now();
     const user = {
+      id: userId,
       user_id: userId,
       email: email.trim().toLowerCase(),
       name: name.trim(),
