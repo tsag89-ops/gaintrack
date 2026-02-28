@@ -202,3 +202,33 @@ export const userApi = {
     throw new Error('User not found');
   },
 };
+
+// Aliases and missing exports for screen compatibility
+export const foodApi = {
+  getFoods: nutritionApi.getFoods,
+  addMealEntry: async (entry: any) => {
+    const nutrition = await getStoredData<any>(NUTRITION_KEY);
+    const dateEntry = nutrition.find((n: any) => n.date === entry.date) || {
+      date: entry.date,
+      meals: { breakfast: [], lunch: [], dinner: [], snacks: [] },
+      total_calories: 0, total_protein: 0, total_carbs: 0, total_fat: 0,
+    };
+    dateEntry.meals[entry.meal_type].push(entry);
+    const index = nutrition.findIndex((n: any) => n.date === entry.date);
+    if (index >= 0) nutrition[index] = dateEntry;
+    else nutrition.push(dateEntry);
+    await storeData(NUTRITION_KEY, nutrition);
+    return entry;
+  },
+};
+
+export const statsApi = {
+  getStats: async () => ({ totalWorkouts: 0, totalVolume: 0, streak: 0 }),
+  getProgress: async () => ([]),
+};
+
+export const progressionApi = {
+  getProgression: async (exerciseId: string) => ([]),
+};
+
+export const measurementsApi = measurementApi;
