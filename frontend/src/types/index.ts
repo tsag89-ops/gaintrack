@@ -66,23 +66,28 @@ export interface Exercise {
   category: string;
   equipment_required: string[];
   is_compound: boolean;
-  videoUrl?: string;
+  videoUrl: string;
   instructions?: string;
 }
 
 export interface WorkoutSet {
   set_id: string;
+  set_number: number;
   reps: number;
   weight: number;
+  rpe?: number;
   completed: boolean;
+  is_warmup: boolean;
 }
 
 export interface WorkoutExercise {
   exercise_id: string;
+  exercise_name: string;
   exercise: Exercise;
   sets: WorkoutSet[];
   notes?: string;
 }
+
 
 export interface Workout {
   workout_id: string;

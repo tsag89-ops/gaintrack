@@ -18,6 +18,7 @@ import { foodApi, nutritionApi } from '../src/services/api';
 import { Food, MealType } from '../src/types';
 import { useNutritionStore } from '../src/store/nutritionStore';
 
+
 const CATEGORIES = ['all', 'protein', 'carbs', 'fats', 'vegetables', 'dairy'];
 
 export default function AddFoodScreen() {
@@ -60,30 +61,33 @@ export default function AddFoodScreen() {
   };
 
   const handleAddFood = async () => {
-    if (!selectedFood || !mealType || !date) return;
+  if (!selectedFood || !mealType || !date) return;
 
-    const servingCount = parseFloat(servings) || 1;
+  const servingCount = parseFloat(servings) || 1;
 
-    try {
-      setIsAdding(true);
-      const updatedNutrition = await nutritionApi.addMealEntry(date, mealType, {
-        food_id: selectedFood.food_id,
-        food_name: selectedFood.name,
-        servings: servingCount,
-        calories: selectedFood.calories * servingCount,
-        protein: selectedFood.protein * servingCount,
-        carbs: selectedFood.carbs * servingCount,
-        fat: selectedFood.fat * servingCount,
-      });
-      setTodayNutrition(updatedNutrition);
-      router.back();
-    } catch (error) {
-      console.error('Error adding food:', error);
-      Alert.alert('Error', 'Failed to add food');
-    } finally {
-      setIsAdding(false);
-    }
-  };
+  try {
+    setIsAdding(true);
+    const updatedNutrition = await foodApi.addMealEntry({
+      date,
+      meal_type: mealType,
+      food_id: selectedFood.food_id,
+      food_name: selectedFood.name,
+      servings: servingCount,
+      calories: selectedFood.calories * servingCount,
+      protein: selectedFood.protein * servingCount,
+      carbs: selectedFood.carbs * servingCount,
+      fat: selectedFood.fat * servingCount,
+    });
+    setTodayNutrition(updatedNutrition);
+    router.back();
+  } catch (error) {
+    console.error('Error adding food:', error);
+    Alert.alert('Error', 'Failed to add food');
+  } finally {
+    setIsAdding(false);
+  }
+};
+
 
   const getMealTitle = () => {
     const titles: Record<string, string> = {
