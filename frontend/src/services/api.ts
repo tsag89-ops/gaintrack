@@ -203,32 +203,56 @@ export const userApi = {
   },
 };
 
+
 // Aliases and missing exports for screen compatibility
 export const foodApi = {
   getFoods: nutritionApi.getFoods,
+  getAll: async () => nutritionApi.getFoods(),
   addMealEntry: async (entry: any) => {
     const nutrition = await getStoredData<any>(NUTRITION_KEY);
-    const dateEntry = nutrition.find((n: any) => n.date === entry.date) || {
+    const index = nutrition.findIndex((n: any) => n.date === entry.date);
+    const dateEntry = index >= 0 ? nutrition[index] : {
       date: entry.date,
       meals: { breakfast: [], lunch: [], dinner: [], snacks: [] },
       total_calories: 0, total_protein: 0, total_carbs: 0, total_fat: 0,
     };
     dateEntry.meals[entry.meal_type].push(entry);
-    const index = nutrition.findIndex((n: any) => n.date === entry.date);
     if (index >= 0) nutrition[index] = dateEntry;
     else nutrition.push(dateEntry);
     await storeData(NUTRITION_KEY, nutrition);
-    return entry;
+    return dateEntry;
   },
 };
 
 export const statsApi = {
   getStats: async () => ({ totalWorkouts: 0, totalVolume: 0, streak: 0 }),
   getProgress: async () => ([]),
+  getCalendarData: async (year: number, month: number) => ([]),
+  getWorkoutVolume: async (days: number) => ([]),
+  getNutritionAdherence: async (days: number) => ([]),
 };
 
 export const progressionApi = {
   getProgression: async (exerciseId: string) => ([]),
+  getSuggestions: async () => ([]),
+  getExerciseProgression: async (exerciseName: string) => ([]),
 };
 
-export const measurementsApi = measurementApi;
+export const measurementsApi = {
+  getAll: async (limit = 30) => measurementApi.getMeasurements(limit),
+  getProgress: async (days: number) => ([]),
+  create: async (data: any) => measurementApi.createMeasurement(data),
+  delete: async (date: string) => {
+    const measurements = await getStoredData<any>(MEASUREMENTS_KEY);
+    const filtered = measurements.filter((m: any) => m.date !== date);
+    await storeData(MEASUREMENTS_KEY, filtered);
+    return { message: 'Deleted' };
+  },
+};
+
+export const exerciseApiExtended = {
+  ...exerciseApi,
+  getForUser: async () => exerciseApi.getExercises(),
+  getAll: async () => exerciseApi.getExercises(),
+  getWarmupSets: async (weight: number, exerciseName: string) => ([]),
+};

@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { workoutApi, exerciseApi } from '../../src/services/api';
+import { exerciseApiExtended as exerciseApi, workoutApi } from '../../src/services/api';
 import { Exercise, WorkoutExercise, WorkoutSet } from '../../src/types';
 import { getCategoryColor } from '../../src/utils/helpers';
 import { SetLoggerSheet } from '../../src/components/SetLoggerSheet';
