@@ -26,6 +26,7 @@ const storeData = async <T,>(key: string, data: T[]): Promise<void> => {
     await storage.setItem(key, JSON.stringify(data));
   } catch (error) {
     console.error(`Error storing ${key}:`, error);
+    throw error;
   }
 };
 
