@@ -117,11 +117,8 @@ const ActiveWorkoutScreen: React.FC = () => {
     if (!currentWorkout) return;
     setSaving(true);
     try {
-      // Save to AsyncStorage
-      const prev = await AsyncStorage.getItem('gaintrack_workouts');
-      const workouts = prev ? JSON.parse(prev) : [];
       const updatedWorkout = { ...currentWorkout, exercises: exerciseList };
-      await AsyncStorage.setItem('gaintrack_workouts', JSON.stringify([...workouts, updatedWorkout]));
+      await workoutApi.createWorkout(updatedWorkout);
       // [PRO] Save to Firestore here
       // await saveWorkoutToFirestore(updatedWorkout);
       Alert.alert('Workout saved!');
