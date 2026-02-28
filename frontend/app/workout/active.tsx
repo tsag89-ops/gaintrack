@@ -125,7 +125,8 @@ const ActiveWorkoutScreen: React.FC = () => {
       setCurrentWorkout(null);
       router.replace('/');
     } catch (e) {
-      Alert.alert('Error saving workout');
+      console.error('Save workout error:', e);
+      Alert.alert('Error saving workout', String(e));
     } finally {
       setSaving(false);
     }
