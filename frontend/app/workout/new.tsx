@@ -149,7 +149,7 @@ export default function NewWorkoutScreen() {
       router.back();
     } catch (error) {
       console.error('Error saving workout:', error);
-      Alert.alert('Error', 'Failed to save workout');
+      Alert.alert('Error', String(error));
     } finally {
       setIsSaving(false);
     }
