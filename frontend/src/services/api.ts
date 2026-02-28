@@ -227,15 +227,15 @@ export const foodApi = {
 export const statsApi = {
   getStats: async () => ({ totalWorkouts: 0, totalVolume: 0, streak: 0 }),
   getProgress: async () => ([]),
-  getCalendarData: async (year: number, month: number) => ([]),
+  getCalendarData: async (year: number, month: number): Promise<Record<string, any>> => ({}),
   getWorkoutVolume: async (days: number) => ([]),
   getNutritionAdherence: async (days: number) => ([]),
 };
 
 export const progressionApi = {
   getProgression: async (exerciseId: string) => ([]),
-  getSuggestions: async () => ([]),
-  getExerciseProgression: async (exerciseName: string) => ([]),
+  getSuggestions: async (): Promise<{suggestions: any[], total_exercises_analyzed: number}> => ({suggestions: [], total_exercises_analyzed: 0}),
+  getExerciseProgression: async (exerciseName: string): Promise<any> => null,
 };
 
 export const measurementsApi = {

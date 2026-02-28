@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { measurementApi } from '../src/services/api';
+import { measurementsApi } from '../src/services/api';
 import { format } from 'date-fns';
 
 interface Measurement {
@@ -76,7 +76,7 @@ export default function MeasurementsScreen() {
         measurementsApi.getProgress(90),
       ]);
       setMeasurements(measurementsData);
-      setProgress(progressData.changes || {});
+      setProgress((progressData as any)?.changes || {});
     } catch (error) {
       console.error('Error fetching measurements:', error);
     } finally {
