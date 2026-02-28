@@ -38,8 +38,9 @@ const ActiveWorkoutScreen: React.FC = () => {
       setExerciseList([
         ...exerciseList,
          {
-          exercise_id: ex.id,
+          exercise_id: ex.id || ex.exercise_id,
           exercise_name: ex.name,
+          exercise: ex,
           sets: [],
         },
       ]);
@@ -78,7 +79,9 @@ const ActiveWorkoutScreen: React.FC = () => {
     const exercise = exerciseList.find((ex) => ex.exercise_id === exerciseId);
     if (!exercise) return;
     const newSet: WorkoutSet = {
+      set_id: "set_" + Date.now(),
       set_number: exercise.sets.length + 1,
+      completed: false,
       weight: 0,
       reps: 0,
       rpe: undefined,
@@ -155,7 +158,7 @@ const ActiveWorkoutScreen: React.FC = () => {
               <View style={styles.modalOverlay}>
                 <View style={[styles.modalContent, { maxHeight: '80%' }]}> 
                   <Text style={styles.modalTitle}>Add Exercise</Text>
-                  <SearchInput value={search} onChangeText={setSearch} placeholder="Search exercises..." />
+                  <TextInput value={search} onChangeText={setSearch} placeholder="Search exercises..." placeholderTextColor="#6B7280" style={{ backgroundColor: "#1F2937", color: "#fff", borderRadius: 8, padding: 10, marginBottom: 10 }} />
                   <ScrollView>
                     {availableExercises.length === 0 ? (
                       <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No exercises found.</Text>
@@ -163,13 +166,12 @@ const ActiveWorkoutScreen: React.FC = () => {
                       availableExercises.map((ex) => (
                         <TouchableOpacity
                           key={ex.id || ex.exercise_id}
-                            key={ex.id}
                           style={styles.addExerciseRow}
                           onPress={() => handleAddExercise(ex)}
                         >
                           <Text style={styles.addExerciseName}>{ex.name}</Text>
                           <Text style={styles.addExerciseGroup}>{ex.muscleGroup || ex.muscle_groups?.[0]}</Text>
-                            <Text style={styles.addExerciseGroup}>{ex.muscleGroup}</Text>
+                
                         </TouchableOpacity>
                       ))
                     )}

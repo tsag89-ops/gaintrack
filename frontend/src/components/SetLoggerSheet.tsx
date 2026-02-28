@@ -32,7 +32,7 @@ export const SetLoggerSheet: React.FC<SetLoggerSheetProps> = ({
   const [rpe, setRpe] = useState(7);
 
   React.useEffect(() => {
-    setLocalSets(sets.length > 0 ? sets : [{ set_number: 1, weight: 0, reps: 0, rpe: 7, is_warmup: false }]);
+    setLocalSets(sets.length > 0 ? sets : [{ set_id: "set_1", set_number: 1, weight: 0, reps: 0, rpe: 7, completed: false, is_warmup: false }]);
   }, [sets, visible]);
 
   const addSet = () => {
@@ -40,7 +40,9 @@ export const SetLoggerSheet: React.FC<SetLoggerSheetProps> = ({
     setLocalSets([
       ...localSets,
       {
+        set_id: "set_" + Date.now(),
         set_number: localSets.length + 1,
+        completed: false,
         weight: lastSet?.weight || 0,
         reps: lastSet?.reps || 0,
         rpe: 7,

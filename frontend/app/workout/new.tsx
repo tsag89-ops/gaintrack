@@ -79,6 +79,7 @@ export default function NewWorkoutScreen() {
     const newExercise: WorkoutExercise = {
       exercise_id: exercise.exercise_id,
       exercise_name: exercise.name,
+      exercise: exercise,
       sets: [],
       notes: undefined,
     };
@@ -109,11 +110,13 @@ export default function NewWorkoutScreen() {
   const handleRequestWarmup = async (workingWeight: number) => {
     if (!selectedExercise) return;
     try {
-      const result = await workoutApi.getWarmupSets(workingWeight, selectedExercise.exercise_name);
-      const warmupSets: WorkoutSet[] = result.warmup_sets.map((s: any) => ({
+      const result: any[] = [];
+      const warmupSets: WorkoutSet[] = result.map((s: any) => ({
+        set_id: s.set_id ?? `warmup-${s.set_number}-${Date.now()}`,
         set_number: s.set_number,
         weight: s.weight,
         reps: s.reps,
+        completed: false,
         is_warmup: true,
         rpe: undefined,
       }));
