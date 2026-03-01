@@ -133,3 +133,14 @@ cd /workspaces/gaintrack/frontend is mandatory before every command.
 - If a file is unchanged, say "unchanged" — never re-output it.
 - Prefer diffs over full rewrites when <30% of file changes.
 - Do not add TODO/FIXME comments or placeholder stubs.
+
+Never commit secrets
+
+
+Do not commit google-services.json, .env, API keys, or any credential files.
+
+
+Always add them to .gitignore and store them as EAS env vars (eas env:create --type file) or GitHub Actions secrets instead.
+
+
+If a secret ever gets committed or pushed, immediately revoke/rotate it in the provider console and update the new value only in secrets storage.
