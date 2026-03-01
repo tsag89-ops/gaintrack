@@ -80,7 +80,6 @@ Output: full refactored file."
 - No local CLI — all commands run via GitHub Actions or Codespaces terminal
 - No Android Studio — all editing in GitHub VS Code online
 - No Mac — iOS builds via EAS cloud only
-- User has no coding experience — explain every change clearly
 - Always end response with: next suggested feature + EAS update command
 - Fix all problems with minimal code changes to avoid breaking existing functionality.)
 
