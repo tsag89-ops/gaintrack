@@ -1,504 +1,623 @@
-import React, { useEffect, useState, useCallback } from 'react';
+// app/(tabs)/progress.tsx
+// Hevy-style analytics — 1RM trend, weekly volume, PRs, bodyweight tracker
+// [PRO] Entire screen is Pro-gated
+
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  RefreshControl,
   Dimensions,
   ActivityIndicator,
+  Modal,
+  FlatList,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { statsApi } from '../../src/services/api';
-import { useAuthStore } from '../../src/store/authStore';
+import { LineChart, BarChart } from 'react-native-chart-kit';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import { colors, typography, spacing, radii } from '../../src/constants/theme';
+import { usePro } from '../../src/hooks/usePro';
 
-const screenWidth = Dimensions.get('window').width;
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-interface VolumeData {
-  date: string;
-  volume: number;
-  workout_name: string;
+const SCREEN_W = Dimensions.get('window').width;
+const WORKOUTS_KEY = 'gaintrack_workouts';
+const MEASUREMENTS_KEY = 'gaintrack_measurements';
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+type Tab = '1rm' | 'volume' | 'prs' | 'bodyweight';
+
+interface StoredSet {
+  reps: number;
+  weight: number;
+  set_number?: number;
+  completed?: boolean;
 }
 
-interface NutritionData {
-  date: string;
-  calories: number;
-  calories_goal: number;
-  protein: number;
-  protein_goal: number;
+interface StoredExercise {
+  exercise_id?: string;
+  exercise_name?: string;
+  name?: string;
+  sets: StoredSet[];
 }
 
-// Simple bar chart component
-const SimpleBarChart = ({ data, color }: { data: VolumeData[]; color: string }) => {
-  if (!data || data.length === 0) return null;
-  const maxValue = Math.max(...data.map(d => d.volume), 1);
+interface StoredWorkout {
+  workout_id: string;
+  name?: string;
+  date: string;
+  exercises?: StoredExercise[];
+}
 
-  return (
-    <View style={simpleChartStyles.container}>
-      {data.map((item, index) => {
-        const height = (item.volume / maxValue) * 120;
-        const date = new Date(item.date);
-        return (
-          <View key={index} style={simpleChartStyles.barContainer}>
-            <View style={simpleChartStyles.barWrapper}>
-              <View
-                style={[
-                  simpleChartStyles.bar,
-                  { height: Math.max(height, 4), backgroundColor: color },
-                ]}
-              />
-            </View>
-            <Text style={simpleChartStyles.label}>{date.getDate()}</Text>
-          </View>
-        );
-      })}
-    </View>
-  );
+interface StoredMeasurement {
+  date: string;
+  weight?: number;
+  bodyweight?: number;
+  body_weight?: number;
+  bodyWeight?: number;
+}
+
+interface PREntry {
+  exerciseName: string;
+  oneRM: number;
+  date: string;
+  reps: number;
+  weight: number;
+}
+
+interface ChartDataSet {
+  labels: string[];
+  data: number[];
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Brzycki 1RM formula */
+const calc1RM = (weight: number, reps: number): number => {
+  if (weight <= 0 || reps <= 0) return 0;
+  if (reps === 1) return weight;
+  if (reps >= 37) return weight;
+  return Math.round(weight * (36 / (37 - reps)));
 };
 
-// Simple line indicator for nutrition
-const NutritionProgressBars = ({ data }: { data: NutritionData[] }) => {
-  if (!data || data.length === 0) return null;
-
-  return (
-    <View style={nutritionStyles.container}>
-      {data.slice(-5).map((item, index) => {
-        const date = new Date(item.date);
-        const proteinPercent = Math.min((item.protein / item.protein_goal) * 100, 100);
-        const caloriesPercent = Math.min((item.calories / item.calories_goal) * 100, 100);
-
-        return (
-          <View key={index} style={nutritionStyles.dayContainer}>
-            <View style={nutritionStyles.barsWrapper}>
-              <View style={nutritionStyles.barBackground}>
-                <View
-                  style={[
-                    nutritionStyles.barFill,
-                    { height: `${proteinPercent}%`, backgroundColor: '#EF4444' },
-                  ]}
-                />
-              </View>
-              <View style={nutritionStyles.barBackground}>
-                <View
-                  style={[
-                    nutritionStyles.barFill,
-                    { height: `${caloriesPercent}%`, backgroundColor: '#10B981' },
-                  ]}
-                />
-              </View>
-            </View>
-            <Text style={nutritionStyles.label}>{date.getDate()}</Text>
-          </View>
-        );
-      })}
-    </View>
-  );
+/** ISO week label e.g. "2025-W04" */
+const isoWeekLabel = (dateStr: string): string => {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return 'bad';
+  const day = d.getDay() || 7;
+  d.setDate(d.getDate() + 4 - day);
+  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return d.getFullYear() + '-W' + String(week).padStart(2, '0');
 };
+
+const shortDate = (dateStr: string): string => {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '?';
+  return (d.getMonth() + 1) + '/' + d.getDate();
+};
+
+const getExName = (ex: StoredExercise): string =>
+  (ex.exercise_name ?? ex.name ?? '').trim();
+
+const getBW = (m: StoredMeasurement): number =>
+  m.weight ?? m.bodyweight ?? (m as any).body_weight ?? (m as any).bodyWeight ?? 0;
+
+// ── Chart config ──────────────────────────────────────────────────────────────
+
+const CHART_CFG = {
+  backgroundColor: colors.surface,
+  backgroundGradientFrom: colors.surface,
+  backgroundGradientTo: colors.surface,
+  decimalPlaces: 0,
+  color: (opacity = 1) => `rgba(255, 98, 0, ${opacity})`,
+  labelColor: (opacity = 1) => `rgba(176, 176, 176, ${opacity})`,
+  propsForDots: { r: '4', strokeWidth: '2', stroke: colors.primary },
+  propsForBackgroundLines: { stroke: colors.border, strokeDasharray: '' },
+};
+
+// ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function ProgressScreen() {
-  const router = useRouter();
-  const { user } = useAuthStore();
-  const [volumeData, setVolumeData] = useState<VolumeData[]>([]);
-  const [nutritionData, setNutritionData] = useState<NutritionData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'workouts' | 'nutrition'>('workouts');
+  const { isPro } = usePro();
 
-  const fetchStats = useCallback(async () => {
+  const [workouts, setWorkouts] = useState<StoredWorkout[]>([]);
+  const [measurements, setMeasurements] = useState<StoredMeasurement[]>([]);
+  const [activeTab, setActiveTab] = useState<Tab>('1rm');
+  const [selectedExercise, setSelectedExercise] = useState('');
+  const [showPicker, setShowPicker] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
     try {
-      setIsLoading(true);
-      const [volume, nutrition] = await Promise.all([
-        statsApi.getWorkoutVolume(30),
-        statsApi.getNutritionAdherence(7),
+      const [wRaw, mRaw] = await Promise.all([
+        AsyncStorage.getItem(WORKOUTS_KEY),
+        AsyncStorage.getItem(MEASUREMENTS_KEY),
       ]);
-
-      setVolumeData(volume.slice(-10));
-      setNutritionData(nutrition);
-    } catch (error) {
-      console.error('Error fetching stats:', error);
+      const wArr: StoredWorkout[] = wRaw ? JSON.parse(wRaw) : [];
+      const mArr: StoredMeasurement[] = mRaw ? JSON.parse(mRaw) : [];
+      const sortedW = [...wArr].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+      );
+      const sortedM = [...mArr].sort((a, b) => a.date.localeCompare(b.date));
+      setWorkouts(sortedW);
+      setMeasurements(sortedM);
+      if (sortedW.length > 0) {
+        const first = sortedW
+          .flatMap((w) => (w.exercises ?? []).map(getExName))
+          .find(Boolean);
+        if (first) setSelectedExercise((prev) => prev || first);
+      }
+    } catch (e) {
+      console.error('[ProgressScreen] load error:', e);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+  useEffect(() => { loadData(); }, [loadData]);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchStats();
-    setRefreshing(false);
+  const allExerciseNames = useMemo(() => {
+    const s = new Set<string>();
+    workouts.forEach((w) =>
+      (w.exercises ?? []).forEach((ex) => {
+        const n = getExName(ex);
+        if (n) s.add(n);
+      }),
+    );
+    return Array.from(s).sort();
+  }, [workouts]);
+
+  const oneRMChart = useMemo((): ChartDataSet => {
+    const pts: { date: string; val: number }[] = [];
+    workouts.forEach((w) => {
+      const ex = (w.exercises ?? []).find((e) => getExName(e) === selectedExercise);
+      if (!ex) return;
+      const best = Math.max(
+        0,
+        ...(ex.sets ?? [])
+          .filter((s) => s.reps > 0 && s.weight > 0)
+          .map((s) => calc1RM(s.weight, s.reps)),
+      );
+      if (best > 0) pts.push({ date: w.date, val: best });
+    });
+    const last = pts.slice(-10);
+    return { labels: last.map((p) => shortDate(p.date)), data: last.map((p) => p.val) };
+  }, [workouts, selectedExercise]);
+
+  const volumeChart = useMemo((): ChartDataSet => {
+    const map = new Map<string, number>();
+    workouts.forEach((w) => {
+      const wk = isoWeekLabel(w.date);
+      let vol = 0;
+      (w.exercises ?? []).forEach((ex) => {
+        if (selectedExercise && getExName(ex) !== selectedExercise) return;
+        (ex.sets ?? [])
+          .filter((s) => s.reps > 0 && s.weight > 0)
+          .forEach((s) => { vol += s.weight * s.reps; });
+      });
+      map.set(wk, (map.get(wk) ?? 0) + vol);
+    });
+    const sorted = Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-8);
+    return {
+      labels: sorted.map(([wk]) => 'W' + (wk.split('-W')[1] ?? wk)),
+      data: sorted.map(([, v]) => Math.round(v)),
+    };
+  }, [workouts, selectedExercise]);
+
+  const prList = useMemo((): PREntry[] => {
+    const map = new Map<string, PREntry>();
+    workouts.forEach((w) => {
+      (w.exercises ?? []).forEach((ex) => {
+        const n = getExName(ex);
+        if (!n) return;
+        (ex.sets ?? [])
+          .filter((s) => s.reps > 0 && s.weight > 0)
+          .forEach((s) => {
+            const rm = calc1RM(s.weight, s.reps);
+            const cur = map.get(n);
+            if (!cur || rm > cur.oneRM) {
+              map.set(n, { exerciseName: n, oneRM: rm, date: w.date, reps: s.reps, weight: s.weight });
+            }
+          });
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => b.oneRM - a.oneRM);
+  }, [workouts]);
+
+  const bwChart = useMemo((): ChartDataSet => {
+    const pts = measurements
+      .map((m) => ({ date: m.date, val: getBW(m) }))
+      .filter((p) => p.val > 0)
+      .slice(-12);
+    return { labels: pts.map((p) => shortDate(p.date)), data: pts.map((p) => p.val) };
+  }, [measurements]);
+
+  const handleExport = async () => {
+    if (!isPro) { // [PRO]
+      Alert.alert('Pro Feature', 'Upgrade to Pro to export your workout data as CSV.');
+      return;
+    }
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const rows = ['Date,Workout,Exercise,Set,Reps,Weight_kg,1RM_kg'];
+      workouts.forEach((w) => {
+        const wDate = new Date(w.date).toISOString().split('T')[0];
+        const wName = (w.name ?? 'Workout').replace(/,/g, ' ');
+        (w.exercises ?? []).forEach((ex) => {
+          const eName = getExName(ex).replace(/,/g, ' ');
+          (ex.sets ?? []).forEach((s, i) => {
+            rows.push([wDate, wName, eName, i + 1, s.reps, s.weight, calc1RM(s.weight, s.reps)].join(','));
+          });
+        });
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const FS = FileSystem as any;
+      const path: string = (FS.documentDirectory ?? '') + 'gaintrack_workouts.csv';
+      await FS.writeAsStringAsync(path, rows.join('\n'), { encoding: 'utf8' });
+      await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export GainTrack Data' });
+    } catch (e) {
+      Alert.alert('Export failed', String(e));
+    } finally {
+      setExporting(false);
+    }
   };
 
-  const goals = user?.goals || {
-    daily_calories: 2000,
-    protein_grams: 150,
-    workouts_per_week: 4,
-  };
+  const hasData = (cd: ChartDataSet) =>
+    cd.labels.length > 0 && cd.data.length > 0 && cd.data.some((v) => v > 0);
 
-  const totalVolume = volumeData.reduce((sum, d) => sum + d.volume, 0);
-  const avgProtein = nutritionData.length > 0
-    ? Math.round(nutritionData.reduce((sum, d) => sum + d.protein, 0) / nutritionData.length)
-    : 0;
+  const ExerciseSelector = () => (
+    <TouchableOpacity style={styles.exerciseSelector} onPress={() => setShowPicker(true)} activeOpacity={0.75}>
+      <Text style={styles.exerciseSelectorText} numberOfLines={1}>
+        {selectedExercise || 'Select Exercise'}
+      </Text>
+      <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+    </TouchableOpacity>
+  );
+
+  const EmptyState = ({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) => (
+    <View style={styles.emptyCard}>
+      <Ionicons name={icon as any} size={40} color={colors.textDisabled} />
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptySubtitle}>{subtitle}</Text>
+    </View>
+  );
+
+  const StatBox = ({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) => (
+    <View style={styles.statBox}>
+      <Text style={[styles.statBoxValue, valueColor ? { color: valueColor } : undefined]}>{value}</Text>
+      <Text style={styles.statBoxLabel}>{label}</Text>
+    </View>
+  );
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading analytics...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Progress</Text>
-          <Text style={styles.headerSubtitle}>Track your gains over time</Text>
-        </View>
-        <TouchableOpacity style={styles.aiButton} onPress={() => router.push('/progression')}>
-          <Ionicons name="sparkles" size={22} color="#10B981" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Tab Selector */}
-      <View style={styles.tabSelector}>
+        <Text style={styles.headerTitle}>Progress</Text>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'workouts' && styles.activeTab]}
-          onPress={() => setActiveTab('workouts')}
+          style={[styles.exportBtn, !isPro && styles.exportBtnDim]}
+          onPress={handleExport}
+          disabled={exporting}
+          activeOpacity={0.75}
         >
-          <Ionicons
-            name="barbell-outline"
-            size={18}
-            color={activeTab === 'workouts' ? '#FFFFFF' : '#6B7280'}
-          />
-          <Text style={[styles.tabText, activeTab === 'workouts' && styles.activeTabText]}>
-            Workouts
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'nutrition' && styles.activeTab]}
-          onPress={() => setActiveTab('nutrition')}
-        >
-          <Ionicons
-            name="restaurant-outline"
-            size={18}
-            color={activeTab === 'nutrition' ? '#FFFFFF' : '#6B7280'}
-          />
-          <Text style={[styles.tabText, activeTab === 'nutrition' && styles.activeTabText]}>
-            Nutrition
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#10B981" />
-        </View>
-      ) : (
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10B981" />
-          }
-        >
-          {activeTab === 'workouts' ? (
-            <>
-              {/* Volume Chart */}
-              <View style={styles.chartCard}>
-                <Text style={styles.chartTitle}>Workout Volume (Last 10 Sessions)</Text>
-                <Text style={styles.chartSubtitle}>Total weight lifted per session</Text>
-                {volumeData.length > 0 ? (
-                  <SimpleBarChart data={volumeData} color="#10B981" />
-                ) : (
-                  <View style={styles.emptyChart}>
-                    <Ionicons name="bar-chart-outline" size={48} color="#374151" />
-                    <Text style={styles.emptyChartText}>No workout data yet</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Workout Stats */}
-              <View style={styles.statsRow}>
-                <View style={styles.statCard}>
-                  <Ionicons name="flame" size={24} color="#EF4444" />
-                  <Text style={styles.statValue}>{volumeData.length}</Text>
-                  <Text style={styles.statLabel}>Total Sessions</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Ionicons name="trending-up" size={24} color="#10B981" />
-                  <Text style={styles.statValue}>
-                    {totalVolume >= 1000 ? `${Math.round(totalVolume / 1000)}k` : totalVolume}
-                  </Text>
-                  <Text style={styles.statLabel}>Total Volume</Text>
-                </View>
-              </View>
-            </>
+          {exporting ? (
+            <ActivityIndicator size="small" color={colors.textPrimary} />
           ) : (
             <>
-              {/* Nutrition Chart */}
-              <View style={styles.chartCard}>
-                <Text style={styles.chartTitle}>Nutrition Adherence (Last 5 Days)</Text>
-                <Text style={styles.chartSubtitle}>Protein (red) vs Calories (green)</Text>
-                {nutritionData.length > 0 ? (
-                  <NutritionProgressBars data={nutritionData} />
-                ) : (
-                  <View style={styles.emptyChart}>
-                    <Ionicons name="nutrition-outline" size={48} color="#374151" />
-                    <Text style={styles.emptyChartText}>No nutrition data yet</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Goal Progress */}
-              <View style={styles.goalCard}>
-                <Text style={styles.goalTitle}>Daily Goals</Text>
-                <View style={styles.goalRow}>
-                  <View style={styles.goalItem}>
-                    <View style={[styles.goalDot, { backgroundColor: '#10B981' }]} />
-                    <Text style={styles.goalLabel}>Calories</Text>
-                    <Text style={styles.goalValue}>{goals.daily_calories}</Text>
-                  </View>
-                  <View style={styles.goalItem}>
-                    <View style={[styles.goalDot, { backgroundColor: '#EF4444' }]} />
-                    <Text style={styles.goalLabel}>Protein</Text>
-                    <Text style={styles.goalValue}>{goals.protein_grams}g</Text>
-                  </View>
+              <Ionicons name="download-outline" size={15} color={isPro ? colors.textPrimary : colors.textSecondary} />
+              <Text style={[styles.exportBtnText, !isPro && { color: colors.textSecondary }]}>CSV</Text>
+              {!isPro && (
+                <View style={styles.miniProBadge}>
+                  <Text style={styles.miniProBadgeText}>PRO</Text>
                 </View>
-              </View>
-
-              {/* Weekly Stats */}
-              <View style={styles.statsRow}>
-                <View style={styles.statCard}>
-                  <Ionicons name="nutrition" size={24} color="#EF4444" />
-                  <Text style={styles.statValue}>{avgProtein}g</Text>
-                  <Text style={styles.statLabel}>Avg Protein/Day</Text>
-                </View>
-                <View style={styles.statCard}>
-                  <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                  <Text style={styles.statValue}>{nutritionData.length}</Text>
-                  <Text style={styles.statLabel}>Days Logged</Text>
-                </View>
-              </View>
+              )}
             </>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.tabBar}>
+        {(['1rm', 'volume', 'prs', 'bodyweight'] as Tab[]).map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tabItem, activeTab === tab && styles.tabItemActive]}
+            onPress={() => setActiveTab(tab)}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}>
+              {tab === '1rm' ? '1RM' : tab === 'prs' ? 'PRs' : tab === 'volume' ? 'Volume' : 'Weight'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {!isPro ? (
+        <View style={styles.proGate}>
+          <View style={styles.proGateIconWrap}>
+            <Ionicons name="analytics" size={36} color={colors.primary} />
+          </View>
+          <Text style={styles.proGateTitle}>Analytics - Pro Feature</Text>
+          <Text style={styles.proGateBody}>
+            Unlock 1RM tracking, weekly volume charts, personal records, bodyweight trends, and CSV export with GainTrack Pro.
+          </Text>
+          <TouchableOpacity style={styles.proGateBtn} activeOpacity={0.85}>
+            <Ionicons name="flash" size={16} color={colors.background} />
+            <Text style={styles.proGateBtnText}>Upgrade to Pro - $4.99 / yr</Text>
+          </TouchableOpacity>
+          <Text style={styles.proGateNote}>Cancel anytime - All future features included</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {activeTab === '1rm' && (
+            <View>
+              <ExerciseSelector />
+              {hasData(oneRMChart) ? (
+                <View style={styles.chartCard}>
+                  <Text style={styles.cardTitle}>Estimated 1RM</Text>
+                  <Text style={styles.cardSubtitle}>Brzycki formula - last 10 sessions</Text>
+                  <LineChart
+                    data={{ labels: oneRMChart.labels, datasets: [{ data: oneRMChart.data, strokeWidth: 2 }] }}
+                    width={SCREEN_W - 48}
+                    height={200}
+                    chartConfig={CHART_CFG}
+                    bezier
+                    withShadow={false}
+                    style={styles.chart}
+                    yAxisSuffix=" kg"
+                    formatYLabel={(y) => String(Math.round(Number(y)))}
+                  />
+                  <View style={styles.statRow}>
+                    <StatBox label="Best 1RM" value={Math.max(...oneRMChart.data) + ' kg'} />
+                    <StatBox label="Latest" value={oneRMChart.data[oneRMChart.data.length - 1] + ' kg'} />
+                    <StatBox
+                      label="Change"
+                      value={(oneRMChart.data[oneRMChart.data.length - 1] >= oneRMChart.data[0] ? '+' : '') + (oneRMChart.data[oneRMChart.data.length - 1] - oneRMChart.data[0]) + ' kg'}
+                      valueColor={oneRMChart.data[oneRMChart.data.length - 1] >= oneRMChart.data[0] ? colors.success : colors.error}
+                    />
+                  </View>
+                </View>
+              ) : (
+                <EmptyState icon="bar-chart-outline" title={'No data for ' + (selectedExercise || 'this exercise')} subtitle="Log workouts with this exercise to see your 1RM trend" />
+              )}
+            </View>
+          )}
+
+          {activeTab === 'volume' && (
+            <View>
+              <ExerciseSelector />
+              {hasData(volumeChart) ? (
+                <View style={styles.chartCard}>
+                  <Text style={styles.cardTitle}>Weekly Volume Load</Text>
+                  <Text style={styles.cardSubtitle}>{selectedExercise || 'All exercises'} - sets x reps x weight</Text>
+                  <BarChart
+                    data={{ labels: volumeChart.labels, datasets: [{ data: volumeChart.data }] }}
+                    width={SCREEN_W - 48}
+                    height={200}
+                    chartConfig={CHART_CFG}
+                    style={styles.chart}
+                    yAxisLabel=""
+                    yAxisSuffix=" kg"
+                    fromZero
+                    showValuesOnTopOfBars={false}
+                    withInnerLines
+                  />
+                  <View style={styles.statRow}>
+                    <StatBox label="Avg / week" value={Math.round(volumeChart.data.reduce((a, b) => a + b, 0) / volumeChart.data.length) + ' kg'} />
+                    <StatBox label="Peak week" value={Math.max(...volumeChart.data) + ' kg'} />
+                    <StatBox label="Total" value={volumeChart.data.reduce((a, b) => a + b, 0) + ' kg'} />
+                  </View>
+                </View>
+              ) : (
+                <EmptyState icon="bar-chart-outline" title="No volume data yet" subtitle="Complete workouts to track your weekly training volume" />
+              )}
+            </View>
+          )}
+
+          {activeTab === 'prs' && (
+            <View>
+              <Text style={styles.sectionTitle}>Personal Records</Text>
+              <Text style={styles.sectionSubtitle}>Best estimated 1RM per exercise, all time</Text>
+              {prList.length === 0 ? (
+                <EmptyState icon="trophy-outline" title="No PRs recorded yet" subtitle="Complete your first workout to set personal records" />
+              ) : (
+                prList.map((pr, idx) => (
+                  <View key={pr.exerciseName} style={styles.prRow}>
+                    <View style={styles.prRankBadge}>
+                      <Text style={styles.prRankText}>{'#' + (idx + 1)}</Text>
+                    </View>
+                    <View style={styles.prInfo}>
+                      <Text style={styles.prName}>{pr.exerciseName}</Text>
+                      <Text style={styles.prDetail}>{pr.weight + ' kg x ' + pr.reps + ' rep' + (pr.reps !== 1 ? 's' : '') + ' - ' + shortDate(pr.date)}</Text>
+                    </View>
+                    <View style={styles.prBadge}>
+                      <Text style={styles.prBadgeValue}>{pr.oneRM}</Text>
+                      <Text style={styles.prBadgeUnit}>kg</Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+
+          {activeTab === 'bodyweight' && (
+            <View>
+              <Text style={styles.sectionTitle}>Bodyweight</Text>
+              {hasData(bwChart) ? (
+                <View style={styles.chartCard}>
+                  <Text style={styles.cardTitle}>Weight Trend</Text>
+                  <Text style={styles.cardSubtitle}>Last 12 entries</Text>
+                  <LineChart
+                    data={{ labels: bwChart.labels, datasets: [{ data: bwChart.data, strokeWidth: 2 }] }}
+                    width={SCREEN_W - 48}
+                    height={200}
+                    chartConfig={CHART_CFG}
+                    bezier
+                    withShadow={false}
+                    style={styles.chart}
+                    yAxisSuffix=" kg"
+                    formatYLabel={(y) => String(Math.round(Number(y)))}
+                  />
+                  <View style={styles.statRow}>
+                    <StatBox label="Current" value={bwChart.data[bwChart.data.length - 1] + ' kg'} />
+                    <StatBox label="Lowest" value={Math.min(...bwChart.data) + ' kg'} />
+                    <StatBox
+                      label="Change"
+                      value={(bwChart.data[bwChart.data.length - 1] >= bwChart.data[0] ? '+' : '') + Math.round((bwChart.data[bwChart.data.length - 1] - bwChart.data[0]) * 10) / 10 + ' kg'}
+                      valueColor={bwChart.data[bwChart.data.length - 1] <= bwChart.data[0] ? colors.success : colors.error}
+                    />
+                  </View>
+                </View>
+              ) : (
+                <EmptyState icon="scale-outline" title="No bodyweight data" subtitle="Log measurements to track your weight over time" />
+              )}
+              {measurements.length > 0 && (
+                <View style={styles.bwListCard}>
+                  <Text style={styles.cardTitle}>Recent Entries</Text>
+                  {[...measurements].reverse().slice(0, 10).map((m, i) => {
+                    const bw = getBW(m);
+                    if (!bw) return null;
+                    return (
+                      <View key={i} style={[styles.bwRow, i === 0 ? { marginTop: 8 } : undefined]}>
+                        <Text style={styles.bwDate}>{new Date(m.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
+                        <Text style={styles.bwWeight}>{bw} kg</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
           )}
         </ScrollView>
       )}
+
+      <Modal visible={showPicker} animationType="slide" transparent onRequestClose={() => setShowPicker(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowPicker(false)}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Select Exercise</Text>
+            {allExerciseNames.length === 0 ? (
+              <Text style={styles.emptyTitle}>No exercises in workout history yet</Text>
+            ) : (
+              <FlatList
+                data={allExerciseNames}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.pickerRow, item === selectedExercise && styles.pickerRowActive]}
+                    onPress={() => { setSelectedExercise(item); setShowPicker(false); }}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.pickerRowText, item === selectedExercise && styles.pickerRowTextActive]}>{item}</Text>
+                    {item === selectedExercise && <Ionicons name="checkmark" size={18} color={colors.primary} />}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-const simpleChartStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    height: 160,
-    paddingTop: 20,
-  },
-  barContainer: {
-    alignItems: 'center',
-  },
-  barWrapper: {
-    height: 120,
-    justifyContent: 'flex-end',
-  },
-  bar: {
-    width: 20,
-    borderRadius: 4,
-    minHeight: 4,
-  },
-  label: {
-    color: '#6B7280',
-    fontSize: 10,
-    marginTop: 4,
-  },
-});
-
-const nutritionStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    height: 160,
-    paddingTop: 20,
-  },
-  dayContainer: {
-    alignItems: 'center',
-  },
-  barsWrapper: {
-    flexDirection: 'row',
-    height: 120,
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  barBackground: {
-    width: 16,
-    height: 120,
-    backgroundColor: '#374151',
-    borderRadius: 4,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
-  },
-  barFill: {
-    width: '100%',
-    borderRadius: 4,
-  },
-  label: {
-    color: '#6B7280',
-    fontSize: 10,
-    marginTop: 4,
-  },
-});
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#111827',
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+  loadingText: { color: colors.textSecondary, fontSize: typography.fontSize.base },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFFFFF',
+  headerTitle: { fontSize: typography.fontSize['2xl'], fontWeight: typography.fontWeight.bold, color: colors.textPrimary },
+  exportBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[1],
+    backgroundColor: colors.charcoal, paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+    borderRadius: radii.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
   },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
+  exportBtnDim: { opacity: 0.8 },
+  exportBtnText: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.semibold, color: colors.textPrimary },
+  miniProBadge: { backgroundColor: colors.primary, paddingHorizontal: 4, paddingVertical: 2, borderRadius: radii.sm },
+  miniProBadgeText: { fontSize: 9, fontWeight: typography.fontWeight.extrabold, color: colors.background, letterSpacing: 0.4 },
+  tabBar: {
+    flexDirection: 'row', backgroundColor: colors.charcoal,
+    marginHorizontal: spacing[4], marginTop: spacing[3], marginBottom: spacing[3],
+    borderRadius: radii.md, padding: 3,
   },
-  aiButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#10B98120',
-    justifyContent: 'center',
-    alignItems: 'center',
+  tabItem: { flex: 1, paddingVertical: spacing[2], borderRadius: radii.sm, alignItems: 'center' },
+  tabItemActive: { backgroundColor: colors.surface },
+  tabLabel: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.medium, color: colors.textSecondary },
+  tabLabelActive: { color: colors.primary, fontWeight: typography.fontWeight.semibold },
+  proGate: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing[8], gap: spacing[4] },
+  proGateIconWrap: { width: 72, height: 72, borderRadius: radii.full, backgroundColor: colors.primaryMuted, justifyContent: 'center', alignItems: 'center' },
+  proGateTitle: { fontSize: typography.fontSize.xl, fontWeight: typography.fontWeight.bold, color: colors.textPrimary, textAlign: 'center' },
+  proGateBody: { fontSize: typography.fontSize.base, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+  proGateBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], backgroundColor: colors.primary, paddingHorizontal: spacing[8], paddingVertical: spacing[4], borderRadius: radii.full, marginTop: spacing[2] },
+  proGateBtnText: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.bold, color: colors.background },
+  proGateNote: { fontSize: typography.fontSize.xs, color: colors.textDisabled, textAlign: 'center' },
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: spacing[4], paddingBottom: spacing[10] },
+  exerciseSelector: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: colors.surface, borderRadius: radii.md,
+    paddingHorizontal: spacing[4], paddingVertical: spacing[3],
+    marginBottom: spacing[4], borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
   },
-  tabSelector: {
-    flexDirection: 'row',
-    marginHorizontal: 20,
-    marginVertical: 12,
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-    padding: 4,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6,
-  },
-  activeTab: {
-    backgroundColor: '#10B981',
-  },
-  tabText: {
-    color: '#6B7280',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  activeTabText: {
-    color: '#FFFFFF',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  chartCard: {
-    backgroundColor: '#1F2937',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-  },
-  chartTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  chartSubtitle: {
-    color: '#6B7280',
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  emptyChart: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyChartText: {
-    color: '#6B7280',
-    fontSize: 14,
-    marginTop: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#1F2937',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-  },
-  statValue: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: '800',
-    marginTop: 8,
-  },
-  statLabel: {
-    color: '#6B7280',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  goalCard: {
-    backgroundColor: '#1F2937',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 12,
-  },
-  goalTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  goalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  goalItem: {
-    alignItems: 'center',
-  },
-  goalDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  goalLabel: {
-    color: '#6B7280',
-    fontSize: 12,
-  },
-  goalValue: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 4,
-  },
+  exerciseSelectorText: { flex: 1, color: colors.textPrimary, fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.medium },
+  chartCard: { backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing[4], marginBottom: spacing[4] },
+  cardTitle: { fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.semibold, color: colors.textPrimary, marginBottom: 2 },
+  cardSubtitle: { fontSize: typography.fontSize.xs, color: colors.textSecondary, marginBottom: spacing[4] },
+  chart: { borderRadius: radii.md, marginLeft: -spacing[3] },
+  statRow: { flexDirection: 'row', marginTop: spacing[4], gap: spacing[2] },
+  statBox: { flex: 1, backgroundColor: colors.charcoal, borderRadius: radii.md, padding: spacing[3], alignItems: 'center' },
+  statBoxValue: { fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.bold, color: colors.textPrimary },
+  statBoxLabel: { fontSize: typography.fontSize.xs, color: colors.textSecondary, marginTop: 2 },
+  sectionTitle: { fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.semibold, color: colors.textPrimary, marginBottom: 2 },
+  sectionSubtitle: { fontSize: typography.fontSize.xs, color: colors.textSecondary, marginBottom: spacing[4] },
+  prRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], backgroundColor: colors.surface, borderRadius: radii.lg, paddingHorizontal: spacing[4], paddingVertical: spacing[3], marginBottom: spacing[2] },
+  prRankBadge: { width: 34, height: 34, borderRadius: radii.full, backgroundColor: colors.primaryMuted, alignItems: 'center', justifyContent: 'center' },
+  prRankText: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.bold, color: colors.primary },
+  prInfo: { flex: 1, minWidth: 0 },
+  prName: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold, color: colors.textPrimary },
+  prDetail: { fontSize: typography.fontSize.xs, color: colors.textSecondary, marginTop: 2 },
+  prBadge: { backgroundColor: colors.primary, borderRadius: radii.full, paddingHorizontal: spacing[3], paddingVertical: spacing[1], alignItems: 'center', minWidth: 60 },
+  prBadgeValue: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.extrabold, color: colors.background, lineHeight: 20 },
+  prBadgeUnit: { fontSize: 9, fontWeight: typography.fontWeight.medium, color: colors.background },
+  bwListCard: { backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing[4], marginTop: spacing[2] },
+  bwRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing[3], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
+  bwDate: { fontSize: typography.fontSize.base, color: colors.textSecondary },
+  bwWeight: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold, color: colors.textPrimary },
+  emptyCard: { backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing[10], alignItems: 'center', gap: spacing[2], marginBottom: spacing[4] },
+  emptyTitle: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.medium, color: colors.textSecondary, textAlign: 'center' },
+  emptySubtitle: { fontSize: typography.fontSize.sm, color: colors.textDisabled, textAlign: 'center', lineHeight: 20 },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlay },
+  modalSheet: { backgroundColor: colors.surface, borderTopLeftRadius: radii['2xl'], borderTopRightRadius: radii['2xl'], padding: spacing[4], maxHeight: '72%' },
+  modalHandle: { width: 36, height: 4, backgroundColor: colors.border, borderRadius: radii.full, alignSelf: 'center', marginBottom: spacing[4] },
+  modalTitle: { fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.semibold, color: colors.textPrimary, marginBottom: spacing[3] },
+  pickerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing[3], paddingHorizontal: spacing[2], borderRadius: radii.md },
+  pickerRowActive: { backgroundColor: colors.primaryMuted },
+  pickerRowText: { fontSize: typography.fontSize.base, color: colors.textPrimary },
+  pickerRowTextActive: { color: colors.primary, fontWeight: typography.fontWeight.semibold },
 });

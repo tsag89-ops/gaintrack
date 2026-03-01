@@ -1,13 +1,42 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Food, Exercise } from '../types';
+import { Food, Exercise, Workout } from '../types';
 import { seedFoods } from '../data/seedData';
 import { EXERCISES } from '../constants/exercises';
+import {
+  saveWorkout as fsSaveWorkout,
+  saveExercise as fsSaveExercise,
+  syncProgress as fsSyncProgress,
+  ProgressEntry,
+} from './firestore'; // [PRO]
 
 const FOODS_KEY            = 'foods';
 const EXERCISES_KEY        = 'exercises';
+const WORKOUTS_KEY         = 'workouts';
 const RECENTLY_USED_KEY    = 'recently_used_exercises';   // string[] of exercise ids
 const FAVORITES_KEY        = 'favorite_exercises';        // string[] of exercise ids
 const RECENTLY_USED_LIMIT  = 20;
+const PRO_STATUS_KEY       = 'gaintrack_pro_status';
+const USER_KEY             = 'user';
+
+// ─── Helpers (non-hook context) ───────────────────────────────────────────────
+
+/** Reads the stored Pro status without requiring a hook. */
+const _isPro = async (): Promise<boolean> => {
+  const val = await AsyncStorage.getItem(PRO_STATUS_KEY);
+  return val === 'true';
+};
+
+/** Reads the stored user id without requiring a hook. */
+const _getUserId = async (): Promise<string | null> => {
+  const raw = await AsyncStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    const user = JSON.parse(raw) as { id?: string; user_id?: string };
+    return user.id ?? user.user_id ?? null;
+  } catch {
+    return null;
+  }
+};
 
 // ─── Seed ────────────────────────────────────────────────────────────────────
 
@@ -89,5 +118,102 @@ export const getFavoriteExercises = async (): Promise<Exercise[]> => {
   const all = await getExercises();
   const map: Record<string, Exercise> = Object.fromEntries(all.map((ex) => [ex.id, ex]));
   return ids.map((id) => map[id]).filter(Boolean);
+};
+
+// ─── Workouts ─────────────────────────────────────────────────────────────────
+
+/** Returns all locally stored workouts, newest first. */
+export const getWorkoutsLocal = async (): Promise<Workout[]> => {
+  const data = await AsyncStorage.getItem(WORKOUTS_KEY);
+  return data ? JSON.parse(data) : [];
+};
+
+/**
+ * Saves a workout to AsyncStorage and, if the user is Pro, syncs it to
+ * Firestore in the background (fire-and-forget — never blocks the UI).
+ * [PRO] Firestore sync
+ */
+export const saveWorkout = async (workout: Workout): Promise<void> => {
+  const existing = await getWorkoutsLocal();
+  const idx = existing.findIndex((w) => w.workout_id === workout.workout_id);
+  const updated =
+    idx >= 0
+      ? existing.map((w) => (w.workout_id === workout.workout_id ? workout : w))
+      : [workout, ...existing];
+  await AsyncStorage.setItem(WORKOUTS_KEY, JSON.stringify(updated));
+
+  // [PRO] background Firestore sync
+  const [pro, userId] = await Promise.all([_isPro(), _getUserId()]);
+  if (pro && userId) {
+    fsSaveWorkout(userId, workout).catch((err) =>
+      console.warn('[Storage] Firestore saveWorkout sync error:', err),
+    );
+  }
+};
+
+/**
+ * Deletes a workout from AsyncStorage by id.
+ * No Firestore delete — soft-delete pattern keeps cloud history intact.
+ */
+export const deleteWorkout = async (workoutId: string): Promise<void> => {
+  const existing = await getWorkoutsLocal();
+  const updated = existing.filter((w) => w.workout_id !== workoutId);
+  await AsyncStorage.setItem(WORKOUTS_KEY, JSON.stringify(updated));
+};
+
+// ─── Custom Exercise write (with Firestore sync) ──────────────────────────────
+
+/**
+ * Persists a custom exercise to AsyncStorage and syncs to Firestore if Pro.
+ * [PRO] Firestore sync
+ */
+export const saveCustomExercise = async (exercise: Exercise): Promise<void> => {
+  const existing = await getExercises();
+  const id = exercise.exercise_id || exercise.id;
+  const idx = existing.findIndex((ex) => (ex.exercise_id || ex.id) === id);
+  const updated =
+    idx >= 0
+      ? existing.map((ex) => ((ex.exercise_id || ex.id) === id ? exercise : ex))
+      : [exercise, ...existing];
+  await AsyncStorage.setItem(EXERCISES_KEY, JSON.stringify(updated));
+
+  // [PRO] background Firestore sync
+  const [pro, userId] = await Promise.all([_isPro(), _getUserId()]);
+  if (pro && userId) {
+    fsSaveExercise(userId, exercise).catch((err) =>
+      console.warn('[Storage] Firestore saveExercise sync error:', err),
+    );
+  }
+};
+
+// ─── Progress write (with Firestore sync) ─────────────────────────────────────
+
+/**
+ * Saves a progress entry to AsyncStorage and syncs to Firestore if Pro.
+ * Keyed by entry.date (ISO string). [PRO] Firestore sync
+ */
+export const saveProgress = async (entry: ProgressEntry): Promise<void> => {
+  const raw = await AsyncStorage.getItem('progress');
+  const existing: ProgressEntry[] = raw ? JSON.parse(raw) : [];
+  const idx = existing.findIndex((p) => p.date === entry.date);
+  const updated =
+    idx >= 0
+      ? existing.map((p) => (p.date === entry.date ? { ...p, ...entry } : p))
+      : [entry, ...existing];
+  await AsyncStorage.setItem('progress', JSON.stringify(updated));
+
+  // [PRO] background Firestore sync
+  const [pro, userId] = await Promise.all([_isPro(), _getUserId()]);
+  if (pro && userId) {
+    fsSyncProgress(userId, entry).catch((err) =>
+      console.warn('[Storage] Firestore syncProgress error:', err),
+    );
+  }
+};
+
+/** Reads all locally stored progress entries. */
+export const getProgressLocal = async (): Promise<ProgressEntry[]> => {
+  const raw = await AsyncStorage.getItem('progress');
+  return raw ? JSON.parse(raw) : [];
 };
 

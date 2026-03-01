@@ -1,7 +1,12 @@
 // frontend/app/config/firebase.ts
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  Firestore,
+} from 'firebase/firestore';
 
 // TODO: Replace these with your real values from Firebase console
 // (we'll grab them together in the next step)
@@ -18,14 +23,20 @@ let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 
-if (!firebaseConfig.apiKey) {
+if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'YOUR_API_KEY_HERE') {
   console.warn(
-    '[Firebase] Missing config – add your keys in app/config/firebase.ts',
+    '[Firebase] Missing config – add your keys in src/config/firebase.ts',
   );
 } else {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
-  db = getFirestore(app);
+  // Persistent local cache enables offline reads/writes — queued until network
+  // re-connect. Uses IndexedDB on web, SQLite-backed on native via the SDK. [PRO]
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  });
 }
 
 export { app, auth, db };
