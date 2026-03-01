@@ -1,47 +1,50 @@
 import React, { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { useAuthStore } from '../src/store/authStore';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useNativeAuthState } from '../src/hooks/useAuth';
 import { AuthProvider } from '../src/context/AuthContext';
 import { ThemeProvider } from '../src/constants/ThemeProvider';
-import { theme } from '../src/constants/theme';
+import AuthSplash from '../src/components/AuthSplash';
+import { initRevenueCat } from '../src/services/revenueCat'; // [PRO]
 
 // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
 
 export default function RootLayout() {
-  const { isLoading, isAuthenticated, user, loadStoredAuth } = useAuthStore();
+  const { status } = useNativeAuthState();
   const segments = useSegments();
   const router = useRouter();
 
+  // [PRO] Initialise RevenueCat once on app start (anonymous session).
+  // The API key is read from EXPO_PUBLIC_REVENUECAT_API_KEY in your .env file.
+  // A userId is NOT passed here — RevenueCat generates an anonymous ID.
+  // To link purchases to a logged-in user, call identifyUser(userId) from
+  // src/services/revenueCat.ts after authentication succeeds.
   useEffect(() => {
-    console.log('[RootLayout] Auth state:', { isLoading, isAuthenticated, user });
-  }, [isLoading, isAuthenticated, user]);
-
-  useEffect(() => {
-    loadStoredAuth();
+    initRevenueCat();
   }, []);
 
   useEffect(() => {
-    if (isLoading) return;
+    // While the bridge is resolving, hold — never redirect on 'loading'.
+    if (status === 'loading') return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
-    if (!isAuthenticated && !inAuthGroup) {
+    if (status === 'unauthenticated' && !inAuthGroup) {
       router.replace('/login');
-    } else if (isAuthenticated && inAuthGroup) {
+    } else if (status === 'authenticated' && inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [isLoading, isAuthenticated, segments]);
+  }, [status, segments]);
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <ThemeProvider>
       <AuthProvider>
         <StatusBar style="light" />
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={theme.primary} />
-          </View>
+        {status === 'loading' ? (
+          // Hold on the splash/loader so neither stack flashes during bridge init
+          <AuthSplash />
         ) : (
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(auth)" />
@@ -53,18 +56,12 @@ export default function RootLayout() {
             <Stack.Screen name="progression" options={{ presentation: 'card' }} />
             <Stack.Screen name="measurements" options={{ presentation: 'card' }} />
             <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
+            <Stack.Screen name="pro-paywall" options={{ presentation: 'modal', headerShown: false }} />
           </Stack>
         )}
       </AuthProvider>
     </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
-const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: theme.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});

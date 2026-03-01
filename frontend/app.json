@@ -61,8 +61,7 @@
         }
       ],
       "@react-native-firebase/app",
-      "@react-native-firebase/auth",
-      "expo-auth-session"
+      "@react-native-firebase/auth"
     ],
     "experiments": {
       "typedRoutes": true
@@ -71,14 +70,14 @@
       "eas": {
         "projectId": "2b97fb07-e614-4bd8-99f3-5cd57476a980"
       },
-      "googleWebClientId": "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+      "googleWebClientId": "YO735512337922-36kntbp5us1lemkagqq64i7n81cd54j9.apps.googleusercontent.com"
     },
     "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/2b97fb07-e614-4bd8-99f3-5cd57476a980"
+    },
+    "cli": {
+      "appVersionSource": "remote"
     }
-  },
-  "cli": {
-    "appVersionSource": "remote"
   }
 }

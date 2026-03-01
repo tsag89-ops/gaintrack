@@ -12,7 +12,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { exerciseApiExtended as exerciseApi, workoutApi } from '../../src/services/api';
+import { exerciseApiExtended as exerciseApi } from '../../src/services/api';
+import { useWorkoutStore } from '../../src/store/workoutStore';
+import { useNativeAuthState } from '../../src/hooks/useAuth';
 import { Exercise, WorkoutExercise, WorkoutSet } from '../../src/types';
 import { getCategoryColor } from '../../src/utils/helpers';
 import { SetLoggerSheet } from '../../src/components/SetLoggerSheet';
@@ -23,6 +25,8 @@ const CATEGORIES = ['all', 'chest', 'back', 'shoulders', 'legs', 'arms', 'core']
 
 export default function NewWorkoutScreen() {
   const router = useRouter();
+  const { createWorkout } = useWorkoutStore();
+  const { uid } = useNativeAuthState();
   const [workoutName, setWorkoutName] = useState('Workout');
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
@@ -138,10 +142,14 @@ export default function NewWorkoutScreen() {
       Alert.alert('Error', 'Please add at least one exercise');
       return;
     }
+    if (!uid) {
+      Alert.alert('Error', 'Not signed in. Please log in and try again.');
+      return;
+    }
 
     try {
       setIsSaving(true);
-      await workoutApi.createWorkout({
+      await createWorkout(uid, {
         name: workoutName,
         exercises,
         date: new Date().toISOString(),

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,19 +11,24 @@ import {
   Modal,
   ScrollView,
   FlatList,
+  Animated,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
+import { Swipeable } from 'react-native-gesture-handler';
+import * as Haptics from 'expo-haptics';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { WorkoutExercise, WorkoutSet } from '../../src/types';
 import { ExerciseVideo } from '../../src/components/ExerciseVideo';
+import { useNativeAuthState } from '../../src/hooks/useAuth';
 
 const REST_SECONDS = 90;
 
 const ActiveWorkoutScreen: React.FC = () => {
   const router = useRouter();
-  const { currentWorkout, updateExerciseInWorkout, setCurrentWorkout } = useWorkoutStore();
+  const { currentWorkout, updateExerciseInWorkout, setCurrentWorkout, createWorkout } = useWorkoutStore();
+  const { uid } = useNativeAuthState();
   const [exerciseList, setExerciseList] = useState(currentWorkout?.exercises || []);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [search, setSearch] = useState('');
@@ -50,6 +55,14 @@ const ActiveWorkoutScreen: React.FC = () => {
   const [restTime, setRestTime] = useState(0);
   const [activeRest, setActiveRest] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Undo-delete state
+  type DeletedItem = { exercise: any; index: number };
+  const [pendingDelete, setPendingDelete] = useState<DeletedItem | null>(null);
+  const [undoCountdown, setUndoCountdown] = useState(0);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const undoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const toastAnim = useRef(new Animated.Value(0)).current;
 
 
   // Modal state for exercise video/instructions
@@ -93,10 +106,87 @@ const ActiveWorkoutScreen: React.FC = () => {
     setExerciseList(updated);
   };
 
-  // Remove an exercise
+  // Swipeable refs — keyed by exercise_id
+  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
+
+  // Show undo toast animation
+  const showToast = () => {
+    Animated.spring(toastAnim, { toValue: 1, useNativeDriver: true, speed: 20 }).start();
+  };
+  const hideToast = () => {
+    Animated.timing(toastAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() =>
+      setPendingDelete(null)
+    );
+  };
+
+  // Clear any pending undo timers
+  const clearUndoTimers = () => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    if (undoIntervalRef.current) clearInterval(undoIntervalRef.current);
+  };
+
+  // Stage a delete — actual removal committed after 5 s
   const removeExercise = (exerciseId: string) => {
-    const updated = exerciseList.filter((ex) => ex.exercise_id !== exerciseId);
-    setExerciseList(updated);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    swipeableRefs.current.get(exerciseId)?.close();
+
+    const index = exerciseList.findIndex((ex) => ex.exercise_id === exerciseId);
+    const exercise = exerciseList[index];
+    if (!exercise) return;
+
+    // Visually remove immediately
+    setExerciseList((prev) => prev.filter((ex) => ex.exercise_id !== exerciseId));
+
+    // Cancel any previous pending delete
+    clearUndoTimers();
+    hideToast();
+
+    // Stage new pending delete
+    setPendingDelete({ exercise, index });
+    setUndoCountdown(5);
+    showToast();
+
+    undoIntervalRef.current = setInterval(() => {
+      setUndoCountdown((c) => c - 1);
+    }, 1000);
+
+    undoTimerRef.current = setTimeout(() => {
+      clearUndoTimers();
+      swipeableRefs.current.delete(exerciseId);
+      hideToast();
+    }, 5000);
+  };
+
+  // Restore the staged exercise
+  const handleUndo = () => {
+    if (!pendingDelete) return;
+    clearUndoTimers();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setExerciseList((prev) => {
+      const next = [...prev];
+      next.splice(pendingDelete.index, 0, pendingDelete.exercise);
+      return next;
+    });
+    hideToast();
+  };
+
+  const renderDeleteAction = (exerciseId: string, dragX: Animated.AnimatedInterpolation<number>) => {
+    const scale = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [1, 0.5],
+      extrapolate: 'clamp',
+    });
+    return (
+      <TouchableOpacity
+        style={styles.swipeDeleteAction}
+        onPress={() => removeExercise(exerciseId)}
+        activeOpacity={0.8}
+      >
+        <Animated.Text style={[styles.swipeDeleteText, { transform: [{ scale }] }]}>
+          🗑 Delete
+        </Animated.Text>
+      </TouchableOpacity>
+    );
   };
 
   // Update a set's values
@@ -112,15 +202,17 @@ const ActiveWorkoutScreen: React.FC = () => {
     setExerciseList(updated);
   };
 
-  // Finish workout: save to AsyncStorage and Firestore
+  // Finish workout: save to Firestore [PRO]
   const finishWorkout = async () => {
     if (!currentWorkout) return;
+    if (!uid) {
+      Alert.alert('Not signed in', 'Please log in to save workouts.');
+      return;
+    }
     setSaving(true);
     try {
       const updatedWorkout = { ...currentWorkout, exercises: exerciseList };
-      await workoutApi.createWorkout(updatedWorkout);
-      // [PRO] Save to Firestore here
-      // await saveWorkoutToFirestore(updatedWorkout);
+      await createWorkout(uid, updatedWorkout);
       Alert.alert('Workout saved!');
       setCurrentWorkout(null);
       router.replace('/');
@@ -185,12 +277,15 @@ const ActiveWorkoutScreen: React.FC = () => {
         onDragEnd={({ data }) => setExerciseList(data)}
         keyExtractor={(item) => item.exercise_id}
         renderItem={({ item, drag, isActive }: RenderItemParams<any>) => (
+          <Swipeable
+            ref={(ref) => { swipeableRefs.current.set(item.exercise_id, ref); }}
+            renderRightActions={(_, dragX) => renderDeleteAction(item.exercise_id, dragX)}
+            rightThreshold={40}
+            overshootRight={false}
+          >
           <View style={[styles.exerciseCard, isActive && { opacity: 0.8 }]}> 
             <TouchableOpacity onLongPress={drag} onPress={() => { setModalExercise(item); setModalVisible(true); }}>
               <Text style={styles.exerciseName}>{item.exercise_name}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.removeBtn} onPress={() => removeExercise(item.exercise_id)}>
-              <Text style={styles.removeBtnText}>Remove</Text>
             </TouchableOpacity>
             <FlatList
               data={item.sets}
@@ -237,6 +332,7 @@ const ActiveWorkoutScreen: React.FC = () => {
               <Text style={styles.restTimer}>Rest: {restTime}s</Text>
             )}
           </View>
+          </Swipeable>
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>No exercises added.</Text>}
       />
@@ -267,6 +363,35 @@ const ActiveWorkoutScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Undo-delete toast */}
+      {pendingDelete && (
+        <Animated.View
+          style={[
+            styles.undoToast,
+            {
+              opacity: toastAnim,
+              transform: [{
+                translateY: toastAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [40, 0],
+                }),
+              }],
+            },
+          ]}
+        >
+          <Text style={styles.undoToastText} numberOfLines={1}>
+            “{pendingDelete.exercise.exercise_name}” removed
+          </Text>
+          <View style={styles.undoCountdownBadge}>
+            <Text style={styles.undoCountdownText}>{undoCountdown}</Text>
+          </View>
+          <TouchableOpacity style={styles.undoBtn} onPress={handleUndo} activeOpacity={0.8}>
+            <Text style={styles.undoBtnText}>UNDO</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
     </KeyboardAvoidingView>
   );
 };
@@ -376,20 +501,70 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 40,
   },
-  removeBtn: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
+  swipeDeleteAction: {
     backgroundColor: '#EF4444',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    zIndex: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    borderRadius: 10,
+    marginBottom: 20,
   },
-  removeBtnText: {
+  swipeDeleteText: {
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 13,
+    textAlign: 'center',
+  },
+  undoToast: {
+    position: 'absolute',
+    bottom: 90,
+    left: 16,
+    right: 16,
+    backgroundColor: '#2D2D2D',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF6200',
+  },
+  undoToastText: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  undoCountdownBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: '#FF6200',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  undoCountdownText: {
+    color: '#FF6200',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  undoBtn: {
+    backgroundColor: '#FF6200',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  undoBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
+    letterSpacing: 0.5,
   },
   addExerciseBtn: {
     backgroundColor: '#10B981',

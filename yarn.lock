@@ -7108,14 +7108,14 @@ react-native-is-edge-to-edge@^1.1.6, react-native-is-edge-to-edge@^1.2.1:
 
 react-native-purchases-ui@^9.10.5:
   version "9.10.5"
-  resolved "https://registry.npmjs.org/react-native-purchases-ui/-/react-native-purchases-ui-9.10.5.tgz"
+  resolved "https://registry.yarnpkg.com/react-native-purchases-ui/-/react-native-purchases-ui-9.10.5.tgz#5f7f1003c39149f6582f4dc33c1e74144a68cfcf"
   integrity sha512-vull2ssjJSfCNQ0zM/KanZXm4RIJB4KfzbAvE2O93dRK/T6yK8ggi403NQcTyM9B6oLI9NPEKBR+sMk5koT/ew==
   dependencies:
     "@revenuecat/purchases-typescript-internal" "17.41.1"
 
 react-native-purchases@^9.10.5:
   version "9.10.5"
-  resolved "https://registry.npmjs.org/react-native-purchases/-/react-native-purchases-9.10.5.tgz"
+  resolved "https://registry.yarnpkg.com/react-native-purchases/-/react-native-purchases-9.10.5.tgz#e7b010e229e39dd827162f61164a11110807c196"
   integrity sha512-ofs33aTgdjyjUDZgCtCKYfvl4gBtJrOV77/SXyDzSxTttNjg+8BWGckF3ALfBg69uU65xrXsqfyU3U+Cl86IdQ==
   dependencies:
     "@revenuecat/purchases-js-hybrid-mappings" "17.41.1"

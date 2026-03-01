@@ -17,6 +17,8 @@ import { useAuthStore } from '../../src/store/authStore';
 import { userApi } from '../../src/services/api';
 import { getEquipmentLabel } from '../../src/utils/helpers';
 import { useAuth } from '../../src/hooks/useAuth';
+import { deleteAccount, signOut as nativeSignOut, REQUIRES_RECENT_LOGIN } from '../../src/services/authBridge';
+import { useProStatus } from '../../src/hooks/useProStatus'; // [PRO]
 
 const EQUIPMENT_OPTIONS = [
   { id: 'dumbbells', icon: 'fitness-outline' },
@@ -32,6 +34,9 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, setUser, logout } = useAuthStore();
 
+  // [PRO] Live subscription state from RevenueCat
+  const { isPro, refresh: refreshPro } = useProStatus();
+
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -44,6 +49,54 @@ export default function ProfileScreen() {
 
   // Equipment state
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(user?.equipment || []);
+
+const handleDeleteAccount = async () => {
+  // Step 1: initial confirmation
+  const confirmed = await new Promise<boolean>((resolve) =>
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and all data. This cannot be undone.',
+      [
+        { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
+        { text: 'Delete', onPress: () => resolve(true), style: 'destructive' },
+      ],
+    )
+  );
+  if (!confirmed) return;
+
+  try {
+    await deleteAccount();
+    // onAuthStateChanged fires automatically — no manual navigation needed
+  } catch (error: any) {
+    if (error?.code === REQUIRES_RECENT_LOGIN) {
+      // Step 2: stale-session guard — offer to sign out so user can re-authenticate
+      Alert.alert(
+        'Re-authentication Required',
+        'For security, Firebase requires a recent sign-in before deleting your account. Sign out now, sign back in, and then delete your account.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Sign Out Now',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await nativeSignOut();
+                // onAuthStateChanged navigates to login automatically
+              } catch (signOutErr) {
+                console.error('[Profile] sign-out after re-auth prompt failed:', signOutErr);
+              }
+            },
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Error',
+        error?.message ?? 'Failed to delete account. Please try again.',
+      );
+    }
+  }
+};
 
 const handleLogout = async () => {
   const proceed = Platform.OS === 'web'
@@ -129,6 +182,58 @@ const handleLogout = async () => {
           <Text style={styles.userName}>{user?.name || 'User'}</Text>
           <Text style={styles.userEmail}>{user?.email || ''}</Text>
         </View>
+
+        {/* ── Subscription Section ── [PRO] ──────────────────────────── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Subscription</Text>
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons
+                name={isPro ? 'star' : 'star-outline'}
+                size={22}
+                color={isPro ? '#FF6200' : '#6B7280'}
+              />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>
+                  {isPro ? 'GainTrack Pro' : 'Free Plan'}
+                </Text>
+                {isPro ? (
+                  <Text style={[styles.settingValue, { color: '#FF6200' }]}>
+                    Thanks for supporting GainTrack Pro! 🎉
+                  </Text>
+                ) : (
+                  <Text style={styles.settingValue}>Unlock all features</Text>
+                )}
+              </View>
+            </View>
+            {/* Badge */}
+            <View
+              style={[
+                styles.proBadge,
+                isPro ? styles.proBadgeActive : styles.proBadgeFree,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.proBadgeText,
+                  isPro ? styles.proBadgeTextActive : styles.proBadgeTextFree,
+                ]}
+              >
+                {isPro ? 'PRO' : 'FREE'}
+              </Text>
+            </View>
+          </View>
+          {!isPro && (
+            <TouchableOpacity
+              style={styles.goProButton}
+              onPress={() => router.push('/pro-paywall')}
+            >
+              <Ionicons name="flash" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Text style={styles.goProText}>Go Pro — $4.99 / year</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {/* ──────────────────────────────────────────────────────────────── */}
 
         {/* Body Measurements Section */}
         <View style={styles.section}>
@@ -216,6 +321,15 @@ const handleLogout = async () => {
             <View style={styles.settingLeft}>
               <Ionicons name="log-out-outline" size={22} color="#EF4444" />
               <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Logout</Text>
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.settingItem} onPress={handleDeleteAccount}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="trash-outline" size={22} color="#EF4444" />
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Delete Account</Text>
+                <Text style={styles.settingValue}>Permanently remove your account and data</Text>
+              </View>
             </View>
           </TouchableOpacity>
         </View>
@@ -314,6 +428,23 @@ const styles = StyleSheet.create({
   appInfo: { alignItems: 'center', paddingTop: 32 },
   appName: { color: '#10B981', fontSize: 18, fontWeight: '700' },
   appVersion: { color: '#6B7280', fontSize: 12, marginTop: 4 },
+  // [PRO] Subscription section styles
+  proBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  proBadgeActive: { backgroundColor: '#FF620020', borderWidth: 1, borderColor: '#FF6200' },
+  proBadgeFree: { backgroundColor: '#2D2D2D', borderWidth: 1, borderColor: '#6B7280' },
+  proBadgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
+  proBadgeTextActive: { color: '#FF6200' },
+  proBadgeTextFree: { color: '#6B7280' },
+  goProButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF6200',
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  goProText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#1F2937', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },

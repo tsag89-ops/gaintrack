@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Workout } from '../types';
 import { formatDate, calculateWorkoutVolume, calculateTotalSets, formatVolume } from '../utils/helpers';
@@ -7,13 +8,43 @@ import { formatDate, calculateWorkoutVolume, calculateTotalSets, formatVolume } 
 interface WorkoutCardProps {
   workout: Workout;
   onPress: () => void;
+  /** Optional — when provided, swipe-left reveals a delete action. */
+  onDelete?: () => void;
 }
 
-export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress }) => {
+export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDelete }) => {
   const volume = calculateWorkoutVolume(workout.exercises);
   const totalSets = calculateTotalSets(workout.exercises);
+  const swipeRef = useRef<Swipeable>(null);
 
-  return (
+  const handleDeletePress = () => {
+    swipeRef.current?.close();
+    Alert.alert(
+      'Delete Workout',
+      `Delete "${workout.name}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: onDelete,
+        },
+      ],
+    );
+  };
+
+  const renderRightActions = () => (
+    <TouchableOpacity
+      style={styles.deleteAction}
+      onPress={handleDeletePress}
+      activeOpacity={0.8}
+    >
+      <Ionicons name="trash-outline" size={24} color="#FFFFFF" />
+      <Text style={styles.deleteActionText}>Delete</Text>
+    </TouchableOpacity>
+  );
+
+  const card = (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.header}>
         <View style={styles.dateContainer}>
@@ -57,6 +88,20 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress }) =>
       )}
     </TouchableOpacity>
   );
+
+  if (!onDelete) return card;
+
+  return (
+    <Swipeable
+      ref={swipeRef}
+      renderRightActions={renderRightActions}
+      rightThreshold={60}
+      overshootRight={false}
+      friction={2}
+    >
+      {card}
+    </Swipeable>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -65,6 +110,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
+  },
+  deleteAction: {
+    backgroundColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    borderRadius: 16,
+    marginBottom: 12,
+    gap: 4,
+  },
+  deleteActionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',

@@ -1,20 +1,63 @@
 import { create } from 'zustand';
 import { Workout, WorkoutExercise, WorkoutSet, Exercise } from '../types';
+import {
+  loadUserWorkouts as fsLoadUserWorkouts,
+  createWorkout    as fsCreateWorkout,
+  updateWorkout    as fsUpdateWorkout,
+  deleteWorkout    as fsDeleteWorkout,
+} from '../services/workoutFirestore';
 
 interface WorkoutState {
   workouts: Workout[];
   currentWorkout: Workout | null;
   exercises: Exercise[];
   isLoading: boolean;
-  
+
   setWorkouts: (workouts: Workout[]) => void;
   setCurrentWorkout: (workout: Workout | null) => void;
   setExercises: (exercises: Exercise[]) => void;
   setLoading: (loading: boolean) => void;
-  
+
+  // ── In-workout local mutations (unchanged) ───────────────────────────────
   addExerciseToWorkout: (exercise: WorkoutExercise) => void;
   updateExerciseInWorkout: (exerciseId: string, sets: WorkoutSet[]) => void;
   removeExerciseFromWorkout: (exerciseId: string) => void;
+
+  // ── Firestore CRUD [PRO] ─────────────────────────────────────────────────
+  /**
+   * Fetches the user's workouts from Firestore and stores them in the slice.
+   * Shows isLoading=true while the request is in flight.
+   */
+  loadUserWorkouts: (uid: string, limit?: number) => Promise<void>;
+
+  /**
+   * Persists a new workout to Firestore and prepends it to the local list.
+   * Returns the saved Workout (with Firestore-assigned workout_id).
+   *
+   * TODO: pass optional `templateId` field once template workouts are added.
+   */
+  createWorkout: (
+    uid: string,
+    data: Omit<Workout, 'workout_id' | 'created_at'>,
+  ) => Promise<Workout>;
+
+  /**
+   * Partially updates a workout in Firestore and syncs the local list.
+   *
+   * TODO: add optimistic update + rollback on failure for a snappier UI.
+   */
+  updateWorkout: (
+    uid: string,
+    workoutId: string,
+    updates: Partial<Omit<Workout, 'workout_id' | 'created_at'>>,
+  ) => Promise<void>;
+
+  /**
+   * Deletes a workout from Firestore and removes it from the local list.
+   *
+   * TODO: replace with soft-delete (archived flag) for undo support.
+   */
+  deleteWorkout: (uid: string, workoutId: string) => Promise<void>;
 }
 
 export const useWorkoutStore = create<WorkoutState>((set, get) => ({
@@ -23,10 +66,12 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   exercises: [],
   isLoading: false,
 
-  setWorkouts: (workouts) => set({ workouts }),
-  setCurrentWorkout: (currentWorkout) => set({ currentWorkout }),
-  setExercises: (exercises) => set({ exercises }),
-  setLoading: (isLoading) => set({ isLoading }),
+  setWorkouts:        (workouts)       => set({ workouts }),
+  setCurrentWorkout:  (currentWorkout) => set({ currentWorkout }),
+  setExercises:       (exercises)      => set({ exercises }),
+  setLoading:         (isLoading)      => set({ isLoading }),
+
+  // ── In-workout local mutations ─────────────────────────────────────────
 
   addExerciseToWorkout: (exercise) => {
     const current = get().currentWorkout;
@@ -64,5 +109,41 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         },
       });
     }
+  },
+
+  // ── Firestore CRUD ─────────────────────────────────────────────────────
+
+  loadUserWorkouts: async (uid, limit = 30) => {
+    set({ isLoading: true });
+    try {
+      const workouts = await fsLoadUserWorkouts(uid, limit);
+      set({ workouts, isLoading: false });
+    } catch (err) {
+      console.error('[workoutStore] loadUserWorkouts failed:', err);
+      set({ isLoading: false });
+    }
+  },
+
+  createWorkout: async (uid, data) => {
+    const saved = await fsCreateWorkout(uid, data);
+    // Prepend to local list so the home screen reflects the new entry immediately
+    set((state) => ({ workouts: [saved, ...state.workouts] }));
+    return saved;
+  },
+
+  updateWorkout: async (uid, workoutId, updates) => {
+    await fsUpdateWorkout(uid, workoutId, updates);
+    set((state) => ({
+      workouts: state.workouts.map((w) =>
+        w.workout_id === workoutId ? { ...w, ...updates } : w
+      ),
+    }));
+  },
+
+  deleteWorkout: async (uid, workoutId) => {
+    await fsDeleteWorkout(uid, workoutId);
+    set((state) => ({
+      workouts: state.workouts.filter((w) => w.workout_id !== workoutId),
+    }));
   },
 }));

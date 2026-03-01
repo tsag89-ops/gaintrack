@@ -19,8 +19,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { BarChart } from 'react-native-chart-kit';
 import * as Haptics from 'expo-haptics';
 
-import { workoutApi } from '../../src/services/api';
 import { useWorkoutStore } from '../../src/store/workoutStore';
+import { useNativeAuthState } from '../../src/hooks/useAuth';
 import { useAuthStore } from '../../src/store/authStore';
 import { WorkoutCard } from '../../src/components/WorkoutCard';
 import { Badge } from '../../src/components/ui/Badge';
@@ -83,22 +83,16 @@ function calcStreak(workouts: Workout[]): number {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { workouts, setWorkouts, isLoading, setLoading } = useWorkoutStore();
+  const { workouts, isLoading, loadUserWorkouts, deleteWorkout } = useWorkoutStore();
   const { user } = useAuthStore();
+  const { uid } = useNativeAuthState();
   const [refreshing, setRefreshing] = useState(false);
 
-  // ── Data fetch (keep existing logic intact) ───────────────────────────────
+  // ── Data fetch — Firestore-backed via uid ──────────────────────────────────
   const fetchWorkouts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await workoutApi.getWorkouts();
-      setWorkouts(data);
-    } catch (error) {
-      console.error('[HomeScreen] fetch error:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    if (!uid) return; // not signed in yet; _layout will redirect
+    await loadUserWorkouts(uid);
+  }, [uid, loadUserWorkouts]);
 
   useFocusEffect(
     useCallback(() => {
@@ -137,6 +131,16 @@ export default function HomeScreen() {
   const handleQuickLog = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     router.push('/workout/new');
+  };
+
+  const handleDeleteWorkout = async (workout: Workout) => {
+    if (!uid) return;
+    try {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      await deleteWorkout(uid, workout.workout_id);
+    } catch (err) {
+      console.error('[HomeScreen] delete error:', err);
+    }
   };
 
   const handleWorkoutPress = async (workout: Workout) => {
@@ -278,6 +282,7 @@ export default function HomeScreen() {
           <WorkoutCard
             workout={item}
             onPress={() => handleWorkoutPress(item)}
+            onDelete={() => handleDeleteWorkout(item)}
           />
         )}
         ListHeaderComponent={<ListHeader />}
