@@ -1,4 +1,4 @@
-// frontend/app/context/AuthContext.tsx
+// frontend/src/context/AuthContext.tsx
 import React, {
   createContext,
   useContext,
@@ -6,14 +6,18 @@ import React, {
   useState,
   ReactNode,
 } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { auth } from '../config/firebase';
+import { useGoogleSignIn } from '../hooks/useGoogleSignIn';
+
+type User = FirebaseAuthTypes.User;
 
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
-  // We'll implement this with Google in the next step
   signInWithGoogle: () => Promise<void>;
+  googleLoading: boolean;
+  googleError: string | null;
   signOut: () => Promise<void>;
 };
 
@@ -22,15 +26,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { signInWithGoogle, loading: googleLoading, error: googleError } = useGoogleSignIn();
 
-  // Listen for Firebase auth state changes (will work once config is set)
+  // Listen for Firebase auth state changes
   useEffect(() => {
-    if (!auth) {
-      setLoading(false);
-      return;
-    }
-
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
     });
@@ -38,13 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return unsubscribe;
   }, []);
 
-  const signInWithGoogle = async () => {
-    // NEXT STEP: implement with expo-auth-session/providers/google
-    console.warn('signInWithGoogle not implemented yet');
-  };
-
   const signOutUser = async () => {
-    if (!auth) return;
     await auth.signOut();
   };
 
@@ -54,6 +48,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         loading,
         signInWithGoogle,
+        googleLoading,
+        googleError,
         signOut: signOutUser,
       }}
     >

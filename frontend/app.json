@@ -21,17 +21,14 @@
       }
     },
     "android": {
-      "package": "com.gaintrack.fitness",
+      "package": "com.tsag89ops.gaintrack",
+      "googleServicesFile": "../android/app/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "SCHEDULE_EXACT_ALARM",
-        "POST_NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "SCHEDULE_EXACT_ALARM",
@@ -63,27 +60,25 @@
           "backgroundColor": "#000000"
         }
       ],
-      "@react-native-firebase/app"
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "expo-auth-session"
     ],
     "experiments": {
       "typedRoutes": true
     },
-        "extra": {
+    "extra": {
       "eas": {
         "projectId": "2b97fb07-e614-4bd8-99f3-5cd57476a980"
-      }
+      },
+      "googleWebClientId": "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
     },
     "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/2b97fb07-e614-4bd8-99f3-5cd57476a980"
-    },
-    "android": {
-      "package": "com.tsag89ops.gaintrack",
-      "googleServicesFile": "../android/app/google-services.json"
     }
   },
   "cli": {
     "appVersionSource": "remote"
   }
 }
-

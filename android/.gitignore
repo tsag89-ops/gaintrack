@@ -14,3 +14,8 @@ local.properties
 
 # Bundle artifacts
 *.jsbundle
+
+# Firebase — never commit secrets
+google-services.json
+*.keystore
+!debug.keystore

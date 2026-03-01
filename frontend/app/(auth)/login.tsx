@@ -12,55 +12,89 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { storage } from '../../src/utils/storage';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
+import { auth } from '../../src/config/firebase';
+import { useGoogleSignIn } from '../../src/hooks/useGoogleSignIn';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { setSession } = useAuthStore();
+  const { signInWithGoogle, loading: googleLoading, error: googleError } = useGoogleSignIn();
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = async () => {
-  if (!name.trim() || !email.trim()) {
-    Alert.alert('Missing Info', 'Please enter your name and email to continue.');
-    return;
-  }
-  if (!email.includes('@')) {
-    Alert.alert('Invalid Email', 'Please enter a valid email address.');
-    return;
-  }
-  try {
-    setIsSubmitting(true);
-    const userId = 'user_' + email.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const sessionToken = 'local_token_' + Date.now();
-    const user = {
-      id: userId,
-      user_id: userId,
-      email: email.trim().toLowerCase(),
-      name: name.trim(),
-      picture: null,
-      created_at: new Date().toISOString(),
-      goals: {
-        daily_calories: 2000,
-        protein_grams: 150,
-        carbs_grams: 200,
-        fat_grams: 65,
-        workouts_per_week: 4,
-      },
-      equipment: ['dumbbells', 'barbell', 'pullup_bar'],
-    };
-    await setSession(user, sessionToken); // ✅ setSession saves to storage AND updates state
-    router.replace('/(tabs)');
-  } catch (error) {
-    console.error('Login error:', error);
-    Alert.alert('Error', 'Something went wrong. Please try again.');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  const handleSubmit = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Missing Info', 'Please enter your email and password.');
+      return;
+    }
+    if (mode === 'signup' && !name.trim()) {
+      Alert.alert('Missing Info', 'Please enter your name.');
+      return;
+    }
+    if (password.length < 6) {
+      Alert.alert('Weak Password', 'Password must be at least 6 characters.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      let firebaseUser;
+      if (mode === 'signup') {
+        const cred = await auth.createUserWithEmailAndPassword(
+          email.trim().toLowerCase(),
+          password,
+        );
+        await cred.user.updateProfile({ displayName: name.trim() });
+        firebaseUser = cred.user;
+      } else {
+        const cred = await auth.signInWithEmailAndPassword(
+          email.trim().toLowerCase(),
+          password,
+        );
+        firebaseUser = cred.user;
+      }
+
+      const sessionToken = await firebaseUser.getIdToken();
+      const user = {
+        id: firebaseUser.uid,
+        user_id: firebaseUser.uid,
+        email: firebaseUser.email ?? email.trim().toLowerCase(),
+        name: firebaseUser.displayName ?? name.trim(),
+        picture: firebaseUser.photoURL ?? null,
+        created_at: new Date().toISOString(),
+        goals: {
+          daily_calories: 2000,
+          protein_grams: 150,
+          carbs_grams: 200,
+          fat_grams: 65,
+          workouts_per_week: 4,
+        },
+        equipment: ['dumbbells', 'barbell', 'pullup_bar'],
+      };
+      await setSession(user, sessionToken);
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      console.error('Auth error:', error);
+      const msg: Record<string, string> = {
+        'auth/user-not-found': 'No account found. Switch to Sign Up.',
+        'auth/wrong-password': 'Incorrect password.',
+        'auth/email-already-in-use': 'Email already in use. Sign in instead.',
+        'auth/invalid-email': 'Invalid email address.',
+        'auth/network-request-failed': 'Network error. Check your connection.',
+        'auth/too-many-requests': 'Too many attempts. Try again later.',
+      };
+      Alert.alert('Auth Error', msg[error?.code] ?? error?.message ?? 'Something went wrong.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
 
   return (
@@ -72,7 +106,7 @@ export default function LoginScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <Ionicons name="fitness" size={60} color="#10B981" />
+              <Ionicons name="fitness" size={60} color="#FF6200" />
             </View>
             <Text style={styles.title}>GainTrack</Text>
             <Text style={styles.subtitle}>Your complete fitness companion</Text>
@@ -80,7 +114,7 @@ export default function LoginScreen() {
 
           <View style={styles.features}>
             <View style={styles.featureItem}>
-              <Ionicons name="barbell-outline" size={24} color="#10B981" />
+              <Ionicons name="barbell-outline" size={24} color="#FF6200" />
               <Text style={styles.featureText}>Track workouts & progress</Text>
             </View>
             <View style={styles.featureItem}>
@@ -97,17 +131,41 @@ export default function LoginScreen() {
             </View>
           </View>
 
+          {/* Mode toggle */}
+          <View style={styles.modeToggle}>
+            <TouchableOpacity
+              style={[styles.modeBtn, mode === 'signin' && styles.modeBtnActive]}
+              onPress={() => setMode('signin')}
+            >
+              <Text style={[styles.modeBtnText, mode === 'signin' && styles.modeBtnTextActive]}>
+                Sign In
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeBtn, mode === 'signup' && styles.modeBtnActive]}
+              onPress={() => setMode('signup')}
+            >
+              <Text style={[styles.modeBtnText, mode === 'signup' && styles.modeBtnTextActive]}>
+                Create Account
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.form}>
-            <Text style={styles.formLabel}>Your Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Alex"
-              placeholderTextColor="#6B7280"
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-              autoComplete="name"
-            />
+            {mode === 'signup' && (
+              <>
+                <Text style={styles.formLabel}>Your Name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Alex"
+                  placeholderTextColor="#6B7280"
+                  value={name}
+                  onChangeText={setName}
+                  autoCapitalize="words"
+                  autoComplete="name"
+                />
+              </>
+            )}
             <Text style={styles.formLabel}>Email Address</Text>
             <TextInput
               style={styles.input}
@@ -119,31 +177,80 @@ export default function LoginScreen() {
               autoCapitalize="none"
               autoComplete="email"
             />
+            <Text style={styles.formLabel}>Password</Text>
+            <View style={styles.passwordRow}>
+              <TextInput
+                style={[styles.input, styles.passwordInput]}
+                placeholder="Min. 6 characters"
+                placeholderTextColor="#6B7280"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+              />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowPassword((v) => !v)}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color="#6B7280"
+                />
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
               style={[styles.enterButton, isSubmitting && styles.enterButtonDisabled]}
-              onPress={handleLogin}
+              onPress={handleSubmit}
               disabled={isSubmitting}
             >
               <Ionicons name="arrow-forward-circle" size={22} color="#FFFFFF" />
               <Text style={styles.enterButtonText}>
-                {isSubmitting ? 'Loading...' : 'Enter GainTrack'}
+                {isSubmitting
+                  ? 'Please wait…'
+                  : mode === 'signup'
+                  ? 'Create Account'
+                  : 'Sign In'}
               </Text>
             </TouchableOpacity>
           </View>
 
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Google Sign-In */}
+          <TouchableOpacity
+            style={[styles.googleButton, (googleLoading || isSubmitting) && styles.enterButtonDisabled]}
+            onPress={signInWithGoogle}
+            disabled={googleLoading || isSubmitting}
+          >
+            <Ionicons name="logo-google" size={20} color="#FFFFFF" />
+            <Text style={styles.googleButtonText}>
+              {googleLoading ? 'Signing in…' : 'Continue with Google'}
+            </Text>
+          </TouchableOpacity>
+
+          {googleError ? (
+            <Text style={styles.errorText}>{googleError}</Text>
+          ) : null}
+
           <Text style={styles.terms}>
-            Your data is stored privately on this device only.
+            Your data is synced securely via Firebase.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
   },
   scroll: {
     flexGrow: 1,
@@ -159,7 +266,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 24,
-    backgroundColor: '#10B98120',
+    backgroundColor: '#FF620020',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -172,16 +279,16 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#9CA3AF',
+    color: '#B0B0B0',
   },
   features: {
-    marginBottom: 36,
+    marginBottom: 28,
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    backgroundColor: '#1F2937',
+    marginBottom: 10,
+    backgroundColor: '#252525',
     padding: 14,
     borderRadius: 12,
   },
@@ -190,11 +297,35 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginLeft: 14,
   },
+  modeToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#252525',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+  },
+  modeBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  modeBtnActive: {
+    backgroundColor: '#FF6200',
+  },
+  modeBtnText: {
+    color: '#B0B0B0',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modeBtnTextActive: {
+    color: '#FFFFFF',
+  },
   form: {
     marginBottom: 24,
   },
   formLabel: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 13,
     fontWeight: '600',
     marginBottom: 8,
@@ -203,7 +334,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     color: '#FFFFFF',
     fontSize: 16,
     paddingHorizontal: 16,
@@ -212,12 +343,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#374151',
+    flex: 1,
+  },
+  passwordRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  passwordInput: {
+    marginBottom: 0,
+  },
+  eyeBtn: {
+    position: 'absolute',
+    right: 14,
+    padding: 4,
   },
   enterButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#10B981',
+    backgroundColor: '#FF6200',
     paddingVertical: 16,
     borderRadius: 12,
     gap: 10,
@@ -236,5 +381,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#374151',
+  },
+  dividerText: {
+    color: '#6B7280',
+    fontSize: 13,
+    marginHorizontal: 12,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2D2D2D',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  googleButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  errorText: {
+    color: '#F44336',
+    fontSize: 12,
+    textAlign: 'center',
+    marginBottom: 12,
   },
 });

@@ -1,42 +1,16 @@
-// frontend/app/config/firebase.ts
-import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
-import {
-  initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  Firestore,
-} from 'firebase/firestore';
+// frontend/src/config/firebase.ts
+// Uses @react-native-firebase (native modules) — auto-initialised from
+// google-services.json (Android) / GoogleService-Info.plist (iOS).
+// No manual initializeApp() needed for native modules.
 
-// TODO: Replace these with your real values from Firebase console
-// (we'll grab them together in the next step)
-const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY_HERE',
-  authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT_ID.appspot.com',
-  messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-  appId: 'YOUR_APP_ID',
-};
+import rnFirebaseAuth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import rnFirestore from '@react-native-firebase/firestore';
 
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
+// auth — native Firebase Auth instance
+const auth = rnFirebaseAuth();
 
-if (!firebaseConfig.apiKey || firebaseConfig.apiKey === 'YOUR_API_KEY_HERE') {
-  console.warn(
-    '[Firebase] Missing config – add your keys in src/config/firebase.ts',
-  );
-} else {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  // Persistent local cache enables offline reads/writes — queued until network
-  // re-connect. Uses IndexedDB on web, SQLite-backed on native via the SDK. [PRO]
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager(),
-    }),
-  });
-}
+// db — native Firestore instance [PRO] cloud sync
+const db = rnFirestore();
 
-export { app, auth, db };
+export { auth, db };
+export type { FirebaseAuthTypes };

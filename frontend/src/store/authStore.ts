@@ -49,9 +49,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await storage.removeItem('user');
       await storage.removeItem('sessionToken');
-      if (auth) await auth.signOut();
+      await auth.signOut();
     } catch (e) {
-      console.warn('logout storage error:', e);
+      console.warn('logout error:', e);
     }
     // Force state update synchronously after storage clear
     set(() => ({ user: null, sessionToken: null, isAuthenticated: false, isLoading: false }));
