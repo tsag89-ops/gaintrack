@@ -9,7 +9,7 @@
 
 
 ## AI Model Rules
-- Default model: Claude 3.5 Sonnet (select in Copilot Chat dropdown)
+
 - Fallback model: GPT-4.1 for quick snippets or autocomplete
 - Gemini extension: Only for Firebase/Firestore auth and Android-specific queries
 
@@ -48,8 +48,7 @@ Output: full copy-paste code + npx expo install commands."
 
 ### EAS Build/Deploy Fix
 "Analyze this EAS build error for GainTrack: [paste error log].
-Fix eas.json or app.json as needed.
-Output: corrected file + explanation of change."
+Fix eas.json or app.json as needed."
 
 ### Firebase/Firestore (use Gemini extension)
 "Integrate [Google login / email auth / Firestore sync] into GainTrack Expo app.
@@ -57,8 +56,8 @@ Output: full utils/firebase.ts file + usage example in WorkoutScreen."
 
 ### Debugging
 "Debug this GainTrack component: [paste code].
-Identify: type errors, missing deps, AsyncStorage issues.
-Output: fixed code + explanation."
+Identify: type errors, missing deps, AsyncStorage issues."
+
 
 ### Architecture/Planning
 "Plan the next GainTrack feature: [feature name].
@@ -67,8 +66,8 @@ Output: file tree + starter code scaffold."
 
 ### Refactor
 "Refactor [file path] for GainTrack performance.
-Optimize: useEffect, data fetching, error handling for offline mode.
-Output: full refactored file."
+Optimize: useEffect, data fetching, error handling for offline mode."
+
 
 ## When to Use Each Tool
 - Copilot Chat (GPT-4.1): Expo screens, debugging, architecture, EAS fixes
@@ -109,6 +108,7 @@ Success:        #4CAF50
 Error:          #F44336
 
 ## Code Rules
+
 Always use Expo managed workflow — never eject
 
 Use TypeScript for all files (.tsx / .ts)
@@ -134,6 +134,8 @@ Use expo-haptics for all button presses and interactions
 Use react-native-reanimated for all animations
 
 Auto-calculate 1RM using Brzycki formula: weight * (36 / (37 - reps))
+
+## file structure convention
 
 app/
   (tabs)/
