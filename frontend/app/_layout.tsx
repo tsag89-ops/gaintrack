@@ -5,6 +5,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuthStore } from '../src/store/authStore';
 import { AuthProvider } from '../src/context/AuthContext';
 import { ThemeProvider } from '../src/constants/ThemeProvider';
+import { theme } from '../src/constants/theme';
 
 // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
 
@@ -39,7 +40,7 @@ export default function RootLayout() {
         <StatusBar style="light" />
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#10B981" />
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
         ) : (
           <Stack screenOptions={{ headerShown: false }}>
@@ -62,7 +63,7 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: theme.background,
     justifyContent: 'center',
     alignItems: 'center',
   },

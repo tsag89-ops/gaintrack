@@ -206,3 +206,13 @@ Offline persistence: enabled via enableNetwork / disableNetwork.
 Repo is a monorepo. Root package.json = workspace manager (never install here).
 ALL expo/eas commands must run from /workspaces/gaintrack/frontend only.
 cd /workspaces/gaintrack/frontend is mandatory before every command.
+
+## Token Efficiency Rules
+- Be concise. No preamble, no restating the task back to me.
+- Skip explanations unless I ask "explain why".
+- Output code only — no prose wrapping it unless critical.
+- Never repeat file contents I already provided; reference by filename only.
+- Summarize completed steps in ≤1 sentence, don't list them.
+- If a file is unchanged, say "unchanged" — never re-output it.
+- Prefer diffs over full rewrites when <30% of file changes.
+- Do not add TODO/FIXME comments or placeholder stubs.

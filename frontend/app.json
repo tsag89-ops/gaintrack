@@ -15,6 +15,7 @@
         "NSCameraUsageDescription": "Take progress photos for your fitness journey",
         "NSPhotoLibraryUsageDescription": "Save and share your progress photos",
         "UIBackgroundModes": [
+          "remote-notification",
           "remote-notification"
         ]
       }
@@ -27,6 +28,10 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "SCHEDULE_EXACT_ALARM",
+        "POST_NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "SCHEDULE_EXACT_ALARM",
@@ -66,6 +71,10 @@
       "eas": {
         "projectId": "2b97fb07-e614-4bd8-99f3-5cd57476a980"
       }
+    },
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/2b97fb07-e614-4bd8-99f3-5cd57476a980"
     }
   },
   "cli": {

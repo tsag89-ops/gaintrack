@@ -1,10 +1,11 @@
 import React, { createContext, useContext } from 'react';
-import { theme } from '../constants/theme';
+import { theme, type Theme } from '../constants/theme';
 
-export const ThemeContext = createContext(theme);
+export const ThemeContext = createContext<Theme>(theme);
 
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => (
   <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>
 );
 
-export const useTheme = () => useContext(ThemeContext);
+/** Returns the full GainTrack design-system theme object. */
+export const useTheme = (): Theme => useContext(ThemeContext);

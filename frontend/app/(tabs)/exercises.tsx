@@ -1,141 +1,58 @@
-// frontend/app/(tabs)/exercises.tsx
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
-  ScrollView,
-} from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+// app/(tabs)/exercises.tsx
+// GainTrack — Exercise Library tab (wraps ExercisePicker in standalone browse mode)
+
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+
 import { Exercise } from '../../src/types';
-import { getExercises } from '../../src/services/storage';
-import { SearchInput } from '../../src/components/SearchInput';
-import { ExerciseVideo } from '../../src/components/ExerciseVideo';
+import { theme } from '../../src/constants/theme';
+import { ExercisePicker } from '../../src/components/ExercisePicker';
 
-interface ExerciseItemProps {
-  exercise: Exercise;
-  onPress: (exercise: Exercise) => void;
-}
-
-const ExerciseItem: React.FC<ExerciseItemProps> = ({ exercise, onPress }) => (
-  <TouchableOpacity style={styles.item} onPress={() => onPress(exercise)}>
-    <View style={styles.header}>
-      <Text style={styles.name}>{exercise.name}</Text>
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>{exercise.muscleGroup}</Text>
-      </View>
-    </View>
-    <Text style={styles.hint}>Tap to view video & instructions</Text>
-  </TouchableOpacity>
-);
-
-interface ExerciseModalProps {
-  exercise: Exercise | null;
-  visible: boolean;
-  onClose: () => void;
-}
-
-const ExerciseModal: React.FC<ExerciseModalProps> = ({ exercise, visible, onClose }) => {
-  if (!exercise) return null;
-
-  return (
-    <Modal
-      animationType="slide"
-      transparent
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <ScrollView contentContainerStyle={styles.modalScrollContent}>
-            <Text style={styles.modalTitle}>{exercise.name}</Text>
-            <View style={styles.badgeLarge}>
-              <Text style={styles.badgeTextLarge}>{exercise.muscleGroup}</Text>
-            </View>
-
-            <View style={styles.videoWrapper}>
-              <ExerciseVideo videoUrl={exercise.videoUrl} />
-            </View>
-
-            <Text style={styles.instructionsTitle}>Instructions</Text>
-            <Text style={styles.instructions}>{exercise.instructions}</Text>
-
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-};
+// In browse mode there is no active workout, so we show a small "added" toast
+// and optionally push to /workout/new pre-populated (future enhancement).
 
 export default function ExercisesScreen() {
-  const [exercises, setExercises] = useState<Exercise[]>([]);
-  const [filteredExercises, setFilteredExercises] = useState<Exercise[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const router = useRouter();
+  const [lastAdded, setLastAdded] = useState<Exercise | null>(null);
 
-  const loadExercises = useCallback(async () => {
-    const data = await getExercises();
-    setExercises(data);
-    setFilteredExercises(data);
-  }, []);
+  // TODO: wire up actual RevenueCat usePro() hook — hardcoded false for free users
+  const isPro = false;
 
-  useFocusEffect(
-    useCallback(() => {
-      loadExercises();
-    }, [loadExercises])
-  );
-
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredExercises(exercises);
-    } else {
-      const q = searchQuery.toLowerCase();
-      const filtered = exercises.filter(
-        (exercise) =>
-          exercise.name.toLowerCase().includes(q) ||
-          exercise.muscleGroup.toLowerCase().includes(q)
-      );
-      setFilteredExercises(filtered);
-    }
-  }, [searchQuery, exercises]);
-
-  const handleExercisePress = (exercise: Exercise) => {
-    setSelectedExercise(exercise);
-    setModalVisible(true);
+  const handleAdd = async (exercise: Exercise, _superset?: boolean) => {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setLastAdded(exercise);
+    // Dismiss the toast after 2 s
+    setTimeout(() => setLastAdded(null), 2000);
   };
 
-  const handleCloseModal = () => {
-    setModalVisible(false);
-    setSelectedExercise(null);
+  const handleClose = () => {
+    // No-op: in tab mode, "close" navigates back (nothing to close)
+    router.back();
   };
 
   return (
     <View style={styles.container}>
-      <SearchInput
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder="Search exercises..."
+      {/* The ExercisePicker fills the whole tab */}
+      <ExercisePicker
+        onAdd={handleAdd}
+        onClose={handleClose}
+        isPro={isPro}
+        addedExerciseIds={[]}
       />
-      <FlatList
-        data={filteredExercises}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ExerciseItem exercise={item} onPress={handleExercisePress} />
-        )}
-        contentContainerStyle={styles.list}
-      />
-      <ExerciseModal
-        exercise={selectedExercise}
-        visible={modalVisible}
-        onClose={handleCloseModal}
-      />
+
+      {/* ── "Added" toast ─────────────────────────────────────────────── */}
+      {lastAdded && (
+        <View style={styles.toast} pointerEvents="none">
+          <Ionicons name="checkmark-circle" size={18} color={theme.success} />
+          <Text style={styles.toastText} numberOfLines={1}>
+            {lastAdded.name} — start a workout to log sets
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -143,109 +60,27 @@ export default function ExercisesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827', // dark, same family as Nutrition
+    backgroundColor: theme.background,
   },
-  list: {
-    paddingBottom: 20,
-  },
-  item: {
-    padding: 16,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    backgroundColor: '#1F2937',
-    borderRadius: 12,
-  },
-  header: {
+  toast: {
+    position: 'absolute',
+    bottom: 24,
+    left: 16,
+    right: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
+    backgroundColor: theme.charcoal,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(76,175,80,0.3)',
   },
-  name: {
-    fontSize: 18,
-    fontWeight: '600',
+  toastText: {
     flex: 1,
-    color: '#F9FAFB',
-  },
-  badge: {
-    backgroundColor: '#4ecdc4',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
-  },
-  badgeText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  hint: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginTop: 8,
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    maxHeight: '85%',
-    backgroundColor: '#111827',
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  modalScrollContent: {
-    padding: 16,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 8,
-    color: '#F9FAFB',
-  },
-  badgeLarge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#4ecdc4',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 18,
-    marginBottom: 16,
-  },
-  badgeTextLarge: {
-    color: '#ffffff',
     fontSize: 13,
     fontWeight: '600',
-  },
-  videoWrapper: {
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  instructionsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-    color: '#E5E7EB',
-  },
-  instructions: {
-    fontSize: 14,
-    color: '#D1D5DB',
-    marginBottom: 16,
-  },
-  closeButton: {
-    alignSelf: 'center',
-    marginTop: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#1f2937',
-    borderRadius: 20,
-  },
-  closeButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
+    color: theme.textPrimary,
   },
 });
-

@@ -1,43 +1,109 @@
-import React, { useEffect, useState, useCallback } from 'react';
+// app/(tabs)/index.tsx
+// GainTrack — Hevy-style Home Dashboard
+
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Dimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { BarChart } from 'react-native-chart-kit';
+import * as Haptics from 'expo-haptics';
+
 import { workoutApi } from '../../src/services/api';
 import { useWorkoutStore } from '../../src/store/workoutStore';
+import { useAuthStore } from '../../src/store/authStore';
 import { WorkoutCard } from '../../src/components/WorkoutCard';
+import { Badge } from '../../src/components/ui/Badge';
+import { Card } from '../../src/components/ui/Card';
 import { Workout } from '../../src/types';
+import { theme } from '../../src/constants/theme';
+import {
+  calculateWorkoutVolume,
+  formatVolume,
+} from '../../src/utils/helpers';
+import { format, subDays, parseISO, isSameDay } from 'date-fns';
 
-export default function WorkoutsScreen() {
+const SCREEN_WIDTH = Dimensions.get('window').width;
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+/** Returns the last 7 day labels + volume sums from workout list */
+function buildWeeklyChartData(workouts: Workout[]) {
+  const days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i));
+  const labels = days.map((d) => format(d, 'EEE').slice(0, 1)); // M T W …
+  const data = days.map((day) => {
+    const dayWorkouts = workouts.filter((w) => {
+      try {
+        return isSameDay(parseISO(w.date), day);
+      } catch {
+        return false;
+      }
+    });
+    return dayWorkouts.reduce(
+      (sum, w) => sum + calculateWorkoutVolume(w.exercises),
+      0,
+    );
+  });
+  // Normalise to kg-thousands so bars fit; fall back to 0 if all empty
+  const max = Math.max(...data, 1);
+  return { labels, data, max };
+}
+
+/** Consecutive-day workout streak ending today */
+function calcStreak(workouts: Workout[]): number {
+  const dates = new Set(
+    workouts.map((w) => {
+      try {
+        return format(parseISO(w.date), 'yyyy-MM-dd');
+      } catch {
+        return '';
+      }
+    }),
+  );
+  let streak = 0;
+  let cursor = new Date();
+  while (dates.has(format(cursor, 'yyyy-MM-dd'))) {
+    streak++;
+    cursor = subDays(cursor, 1);
+  }
+  return streak;
+}
+
+// ─── Screen ──────────────────────────────────────────────────────────────────
+
+export default function HomeScreen() {
   const router = useRouter();
   const { workouts, setWorkouts, isLoading, setLoading } = useWorkoutStore();
+  const { user } = useAuthStore();
   const [refreshing, setRefreshing] = useState(false);
 
+  // ── Data fetch (keep existing logic intact) ───────────────────────────────
   const fetchWorkouts = useCallback(async () => {
     try {
       setLoading(true);
       const data = await workoutApi.getWorkouts();
       setWorkouts(data);
     } catch (error) {
-      console.error('Error fetching workouts:', error);
+      console.error('[HomeScreen] fetch error:', error);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Refetch workouts when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchWorkouts();
-    }, [fetchWorkouts])
+    }, [fetchWorkouts]),
   );
 
   const onRefresh = async () => {
@@ -46,158 +112,379 @@ export default function WorkoutsScreen() {
     setRefreshing(false);
   };
 
-  const handleWorkoutPress = (workout: Workout) => {
-    router.push(`/workout/${workout.workout_id}`);
-  };
+  // ── Derived data ──────────────────────────────────────────────────────────
+  const recentWorkouts = useMemo(
+    () => [...workouts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5),
+    [workouts],
+  );
 
-  const handleNewWorkout = () => {
+  const { labels: chartLabels, data: chartData, max: chartMax } =
+    useMemo(() => buildWeeklyChartData(workouts), [workouts]);
+
+  const streak = useMemo(() => calcStreak(workouts), [workouts]);
+
+  const totalVolumeThisWeek = useMemo(
+    () => chartData.reduce((s, v) => s + v, 0),
+    [chartData],
+  );
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleNewWorkout = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/workout/new');
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+  const handleQuickLog = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    router.push('/workout/new');
+  };
+
+  const handleWorkoutPress = async (workout: Workout) => {
+    await Haptics.selectionAsync();
+    router.push(`/workout/${workout.workout_id}`);
+  };
+
+  // ── Greeting ──────────────────────────────────────────────────────────────
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = user?.name?.split(' ')[0] ?? 'Athlete';
+
+  // ── Sub-components ────────────────────────────────────────────────────────
+
+  const ListHeader = () => (
+    <View>
+      {/* ── Header ── */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Workouts</Text>
-          <Text style={styles.headerSubtitle}>Track your gains</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.greeting}>{greeting},</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.headerTitle}>{firstName}</Text>
+            {streak > 0 && (
+              <Badge
+                label={`🔥 ${streak}d streak`}
+                variant="pr"
+                style={styles.streakBadge}
+              />
+            )}
+          </View>
         </View>
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.programsButton} onPress={() => router.push('/programs')}>
-            <Ionicons name="list-outline" size={22} color="#10B981" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.addButton} onPress={handleNewWorkout}>
-            <Ionicons name="add" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.programsBtn}
+          onPress={() => router.push('/programs')}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="calendar-outline" size={22} color={theme.textSecondary} />
+        </TouchableOpacity>
       </View>
 
-      {isLoading && workouts.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#10B981" />
+      {/* ── Start Workout CTA ── */}
+      <TouchableOpacity
+        style={styles.ctaButton}
+        onPress={handleNewWorkout}
+        activeOpacity={0.82}
+      >
+        <View style={styles.ctaInner}>
+          <Ionicons name="barbell-outline" size={24} color={theme.textPrimary} />
+          <Text style={styles.ctaText}>Start Workout</Text>
         </View>
-      ) : (
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#10B981"
-            />
-          }
-        >
-          {workouts.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="barbell-outline" size={64} color="#374151" />
-              <Text style={styles.emptyTitle}>No workouts yet</Text>
-              <Text style={styles.emptySubtitle}>
-                Start tracking your first workout!
-              </Text>
-              <TouchableOpacity
-                style={styles.emptyButton}
-                onPress={handleNewWorkout}
-              >
-                <Text style={styles.emptyButtonText}>Start Workout</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            workouts.map((workout) => (
-              <WorkoutCard
-                key={workout.workout_id}
-                workout={workout}
-                onPress={() => handleWorkoutPress(workout)}
-              />
-            ))
-          )}
-        </ScrollView>
+        <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
+      </TouchableOpacity>
+
+      {/* ── Weekly volume chart ── */}
+      <Card style={styles.chartCard} noPadding>
+        <View style={styles.chartHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>Weekly Volume</Text>
+            <Text style={styles.chartSubtitle}>
+              {formatVolume(totalVolumeThisWeek)} kg this week
+            </Text>
+          </View>
+          <Badge
+            label={`${workouts.length} total`}
+            variant="neutral"
+          />
+        </View>
+        {chartMax > 0 ? (
+          <BarChart
+            data={{
+              labels: chartLabels,
+              datasets: [{ data: chartData }],
+            }}
+            width={SCREEN_WIDTH - 32 - 2} // card margins + border
+            height={140}
+            yAxisLabel=""
+            yAxisSuffix=""
+            withInnerLines={false}
+            showValuesOnTopOfBars={false}
+            fromZero
+            chartConfig={{
+              backgroundGradientFrom: theme.surface,
+              backgroundGradientTo: theme.surface,
+              backgroundGradientFromOpacity: 0,
+              backgroundGradientToOpacity: 0,
+              color: (opacity = 1) => `rgba(255, 98, 0, ${opacity})`,
+              labelColor: () => theme.textSecondary,
+              barRadius: 4,
+              decimalPlaces: 0,
+              propsForBackgroundLines: { stroke: 'transparent' },
+            }}
+            style={styles.chart}
+          />
+        ) : (
+          <View style={styles.chartEmpty}>
+            <Text style={styles.chartEmptyText}>Log workouts to see volume</Text>
+          </View>
+        )}
+      </Card>
+
+      {/* ── Recent workouts label ── */}
+      {recentWorkouts.length > 0 && (
+        <View style={styles.sectionRow}>
+          <Text style={styles.sectionTitle}>Recent Workouts</Text>
+          <TouchableOpacity onPress={() => router.push('/progress')}>
+            <Text style={styles.seeAll}>See all</Text>
+          </TouchableOpacity>
+        </View>
       )}
+    </View>
+  );
+
+  const EmptyWorkouts = () => (
+    <View style={styles.emptyState}>
+      <Ionicons name="barbell-outline" size={56} color={theme.charcoal} />
+      <Text style={styles.emptyTitle}>No workouts yet</Text>
+      <Text style={styles.emptySubtitle}>Hit the button above to start your first session!</Text>
+    </View>
+  );
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  if (isLoading && workouts.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <FlatList
+        data={recentWorkouts}
+        keyExtractor={(item) => item.workout_id}
+        renderItem={({ item }) => (
+          <WorkoutCard
+            workout={item}
+            onPress={() => handleWorkoutPress(item)}
+          />
+        )}
+        ListHeaderComponent={<ListHeader />}
+        ListEmptyComponent={<EmptyWorkouts />}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.primary}
+          />
+        }
+      />
+
+      {/* ── Quick Log FAB ── */}
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={handleQuickLog}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add" size={30} color={theme.textPrimary} />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: theme.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 100, // clear FAB
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  programsButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#10B98120',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#10B981',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
+
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyState: {
-    flex: 1,
+
+  // ── Header ──
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
+  greeting: {
+    fontSize: 14,
+    color: theme.textSecondary,
+    fontWeight: '500',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 2,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: theme.textPrimary,
+    letterSpacing: -0.5,
+  },
+  streakBadge: {
+    marginBottom: 2,
+  },
+  programsBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: theme.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.border,
+    marginTop: 14,
+  },
+
+  // ── Start Workout CTA ──
+  ctaButton: {
+    backgroundColor: theme.primary,
+    borderRadius: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.45,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  ctaInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  ctaText: {
+    color: theme.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+
+  // ── Chart ──
+  chartCard: {
+    marginBottom: 24,
+    overflow: 'hidden',
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 16,
+    paddingBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.textPrimary,
+    letterSpacing: 0.1,
+  },
+  chartSubtitle: {
+    fontSize: 12,
+    color: theme.textSecondary,
+    marginTop: 2,
+  },
+  chart: {
+    paddingRight: 0,
+    marginHorizontal: -4,
+  },
+  chartEmpty: {
+    height: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 100,
+    paddingBottom: 16,
+  },
+  chartEmptyText: {
+    color: theme.textSecondary,
+    fontSize: 13,
+  },
+
+  // ── Recent workouts ──
+  sectionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  seeAll: {
+    fontSize: 13,
+    color: theme.primary,
+    fontWeight: '600',
+  },
+
+  // ── Empty state ──
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 48,
+    gap: 10,
   },
   emptyTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
+    color: theme.textPrimary,
+    fontSize: 18,
     fontWeight: '700',
-    marginTop: 16,
   },
   emptySubtitle: {
-    color: '#6B7280',
-    fontSize: 14,
-    marginTop: 8,
+    color: theme.textSecondary,
+    fontSize: 13,
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
-  emptyButton: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 24,
-  },
-  emptyButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+
+  // ── FAB ──
+  fab: {
+    position: 'absolute',
+    bottom: 28,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: theme.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.5,
+        shadowRadius: 14,
+      },
+      android: { elevation: 10 },
+    }),
   },
 });
