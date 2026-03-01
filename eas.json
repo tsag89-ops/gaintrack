@@ -4,20 +4,28 @@
   },
   "build": {
     "production": {
+      "env": {
+        "GOOGLE_SERVICES_JSON": "@env:GOOGLE_SERVICES_JSON"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "preview": {
+      "env": {
+        "GOOGLE_SERVICES_JSON": "@env:GOOGLE_SERVICES_JSON"
+      },
       "android": {
         "buildType": "apk"
       }
     },
     "development": {
+      "env": {
+        "GOOGLE_SERVICES_JSON": "@env:GOOGLE_SERVICES_JSON"
+      },
       "android": {
         "buildType": "apk"
       }
     }
   }
 }
-

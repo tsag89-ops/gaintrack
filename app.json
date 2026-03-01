@@ -6,7 +6,8 @@
       }
     },
     "android": {
-      "package": "com.tsag89ops.gaintrack"
+      "package": "com.tsag89ops.gaintrack",
+       "googleServicesFile": "./android/app/google-services.json"
     },
     "ios": {
       "bundleIdentifier": "com.tsag89ops.gaintrack"
