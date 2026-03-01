@@ -75,9 +75,6 @@
     "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/2b97fb07-e614-4bd8-99f3-5cd57476a980"
-    },
-    "cli": {
-      "appVersionSource": "remote"
     }
   }
 }
