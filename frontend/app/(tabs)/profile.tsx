@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Platform,
@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
 import { userApi } from '../../src/services/api';
 import { getEquipmentLabel } from '../../src/utils/helpers';
@@ -36,6 +37,14 @@ export default function ProfileScreen() {
 
   // [PRO] Live subscription state from RevenueCat
   const { isPro, refresh: refreshPro } = useProStatus();
+
+  // Re-check Pro status every time this tab comes into focus
+  // (e.g. after returning from the paywall screen)
+  useFocusEffect(
+    useCallback(() => {
+      refreshPro();
+    }, [refreshPro]),
+  );
 
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
