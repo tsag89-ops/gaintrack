@@ -68,7 +68,7 @@
     "experiments": {
       "typedRoutes": true
     },
-    "extra": {
+        "extra": {
       "eas": {
         "projectId": "2b97fb07-e614-4bd8-99f3-5cd57476a980"
       }
@@ -76,9 +76,14 @@
     "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/2b97fb07-e614-4bd8-99f3-5cd57476a980"
+    },
+    "android": {
+      "package": "com.tsag89ops.gaintrack",
+      "googleServicesFile": "../android/app/google-services.json"
     }
   },
   "cli": {
     "appVersionSource": "remote"
   }
 }
+

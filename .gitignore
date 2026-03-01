@@ -166,3 +166,9 @@ frontend/.metro-cache/cache/f1/92515140bc2f9caa416e0fcca4ad324632b227fc8e963718f
 frontend/.metro-cache/cache/f9/5dac05b944e24615c0952bdd3ea7b0f94debfbb89f4f562fd4721f22d377636d0df6e1
 frontend/.metro-cache/cache/f9/5dac05b944e24615c0952bdd3ea7b08944dd4cb276097e4fb548b7a96a1e7a1bf8573d
 frontend/.metro-cache/cache/fd/adfaa81120088dcfbdc5d54ed88fb33e01a2979960b77109f4984915d259ca40829090
+
+# Secrets
+google-services.json
+**/google-services.json
+.env
+*.keystore
