@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
 import { auth } from '../../src/config/firebase';
 import { useGoogleSignIn } from '../../src/hooks/useGoogleSignIn';
+import FormWrapper from '../../src/components/FormWrapper';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -151,11 +152,13 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.form}>
+          <FormWrapper style={styles.form} onSubmit={handleSubmit}>
             {mode === 'signup' && (
               <>
                 <Text style={styles.formLabel}>Your Name</Text>
                 <TextInput
+                  id="name"
+                  nativeID="name"
                   style={styles.input}
                   placeholder="e.g. Alex"
                   placeholderTextColor="#6B7280"
@@ -168,6 +171,8 @@ export default function LoginScreen() {
             )}
             <Text style={styles.formLabel}>Email Address</Text>
             <TextInput
+              id="email"
+              nativeID="email"
               style={styles.input}
               placeholder="e.g. alex@email.com"
               placeholderTextColor="#6B7280"
@@ -180,6 +185,8 @@ export default function LoginScreen() {
             <Text style={styles.formLabel}>Password</Text>
             <View style={styles.passwordRow}>
               <TextInput
+                id="password"
+                nativeID="password"
                 style={[styles.input, styles.passwordInput]}
                 placeholder="Min. 6 characters"
                 placeholderTextColor="#6B7280"
@@ -214,7 +221,7 @@ export default function LoginScreen() {
                   : 'Sign In'}
               </Text>
             </TouchableOpacity>
-          </View>
+          </FormWrapper>
 
           {/* Divider */}
           <View style={styles.divider}>

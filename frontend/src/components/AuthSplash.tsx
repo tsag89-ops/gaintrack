@@ -75,8 +75,8 @@ export default function AuthSplash() {
     // Shimmer overlay repeating
     shimmer.value = withRepeat(
       withSequence(
-        withTiming(1, { duration: BAR_PULSE_MS, easing: Easing.inOut(Easing.sine) }),
-        withTiming(0, { duration: BAR_PULSE_MS, easing: Easing.inOut(Easing.sine) }),
+        withTiming(1, { duration: BAR_PULSE_MS, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0, { duration: BAR_PULSE_MS, easing: Easing.inOut(Easing.sin) }),
       ),
       -1,
       false,
