@@ -19,6 +19,7 @@
 //     you created in the RevenueCat dashboard (default: "pro").
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+import { Platform } from 'react-native';
 import Purchases, { CustomerInfo, LOG_LEVEL } from 'react-native-purchases';
 
 // ── Change this to your RevenueCat entitlement identifier ──────────────────
@@ -30,6 +31,9 @@ export const PRO_ENTITLEMENT_ID = 'pro';
  * Pass the authenticated userId so RevenueCat can link purchases across devices.
  */
 export function initRevenueCat(userId?: string): void {
+  // RevenueCat only supports iOS/Android — skip entirely on web.
+  if (Platform.OS === 'web') return;
+
   const apiKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY;
 
   if (!apiKey) {

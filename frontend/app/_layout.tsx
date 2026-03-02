@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -21,7 +22,11 @@ export default function RootLayout() {
   // To link purchases to a logged-in user, call identifyUser(userId) from
   // src/services/revenueCat.ts after authentication succeeds.
   useEffect(() => {
-    initRevenueCat();
+    // Only initialize RevenueCat on native platforms — web billing requires a
+    // different key and RevenueCat.configure() crashes on web.
+    if (Platform.OS !== 'web') {
+      initRevenueCat();
+    }
   }, []);
 
   useEffect(() => {
