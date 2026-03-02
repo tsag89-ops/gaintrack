@@ -76,12 +76,19 @@ export function useGoogleSignIn() {
     try {
       setLoading(true);
       setError(null);
+      console.log('[Google] signInWithGoogle called');
       const result = await (auth as any).signInWithGoogle();
-      if (!result) return; // redirect in progress — page will reload
+      console.log('[Google] result:', result);
+      if (!result) {
+        console.log('[Google] no result — redirect in progress');
+        return; // redirect in progress — page will reload
+      }
+      console.log('[Google] got user, applying session...');
       await applyUser(result.user, setSession, router);
+      console.log('[Google] session applied, navigating...');
     } catch (e: any) {
-      console.error('Google sign-in error:', e);
-      setError(ERROR_MAP[e?.code] ?? e?.message ?? 'Google sign-in failed.');
+      console.error('[Google] sign-in error:', e?.code, e?.message, e);
+      setError(ERROR_MAP[e?.code] ?? e?.message ?? `Google sign-in failed (${e?.code ?? 'unknown'})`);
       setLoading(false);
     }
   };

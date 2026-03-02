@@ -6,17 +6,18 @@
 //  2. .env is already in .gitignore — do NOT commit it.
 //  3. For EAS builds, run:
 //       eas env:create --scope project --name EXPO_PUBLIC_AI_API_KEY --value your_key_here
-//  4. Replace the placeholder URL below with your real AI provider endpoint:
-//       e.g. https://api.openai.com/v1/chat/completions  (OpenAI)
-//            https://api.anthropic.com/v1/messages       (Anthropic)
+//  4. Set endpoint, model, and key in EAS preview environment (OpenRouter):
+//       eas env:create --scope project --name EXPO_PUBLIC_AI_ENDPOINT --value https://openrouter.ai/api/v1/chat/completions
+//       eas env:create --scope project --name EXPO_PUBLIC_AI_MODEL    --value openai/gpt-4o-mini
+//       eas env:create --scope project --name EXPO_PUBLIC_AI_API_KEY  --value sk-or-v1-...
 // ─────────────────────────────────────────────────────────────────────────────
 
 import axios from 'axios';
 
-// ── Plug your AI provider endpoint here ──────────────────────────────────────
-const AI_ENDPOINT = 'https://api.example.com/ai'; // TODO: replace with real endpoint
-const AI_MODEL    = 'gpt-4o-mini';                // TODO: replace with desired model name
-const AI_API_KEY  = process.env.EXPO_PUBLIC_AI_API_KEY ?? '';
+// ── AI provider config — set via EAS env vars ───────────────────────────────
+const AI_ENDPOINT = process.env.EXPO_PUBLIC_AI_ENDPOINT ?? '';
+const AI_MODEL    = process.env.EXPO_PUBLIC_AI_MODEL    ?? 'gpt-4o-mini';
+const AI_API_KEY  = process.env.EXPO_PUBLIC_AI_API_KEY  ?? '';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface AISuggestion {
@@ -105,6 +106,8 @@ export async function getAISuggestions(context: AIContext): Promise<AISuggestion
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${AI_API_KEY}`,
+        'HTTP-Referer': 'https://gaintrack.app',  // OpenRouter: identifies your app
+        'X-Title': 'GainTrack',                   // OpenRouter: shown in usage dashboard
       },
     },
   );

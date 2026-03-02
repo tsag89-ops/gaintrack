@@ -62,16 +62,20 @@ export const auth = {
 
   signInWithGoogle: async () => {
     const provider = new GoogleAuthProvider();
+    console.log('[Firebase] signInWithGoogle: attempting popup, auth domain:', _auth.app.options.authDomain);
     // Try popup first; fall back to redirect if popup is blocked
     try {
       const cred = await signInWithPopup(_auth, provider);
+      console.log('[Firebase] popup success, uid:', cred.user.uid);
       return { user: wrapUser(cred.user) };
     } catch (e: any) {
+      console.warn('[Firebase] popup failed:', e?.code, e?.message);
       if (
         e?.code === 'auth/popup-blocked' ||
         e?.code === 'auth/popup-closed-by-user' ||
         e?.code === 'auth/cancelled-popup-request'
       ) {
+        console.log('[Firebase] falling back to redirect...');
         // Redirect — result handled by getGoogleRedirectResult on next load
         await signInWithRedirect(_auth, provider);
         return null; // page will reload

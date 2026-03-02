@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,19 +15,114 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
 import { auth } from '../../src/config/firebase';
-import { useGoogleSignIn } from '../../src/hooks/useGoogleSignIn';
-import FormWrapper from '../../src/components/FormWrapper';
+
+// Platform.OS is resolved at bundle time by Metro — safe for SSR + web.
+const IS_WEB = Platform.OS === 'web';
+function FormWrapper({
+  style,
+  onSubmit,
+  children,
+}: {
+  style?: any;
+  onSubmit?: () => void;
+  children: React.ReactNode;
+}) {
+  if (!IS_WEB) return <View style={style}>{children}</View>;
+  return (
+    // @ts-ignore
+    <form
+      onSubmit={(e: any) => { e.preventDefault(); onSubmit?.(); }}
+      style={StyleSheet.flatten(style) as any}
+    >
+      {children}
+    </form>
+  );
+}
+
+const GOOGLE_ERROR_MAP: Record<string, string> = {
+  'auth/popup-closed-by-user': 'Sign-in cancelled.',
+  'auth/cancelled-popup-request': 'Sign-in cancelled.',
+  'auth/popup-blocked': 'Redirecting to Google…',
+  'auth/operation-not-allowed': 'Google sign-in is not enabled.',
+  'auth/account-exists-with-different-credential': 'Account exists with a different sign-in method.',
+  'auth/unauthorized-domain': 'This domain is not authorised for Google sign-in.',
+};
 
 export default function LoginScreen() {
   const router = useRouter();
   const { setSession } = useAuthStore();
-  const { signInWithGoogle, loading: googleLoading, error: googleError } = useGoogleSignIn();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+  const [redirectChecking, setRedirectChecking] = useState(false);
+
+  const applyGoogleUser = async (firebaseUser: any) => {
+    const sessionToken = await firebaseUser.getIdToken();
+    await setSession(
+      {
+        id: firebaseUser.uid,
+        user_id: firebaseUser.uid,
+        email: firebaseUser.email ?? '',
+        name: firebaseUser.displayName ?? '',
+        picture: firebaseUser.photoURL ?? null,
+        created_at: new Date().toISOString(),
+        goals: { daily_calories: 2000, protein_grams: 150, carbs_grams: 200, fat_grams: 65, workouts_per_week: 4 },
+        equipment: ['dumbbells', 'barbell', 'pullup_bar'],
+      },
+      sessionToken,
+    );
+    router.replace('/(tabs)');
+  };
+
+  // Handle redirect result on web (after signInWithRedirect returns)
+  useEffect(() => {
+    if (!IS_WEB) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        setRedirectChecking(true);
+        const result = await (auth as any).getGoogleRedirectResult?.();
+        if (cancelled || !result) return;
+        await applyGoogleUser(result.user);
+      } catch (e: any) {
+        if (cancelled) return;
+        if (e?.code !== 'auth/no-auth-event' && e?.code !== 'auth/null-user') {
+          setGoogleError(GOOGLE_ERROR_MAP[e?.code] ?? e?.message ?? 'Google sign-in failed.');
+        }
+      } finally {
+        if (!cancelled) setRedirectChecking(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const signInWithGoogle = async () => {
+    console.log('[Google] button pressed, IS_WEB:', IS_WEB);
+    if (!IS_WEB) {
+      // Native path: handled separately via expo-auth-session
+      Alert.alert('Coming Soon', 'Google sign-in on mobile will be available in the next build.');
+      return;
+    }
+    try {
+      setGoogleLoading(true);
+      setGoogleError(null);
+      const result = await (auth as any).signInWithGoogle();
+      console.log('[Google] result:', result);
+      if (!result) return; // redirect flow — page will reload
+      await applyGoogleUser(result.user);
+    } catch (e: any) {
+      console.error('[Google] error:', e?.code, e?.message);
+      setGoogleError(GOOGLE_ERROR_MAP[e?.code] ?? e?.message ?? `Google sign-in failed (${e?.code ?? 'unknown'})`);
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
