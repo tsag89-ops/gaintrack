@@ -59,8 +59,8 @@ export default function AuthSplash() {
   useEffect(() => {
     // Logo entry
     logoOpacity.value = withTiming(1, { duration: LOGO_DURATION, easing: Easing.out(Easing.cubic) });
-    // Easing.back() is not supported on web — fall back to Easing.ease to avoid crash.
-    logoScale.value   = withTiming(1, { duration: LOGO_DURATION, easing: Easing.out(Platform.OS === 'web' ? Easing.ease : Easing.back(1.3)) });
+    // Easing.back() and Easing.ease (bezier preset) are not valid inside Easing.out() on the web worklet — use Easing.quad instead.
+    logoScale.value   = withTiming(1, { duration: LOGO_DURATION, easing: Easing.out(Platform.OS === 'web' ? Easing.quad : Easing.back(1.3)) });
 
     // Name entry (delayed)
     nameOpacity.value = withDelay(NAME_DELAY, withTiming(1, { duration: NAME_DURATION }));

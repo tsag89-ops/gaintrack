@@ -32,7 +32,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
 
   useEffect(() => {
     progress.value = withRepeat(
-      withTiming(1, { duration: 900, easing: Easing.inOut(Easing.ease) }),
+      withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
       -1,   // infinite
       true, // reverse (ping-pong)
     );
