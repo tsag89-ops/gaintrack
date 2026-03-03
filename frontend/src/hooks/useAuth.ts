@@ -62,7 +62,13 @@ export function useNativeAuthState(): NativeAuthStateWithStatus {
   useEffect(() => {
     // Eagerly resolve the current state so components don't flash a logged-out
     // view while the first DeviceEventEmitter event is in flight.
-    getAuthState()
+    // Race against a 5-second timeout so a hanging native bridge never
+    // leaves the app permanently stuck on the splash screen.
+    const timeout = new Promise<NativeAuthState>((resolve) =>
+      setTimeout(() => resolve({ uid: null, isAuthenticated: false }), 5000)
+    );
+
+    Promise.race([getAuthState(), timeout])
       .then((s) =>
         setState({
           ...s,

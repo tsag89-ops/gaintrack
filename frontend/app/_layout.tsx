@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -47,22 +47,26 @@ export default function RootLayout() {
     <ThemeProvider>
       <AuthProvider>
         <StatusBar style="light" />
-        {status === 'loading' ? (
-          // Hold on the splash/loader so neither stack flashes during bridge init
-          <AuthSplash />
-        ) : (
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="workout/[id]" options={{ presentation: 'card' }} />
-            <Stack.Screen name="workout/new" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="add-food" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="programs" options={{ presentation: 'card' }} />
-            <Stack.Screen name="progression" options={{ presentation: 'card' }} />
-            <Stack.Screen name="measurements" options={{ presentation: 'card' }} />
-            <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
-            <Stack.Screen name="pro-paywall" options={{ presentation: 'modal', headerShown: false }} />
-          </Stack>
+        {/* Stack always renders so expo-router can mark navigation ready
+            and dismiss the native splash screen automatically. */}
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="workout/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="workout/new" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="add-food" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="programs" options={{ presentation: 'card' }} />
+          <Stack.Screen name="progression" options={{ presentation: 'card' }} />
+          <Stack.Screen name="measurements" options={{ presentation: 'card' }} />
+          <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
+          <Stack.Screen name="pro-paywall" options={{ presentation: 'modal', headerShown: false }} />
+        </Stack>
+        {/* AuthSplash overlays on top while auth is still resolving, preventing
+            any auth-gated screen from flashing before the redirect fires. */}
+        {status === 'loading' && (
+          <View style={StyleSheet.absoluteFill}>
+            <AuthSplash />
+          </View>
         )}
       </AuthProvider>
     </ThemeProvider>
