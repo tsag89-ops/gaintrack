@@ -9,31 +9,44 @@ import {
   ActivityIndicator,
   StyleSheet,
   SafeAreaView,
+  Platform,
+  TextInput,
 } from 'react-native';
+import Constants from 'expo-constants';
+
+function getApiUrl(): string {
+  if (Platform.OS === 'web') return '/api/ai-chat';
+  const host =
+    Constants.expoConfig?.hostUri ??
+    Constants.manifest2?.extra?.expoClient?.hostUri ??
+    'localhost:8081';
+  return `http://${host.split(':')[0]}:8081/api/ai-chat`;
+}
 
 const TABS = ['Workout', 'Exercises', 'Nutrition', 'Programs'];
 
-const PROMPTS: Record<string, { system: string; user: string }> = {
+const PROMPTS: Record<string, { system: string; prompt: string }> = {
   Workout: {
     system: 'You are a fitness coach AI for GainTrack app.',
-    user: 'Suggest a lean bulk workout for today for an 80kg male.',
+    prompt: 'Suggest a lean bulk workout for today for an 80kg male.',
   },
   Exercises: {
     system: 'You are a fitness coach AI for GainTrack app.',
-    user: 'Suggest 5 exercises to complement a push day.',
+    prompt: 'Suggest 5 exercises to complement a push day.',
   },
   Nutrition: {
     system: 'You are a nutrition coach AI for GainTrack app.',
-    user: 'Suggest a macro split for lean bulking at 80kg.',
+    prompt: 'Suggest a macro split for lean bulking at 80kg.',
   },
   Programs: {
     system: 'You are a fitness coach AI for GainTrack app.',
-    user: 'Suggest a 4-week progressive overload program.',
+    prompt: 'Suggest a 4-week progressive overload program.',
   },
 };
 
 export default function AISuggestions() {
   const [activeTab, setActiveTab] = useState('Workout');
+  const [customPrompt, setCustomPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState('');
   const [error, setError] = useState('');
@@ -42,11 +55,14 @@ export default function AISuggestions() {
     setLoading(true);
     setError('');
     setResponse('');
+    const payload = customPrompt.trim()
+      ? { system: PROMPTS[activeTab].system, prompt: customPrompt.trim() }
+      : PROMPTS[activeTab];
     try {
-      const res = await fetch('/api/ai-chat', {
+      const res = await fetch(getApiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(PROMPTS[activeTab]),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data?.choices?.[0]?.message?.content) {
@@ -79,6 +95,17 @@ export default function AISuggestions() {
         ))}
       </View>
 
+      <TextInput
+        style={styles.input}
+        placeholder={`Ask anything about ${activeTab.toLowerCase()}…`}
+        placeholderTextColor="#B0B0B0"
+        value={customPrompt}
+        onChangeText={setCustomPrompt}
+        multiline
+        numberOfLines={2}
+        returnKeyType="done"
+      />
+
       <TouchableOpacity style={styles.button} onPress={generate} disabled={loading}>
         {loading
           ? <ActivityIndicator color="#fff" />
@@ -106,6 +133,7 @@ const styles = StyleSheet.create({
   tabTextActive:   { color: '#fff' },
   button:          { backgroundColor: '#FF6200', padding: 14, borderRadius: 10, alignItems: 'center', marginBottom: 16 },
   buttonText:      { color: '#fff', fontWeight: '700', fontSize: 16 },
+  input:           { backgroundColor: '#252525', color: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: '#3A3A3A', padding: 12, marginBottom: 12, fontSize: 14, minHeight: 56, textAlignVertical: 'top' },
   responseBox:     { flex: 1, backgroundColor: '#252525', borderRadius: 10, padding: 12 },
   responseText:    { color: '#FFFFFF', fontSize: 14, lineHeight: 22 },
   errorText:       { color: '#F44336', fontSize: 14 },
