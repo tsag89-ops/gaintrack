@@ -214,15 +214,15 @@ export default function LoginScreen() {
               <Text style={styles.featureText}>Track workouts & progress</Text>
             </View>
             <View style={styles.featureItem}>
-              <Ionicons name="restaurant-outline" size={24} color="#3BB2F6" />
+              <Ionicons name="restaurant-outline" size={24} color="#2196F3" />
               <Text style={styles.featureText}>Log meals & macros</Text>
             </View>
             <View style={styles.featureItem}>
-              <Ionicons name="trending-up-outline" size={24} color="#F59E0B" />
+              <Ionicons name="trending-up-outline" size={24} color="#FFC107" />
               <Text style={styles.featureText}>Visualize your gains</Text>
             </View>
             <View style={styles.featureItem}>
-              <Ionicons name="home-outline" size={24} color="#8B5CF6" />
+              <Ionicons name="home-outline" size={24} color="#FF6200" />
               <Text style={styles.featureText}>Home gym support</Text>
             </View>
           </View>
@@ -256,7 +256,7 @@ export default function LoginScreen() {
                   nativeID="name"
                   style={styles.input}
                   placeholder="e.g. Alex"
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor="#B0B0B0"
                   value={name}
                   onChangeText={setName}
                   autoCapitalize="words"
@@ -270,7 +270,7 @@ export default function LoginScreen() {
               nativeID="email"
               style={styles.input}
               placeholder="e.g. alex@email.com"
-              placeholderTextColor="#6B7280"
+              placeholderTextColor="#B0B0B0"
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -284,7 +284,7 @@ export default function LoginScreen() {
                 nativeID="password"
                 style={[styles.input, styles.passwordInput]}
                 placeholder="Min. 6 characters"
-                placeholderTextColor="#6B7280"
+                placeholderTextColor="#B0B0B0"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -298,7 +298,7 @@ export default function LoginScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={20}
-                  color="#6B7280"
+                  color="#B0B0B0"
                 />
               </TouchableOpacity>
             </View>
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: '#303030',
     flex: 1,
   },
   passwordRow: {
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   terms: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
@@ -492,10 +492,10 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#374151',
+    backgroundColor: '#303030',
   },
   dividerText: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 13,
     marginHorizontal: 12,
   },
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: '#303030',
   },
   googleButtonText: {
     color: '#FFFFFF',

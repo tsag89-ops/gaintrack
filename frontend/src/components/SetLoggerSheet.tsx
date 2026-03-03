@@ -85,7 +85,7 @@ export const SetLoggerSheet: React.FC<SetLoggerSheetProps> = ({
           <View style={styles.header}>
             <Text style={styles.title}>{exerciseName}</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="#9CA3AF" />
+              <Ionicons name="close" size={24} color="#B0B0B0" />
             </TouchableOpacity>
           </View>
 
@@ -111,7 +111,7 @@ export const SetLoggerSheet: React.FC<SetLoggerSheetProps> = ({
                     onChangeText={(v) => updateSet(index, 'weight', parseFloat(v) || 0)}
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor="#6B7280"
+                    placeholderTextColor="#B0B0B0"
                   />
                   <Text style={styles.unit}>lbs</Text>
                 </View>
@@ -122,14 +122,14 @@ export const SetLoggerSheet: React.FC<SetLoggerSheetProps> = ({
                     onChangeText={(v) => updateSet(index, 'reps', parseInt(v) || 0)}
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor="#6B7280"
+                    placeholderTextColor="#B0B0B0"
                   />
                 </View>
                 <TouchableOpacity
                   style={styles.removeBtn}
                   onPress={() => removeSet(index)}
                 >
-                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                  <Ionicons name="trash-outline" size={18} color="#F44336" />
                 </TouchableOpacity>
               </View>
             ))}
@@ -162,11 +162,11 @@ export const SetLoggerSheet: React.FC<SetLoggerSheetProps> = ({
 
           <View style={styles.actions}>
             <TouchableOpacity style={styles.addSetBtn} onPress={addSet}>
-              <Ionicons name="add" size={20} color="#10B981" />
+              <Ionicons name="add" size={20} color="#4CAF50" />
               <Text style={styles.addSetText}>Add Set</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.warmupBtn} onPress={getWarmupSets}>
-              <Ionicons name="flame-outline" size={20} color="#F59E0B" />
+              <Ionicons name="flame-outline" size={20} color="#FFC107" />
               <Text style={styles.warmupText}>Warmup</Text>
             </TouchableOpacity>
           </View>
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   handle: {
     width: 40,
     height: 4,
-    backgroundColor: '#4B5563',
+    backgroundColor: '#2D2D2D',
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
@@ -221,11 +221,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#374151',
+    borderBottomColor: '#303030',
     marginBottom: 8,
   },
   headerLabel: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -235,16 +235,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#374151',
+    borderBottomColor: '#303030',
   },
   warmupRow: {
-    backgroundColor: '#F59E0B10',
+    backgroundColor: '#FFC10710',
   },
   setNumber: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#374151',
+    backgroundColor: '#303030',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     borderRadius: 8,
     marginHorizontal: 4,
     paddingHorizontal: 8,
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   unit: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 12,
   },
   removeBtn: {
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   rpeLabel: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 14,
     marginBottom: 12,
   },
@@ -293,15 +293,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#374151',
+    backgroundColor: '#303030',
     justifyContent: 'center',
     alignItems: 'center',
   },
   rpeButtonActive: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
   },
   rpeText: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -318,13 +318,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#10B98120',
+    backgroundColor: '#4CAF5020',
     paddingVertical: 12,
     borderRadius: 12,
     gap: 6,
   },
   addSetText: {
-    color: '#10B981',
+    color: '#4CAF50',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -333,18 +333,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F59E0B20',
+    backgroundColor: '#FFC10720',
     paddingVertical: 12,
     borderRadius: 12,
     gap: 6,
   },
   warmupText: {
-    color: '#F59E0B',
+    color: '#FFC107',
     fontSize: 14,
     fontWeight: '600',
   },
   saveBtn: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

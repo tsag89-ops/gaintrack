@@ -248,7 +248,7 @@ const ActiveWorkoutScreen: React.FC = () => {
               <View style={styles.modalOverlay}>
                 <View style={[styles.modalContent, { maxHeight: '80%' }]}> 
                   <Text style={styles.modalTitle}>Add Exercise</Text>
-                  <TextInput value={search} onChangeText={setSearch} placeholder="Search exercises..." placeholderTextColor="#6B7280" style={{ backgroundColor: "#1F2937", color: "#fff", borderRadius: 8, padding: 10, marginBottom: 10 }} />
+                  <TextInput value={search} onChangeText={setSearch} placeholder="Search exercises..." placeholderTextColor="#B0B0B0" style={{ backgroundColor: "#252525", color: "#fff", borderRadius: 8, padding: 10, marginBottom: 10 }} />
                   <ScrollView>
                     {availableExercises.length === 0 ? (
                       <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No exercises found.</Text>
@@ -299,7 +299,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                     value={set.weight.toString()}
                     onChangeText={(v) => updateSet(item.exercise_id, index, 'weight', Number(v))}
                     placeholder="kg"
-                    placeholderTextColor="#888"
+                    placeholderTextColor="#B0B0B0"
                   />
                   <TextInput
                     style={styles.input}
@@ -307,7 +307,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                     value={set.reps.toString()}
                     onChangeText={(v) => updateSet(item.exercise_id, index, 'reps', Number(v))}
                     placeholder="reps"
-                    placeholderTextColor="#888"
+                    placeholderTextColor="#B0B0B0"
                   />
                   <TextInput
                     style={styles.input}
@@ -315,7 +315,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                     value={set.rpe?.toString() || ''}
                     onChangeText={(v) => updateSet(item.exercise_id, index, 'rpe', Number(v))}
                     placeholder="RPE"
-                    placeholderTextColor="#888"
+                    placeholderTextColor="#B0B0B0"
                   />
                 </View>
               )}
@@ -412,7 +412,7 @@ function getExerciseInstructions(name?: string) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: '#1A1A1A',
     padding: 16,
     paddingTop: 40,
   },
@@ -424,13 +424,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   exerciseCard: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderRadius: 10,
     padding: 16,
     marginBottom: 20,
   },
   exerciseName: {
-    color: '#FBBF24',
+    color: '#FFC107',
     fontWeight: 'bold',
     fontSize: 18,
     marginBottom: 8,
@@ -445,19 +445,19 @@ const styles = StyleSheet.create({
     width: 50,
   },
   input: {
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     color: '#fff',
     borderRadius: 6,
     padding: 6,
     marginHorizontal: 4,
     width: 60,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: '#303030',
     textAlign: 'center',
   },
   addSetBtn: {
     marginTop: 6,
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
     borderRadius: 6,
     alignItems: 'center',
     padding: 8,
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
   },
   restBtn: {
     marginTop: 10,
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#2196F3',
     borderRadius: 6,
     alignItems: 'center',
     padding: 8,
@@ -478,31 +478,31 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   restTimer: {
-    color: '#FBBF24',
+    color: '#FFC107',
     fontWeight: 'bold',
     fontSize: 16,
     marginTop: 6,
     textAlign: 'center',
   },
   finishBtn: {
-    backgroundColor: '#F59E42',
+    backgroundColor: '#FF6200',
     borderRadius: 8,
     alignItems: 'center',
     padding: 16,
     marginTop: 16,
   },
   finishBtnText: {
-    color: '#121212',
+    color: '#1A1A1A',
     fontWeight: 'bold',
     fontSize: 18,
   },
   emptyText: {
-    color: '#888',
+    color: '#B0B0B0',
     textAlign: 'center',
     marginTop: 40,
   },
   swipeDeleteAction: {
-    backgroundColor: '#EF4444',
+    backgroundColor: '#F44336',
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   addExerciseBtn: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
     borderRadius: 8,
     alignItems: 'center',
     padding: 12,
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     borderRadius: 6,
     padding: 12,
     marginBottom: 8,
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   addExerciseGroup: {
-    color: '#FBBF24',
+    color: '#FFC107',
     fontSize: 14,
     marginLeft: 12,
   },
@@ -606,13 +606,13 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '90%',
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderRadius: 12,
     padding: 0,
     overflow: 'hidden',
   },
   modalTitle: {
-    color: '#FBBF24',
+    color: '#FFC107',
     fontWeight: 'bold',
     fontSize: 20,
     marginBottom: 12,
@@ -626,7 +626,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   closeModalBtn: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
     borderRadius: 8,
     alignItems: 'center',
     padding: 12,

@@ -133,7 +133,7 @@ export default function NotificationsScreen() {
 
       {isExpoGo && (
         <View style={styles.expoGoBanner}>
-          <Ionicons name="information-circle" size={24} color="#3B82F6" />
+          <Ionicons name="information-circle" size={24} color="#2196F3" />
           <Text style={styles.expoGoText}>
             Running in Expo Go - Push notifications require a development build. Your settings will still be saved.
           </Text>
@@ -142,7 +142,7 @@ export default function NotificationsScreen() {
 
       {!isExpoGo && hasPermission === false && (
         <View style={styles.permissionBanner}>
-          <Ionicons name="warning" size={24} color="#F59E0B" />
+          <Ionicons name="warning" size={24} color="#FFC107" />
           <Text style={styles.permissionText}>
             Notifications are disabled. Please enable them in your device settings.
           </Text>
@@ -154,7 +154,7 @@ export default function NotificationsScreen() {
         <View style={styles.reminderCard}>
           <View style={styles.reminderHeader}>
             <View style={styles.reminderIcon}>
-              <Ionicons name="barbell" size={24} color="#10B981" />
+              <Ionicons name="barbell" size={24} color="#4CAF50" />
             </View>
             <View style={styles.reminderInfo}>
               <Text style={styles.reminderTitle}>Workout Reminder</Text>
@@ -163,8 +163,8 @@ export default function NotificationsScreen() {
             <Switch
               value={settings.workoutReminder}
               onValueChange={(value) => setSettings({ ...settings, workoutReminder: value })}
-              trackColor={{ false: '#374151', true: '#10B98150' }}
-              thumbColor={settings.workoutReminder ? '#10B981' : '#6B7280'}
+              trackColor={{ false: '#303030', true: '#4CAF5050' }}
+              thumbColor={settings.workoutReminder ? '#4CAF50' : '#B0B0B0'}
             />
           </View>
 
@@ -203,8 +203,8 @@ export default function NotificationsScreen() {
         {/* Nutrition Reminder */}
         <View style={styles.reminderCard}>
           <View style={styles.reminderHeader}>
-            <View style={[styles.reminderIcon, { backgroundColor: '#3B82F620' }]}>
-              <Ionicons name="restaurant" size={24} color="#3B82F6" />
+            <View style={[styles.reminderIcon, { backgroundColor: '#2196F320' }]}>
+              <Ionicons name="restaurant" size={24} color="#2196F3" />
             </View>
             <View style={styles.reminderInfo}>
               <Text style={styles.reminderTitle}>Nutrition Check-In</Text>
@@ -213,8 +213,8 @@ export default function NotificationsScreen() {
             <Switch
               value={settings.nutritionReminder}
               onValueChange={(value) => setSettings({ ...settings, nutritionReminder: value })}
-              trackColor={{ false: '#374151', true: '#3B82F650' }}
-              thumbColor={settings.nutritionReminder ? '#3B82F6' : '#6B7280'}
+              trackColor={{ false: '#303030', true: '#2196F350' }}
+              thumbColor={settings.nutritionReminder ? '#2196F3' : '#B0B0B0'}
             />
           </View>
 
@@ -253,8 +253,8 @@ export default function NotificationsScreen() {
         {/* Progress Reminder */}
         <View style={styles.reminderCard}>
           <View style={styles.reminderHeader}>
-            <View style={[styles.reminderIcon, { backgroundColor: '#8B5CF620' }]}>
-              <Ionicons name="analytics" size={24} color="#8B5CF6" />
+            <View style={[styles.reminderIcon, { backgroundColor: '#FF620020' }]}>
+              <Ionicons name="analytics" size={24} color="#FF6200" />
             </View>
             <View style={styles.reminderInfo}>
               <Text style={styles.reminderTitle}>Weekly Progress</Text>
@@ -263,8 +263,8 @@ export default function NotificationsScreen() {
             <Switch
               value={settings.progressReminder}
               onValueChange={(value) => setSettings({ ...settings, progressReminder: value })}
-              trackColor={{ false: '#374151', true: '#8B5CF650' }}
-              thumbColor={settings.progressReminder ? '#8B5CF6' : '#6B7280'}
+              trackColor={{ false: '#303030', true: '#FF620050' }}
+              thumbColor={settings.progressReminder ? '#FF6200' : '#B0B0B0'}
             />
           </View>
 
@@ -324,7 +324,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
   },
   header: {
     flexDirection: 'row',
@@ -346,13 +346,13 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#B0B0B0',
     marginTop: 2,
   },
   expoGoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#3B82F620',
+    backgroundColor: '#2196F320',
     marginHorizontal: 20,
     padding: 12,
     borderRadius: 12,
@@ -361,13 +361,13 @@ const styles = StyleSheet.create({
   },
   expoGoText: {
     flex: 1,
-    color: '#3B82F6',
+    color: '#2196F3',
     fontSize: 13,
   },
   permissionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F59E0B20',
+    backgroundColor: '#FFC10720',
     marginHorizontal: 20,
     padding: 12,
     borderRadius: 12,
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   },
   permissionText: {
     flex: 1,
-    color: '#F59E0B',
+    color: '#FFC107',
     fontSize: 13,
   },
   content: {
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   reminderCard: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#10B98120',
+    backgroundColor: '#4CAF5020',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   reminderDesc: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 12,
     marginTop: 2,
   },
@@ -422,10 +422,10 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#374151',
+    borderTopColor: '#303030',
   },
   timeSelectorLabel: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 12,
     marginBottom: 10,
   },
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#374151',
+    backgroundColor: '#303030',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#374151',
+    borderTopColor: '#303030',
   },
   daysContainer: {
     gap: 8,
@@ -462,14 +462,14 @@ const styles = StyleSheet.create({
   dayChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: '#374151',
+    backgroundColor: '#303030',
     borderRadius: 20,
   },
   dayChipActive: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#FF6200',
   },
   dayChipText: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#374151',
+    backgroundColor: '#303030',
     paddingVertical: 14,
     borderRadius: 12,
     marginTop: 8,
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     paddingBottom: 34,
   },
   saveButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

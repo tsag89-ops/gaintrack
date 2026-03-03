@@ -46,7 +46,7 @@ export default function WorkoutDetailScreen() {
         <TextInput
           style={styles.notesInput}
           placeholder="Add your notes here..."
-          placeholderTextColor="#888"
+          placeholderTextColor="#B0B0B0"
           value={notes}
           onChangeText={setNotes}
           multiline
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#121212', // dark mode default
+    backgroundColor: '#1A1A1A', // dark mode default
     padding: 16,
   },
   title: {
@@ -79,30 +79,30 @@ const styles = StyleSheet.create({
   },
   notesCard: {
     width: '100%',
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderRadius: 10,
     padding: 16,
     marginBottom: 24,
   },
   notesTitle: {
-    color: '#FBBF24',
+    color: '#FFC107',
     fontWeight: 'bold',
     fontSize: 16,
     marginBottom: 8,
   },
   notesInput: {
     color: '#fff',
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     borderRadius: 6,
     padding: 10,
     minHeight: 60,
     borderWidth: 1,
-    borderColor: '#374151',
+    borderColor: '#303030',
     marginBottom: 12,
     fontSize: 15,
   },
   saveButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
     paddingVertical: 10,
     borderRadius: 6,
     alignItems: 'center',

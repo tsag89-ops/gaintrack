@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -8,6 +8,7 @@ import { AuthProvider } from '../src/context/AuthContext';
 import { ThemeProvider } from '../src/constants/ThemeProvider';
 import AuthSplash from '../src/components/AuthSplash';
 import { initRevenueCat } from '../src/services/revenueCat'; // [PRO]
+import { colors } from '../src/constants/theme';
 
 // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
 
@@ -15,6 +16,10 @@ export default function RootLayout() {
   const { status } = useNativeAuthState();
   const segments = useSegments();
   const router = useRouter();
+  // Prevent hydration mismatch (#418): auth state is unknown during SSR;
+  // defer conditional rendering until after client mount.
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => { setHasMounted(true); }, []);
 
   // [PRO] Initialise RevenueCat once on app start (anonymous session).
   // The API key is read from EXPO_PUBLIC_REVENUECAT_API_KEY in your .env file.
@@ -48,8 +53,10 @@ export default function RootLayout() {
       <AuthProvider>
         <StatusBar style="light" />
         {/* Stack always renders so expo-router can mark navigation ready
-            and dismiss the native splash screen automatically. */}
-        <Stack screenOptions={{ headerShown: false }}>
+            and dismiss the native splash screen automatically.
+            backgroundColor on screenOptions prevents the SSR default
+            rgba(242,242,242) from causing a React #418 hydration mismatch. */}
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="workout/[id]" options={{ presentation: 'card' }} />
@@ -62,8 +69,10 @@ export default function RootLayout() {
           <Stack.Screen name="pro-paywall" options={{ presentation: 'modal', headerShown: false }} />
         </Stack>
         {/* AuthSplash overlays on top while auth is still resolving, preventing
-            any auth-gated screen from flashing before the redirect fires. */}
-        {status === 'loading' && (
+            any auth-gated screen from flashing before the redirect fires.
+            `hasMounted` guard ensures the SSR HTML (no overlay) matches the
+            first client render, preventing React hydration mismatch #418. */}
+        {hasMounted && status === 'loading' && (
           <View style={StyleSheet.absoluteFill}>
             <AuthSplash />
           </View>

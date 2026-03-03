@@ -51,22 +51,22 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDe
           <Text style={styles.date}>{formatDate(workout.date)}</Text>
           <Text style={styles.name}>{workout.name}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+        <Ionicons name="chevron-forward" size={20} color="#B0B0B0" />
       </View>
 
       <View style={styles.stats}>
         <View style={styles.statItem}>
-          <Ionicons name="barbell-outline" size={18} color="#10B981" />
+          <Ionicons name="barbell-outline" size={18} color="#4CAF50" />
           <Text style={styles.statValue}>{workout.exercises.length}</Text>
           <Text style={styles.statLabel}>Exercises</Text>
         </View>
         <View style={styles.statItem}>
-          <Ionicons name="layers-outline" size={18} color="#3B82F6" />
+          <Ionicons name="layers-outline" size={18} color="#2196F3" />
           <Text style={styles.statValue}>{totalSets}</Text>
           <Text style={styles.statLabel}>Sets</Text>
         </View>
         <View style={styles.statItem}>
-          <Ionicons name="trending-up-outline" size={18} color="#F59E0B" />
+          <Ionicons name="trending-up-outline" size={18} color="#FFC107" />
           <Text style={styles.statValue}>{formatVolume(volume)}</Text>
           <Text style={styles.statLabel}>Volume</Text>
         </View>
@@ -106,13 +106,13 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDe
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
   },
   deleteAction: {
-    backgroundColor: '#EF4444',
+    backgroundColor: '#F44336',
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   date: {
-    color: '#10B981',
+    color: '#4CAF50',
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   },
   stats: {
     flexDirection: 'row',
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -164,22 +164,22 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   statLabel: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 11,
     marginTop: 2,
   },
   exerciseList: {
     borderTopWidth: 1,
-    borderTopColor: '#374151',
+    borderTopColor: '#303030',
     paddingTop: 12,
   },
   exerciseName: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 14,
     marginBottom: 4,
   },
   moreExercises: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 12,
     fontStyle: 'italic',
   },

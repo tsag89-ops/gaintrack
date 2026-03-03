@@ -155,12 +155,12 @@ export default function MeasurementsScreen() {
 
   const getChangeColor = (change: number) => {
     // For measurements where decrease is good (weight, waist, body fat)
-    return change < 0 ? '#10B981' : change > 0 ? '#EF4444' : '#6B7280';
+    return change < 0 ? '#4CAF50' : change > 0 ? '#F44336' : '#B0B0B0';
   };
 
   const getGainColor = (change: number) => {
     // For measurements where increase is good (biceps, chest, etc)
-    return change > 0 ? '#10B981' : change < 0 ? '#EF4444' : '#6B7280';
+    return change > 0 ? '#4CAF50' : change < 0 ? '#F44336' : '#B0B0B0';
   };
 
   const isDecreaseGood = (key: string) => {
@@ -191,7 +191,7 @@ export default function MeasurementsScreen() {
           <Ionicons
             name="list-outline"
             size={18}
-            color={activeTab === 'history' ? '#FFFFFF' : '#6B7280'}
+            color={activeTab === 'history' ? '#FFFFFF' : '#B0B0B0'}
           />
           <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>
             History
@@ -204,7 +204,7 @@ export default function MeasurementsScreen() {
           <Ionicons
             name="analytics-outline"
             size={18}
-            color={activeTab === 'progress' ? '#FFFFFF' : '#6B7280'}
+            color={activeTab === 'progress' ? '#FFFFFF' : '#B0B0B0'}
           />
           <Text style={[styles.tabText, activeTab === 'progress' && styles.activeTabText]}>
             Progress
@@ -214,21 +214,21 @@ export default function MeasurementsScreen() {
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#10B981" />
+          <ActivityIndicator size="large" color="#4CAF50" />
         </View>
       ) : (
         <ScrollView
           style={styles.content}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10B981" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4CAF50" />
           }
         >
           {activeTab === 'history' ? (
             <>
               {measurements.length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="body-outline" size={64} color="#374151" />
+                  <Ionicons name="body-outline" size={64} color="#303030" />
                   <Text style={styles.emptyTitle}>No measurements yet</Text>
                   <Text style={styles.emptySubtitle}>
                     Start tracking your body measurements to see progress over time
@@ -246,7 +246,7 @@ export default function MeasurementsScreen() {
                     <View style={styles.cardHeader}>
                       <Text style={styles.cardDate}>{formatDate(measurement.date)}</Text>
                       <TouchableOpacity onPress={() => handleDelete(measurement.date)}>
-                        <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                        <Ionicons name="trash-outline" size={18} color="#F44336" />
                       </TouchableOpacity>
                     </View>
                     <View style={styles.measurementGrid}>
@@ -270,7 +270,7 @@ export default function MeasurementsScreen() {
             <>
               {Object.keys(progress).length === 0 ? (
                 <View style={styles.emptyState}>
-                  <Ionicons name="analytics-outline" size={64} color="#374151" />
+                  <Ionicons name="analytics-outline" size={64} color="#303030" />
                   <Text style={styles.emptyTitle}>Not enough data</Text>
                   <Text style={styles.emptySubtitle}>
                     Add more measurements to see your progress over time
@@ -287,7 +287,7 @@ export default function MeasurementsScreen() {
                     return (
                       <View key={field.key} style={styles.progressCard}>
                         <View style={styles.progressHeader}>
-                          <Ionicons name={field.icon as any} size={20} color="#10B981" />
+                          <Ionicons name={field.icon as any} size={20} color="#4CAF50" />
                           <Text style={styles.progressLabel}>{field.label}</Text>
                         </View>
                         <View style={styles.progressValues}>
@@ -330,7 +330,7 @@ export default function MeasurementsScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add Measurement</Text>
               <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                <Ionicons name="close" size={24} color="#9CA3AF" />
+                <Ionicons name="close" size={24} color="#B0B0B0" />
               </TouchableOpacity>
             </View>
 
@@ -346,7 +346,7 @@ export default function MeasurementsScreen() {
                     onChangeText={(v) => setNewMeasurement({ ...newMeasurement, [field.key]: v })}
                     keyboardType="decimal-pad"
                     placeholder={`Enter ${field.label.toLowerCase()}`}
-                    placeholderTextColor="#6B7280"
+                    placeholderTextColor="#B0B0B0"
                   />
                 </View>
               ))}
@@ -358,7 +358,7 @@ export default function MeasurementsScreen() {
                   value={newMeasurement.notes || ''}
                   onChangeText={(v) => setNewMeasurement({ ...newMeasurement, notes: v })}
                   placeholder="Any notes..."
-                  placeholderTextColor="#6B7280"
+                  placeholderTextColor="#B0B0B0"
                   multiline
                 />
               </View>
@@ -383,7 +383,7 @@ export default function MeasurementsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
   },
   header: {
     flexDirection: 'row',
@@ -405,14 +405,14 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#B0B0B0',
     marginTop: 2,
   },
   addButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: 20,
     marginVertical: 12,
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderRadius: 12,
     padding: 4,
   },
@@ -434,10 +434,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   activeTab: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
   },
   tabText: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   emptySubtitle: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 14,
     textAlign: 'center',
     marginTop: 8,
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   emptyButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   measurementCard: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardDate: {
-    color: '#10B981',
+    color: '#4CAF50',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -510,12 +510,12 @@ const styles = StyleSheet.create({
   },
   measurementItem: {
     width: '30%',
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     borderRadius: 8,
     padding: 10,
   },
   measurementLabel: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 11,
     marginBottom: 4,
   },
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   notes: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 13,
     marginTop: 12,
     fontStyle: 'italic',
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   progressCard: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderRadius: 16,
     padding: 16,
   },
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   progressUnit: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 14,
   },
   changeIndicator: {
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   progressRange: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 12,
     marginTop: 8,
   },
@@ -591,7 +591,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   modalHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#4B5563',
+    backgroundColor: '#2D2D2D',
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 20,
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   modalSubtitle: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 14,
     marginBottom: 16,
   },
@@ -629,12 +629,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   inputLabel: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 13,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     borderRadius: 10,
     padding: 14,
     color: '#FFFFFF',
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   saveButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

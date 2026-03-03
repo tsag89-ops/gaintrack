@@ -1,7 +1,8 @@
 // frontend/app/hooks/useAuth.ts
 // app/hooks/useAuth.ts
 import { useEffect, useState } from 'react';
-import { getAuth, signOut as firebaseSignOut } from 'firebase/auth';
+import { Platform } from 'react-native';
+import { getAuth, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
 import {
   addAuthStateListener,
   getAuthState,
@@ -60,10 +61,24 @@ export function useNativeAuthState(): NativeAuthStateWithStatus {
   });
 
   useEffect(() => {
-    // Eagerly resolve the current state so components don't flash a logged-out
-    // view while the first DeviceEventEmitter event is in flight.
-    // Race against a 5-second timeout so a hanging native bridge never
-    // leaves the app permanently stuck on the splash screen.
+    // On web (and iOS without native bridge): use Firebase JS SDK directly.
+    if (Platform.OS !== 'android') {
+      const auth = getAuth();
+      // Resolve immediately if already signed in (avoids loading flash).
+      if (auth.currentUser) {
+        setState({ uid: auth.currentUser.uid, isAuthenticated: true, status: 'authenticated' });
+      }
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        setState(
+          user
+            ? { uid: user.uid, isAuthenticated: true, status: 'authenticated' }
+            : { uid: null, isAuthenticated: false, status: 'unauthenticated' },
+        );
+      });
+      return unsubscribe;
+    }
+
+    // Android: use native AuthBridgeModule.
     const timeout = new Promise<NativeAuthState>((resolve) =>
       setTimeout(() => resolve({ uid: null, isAuthenticated: false }), 5000)
     );
@@ -76,11 +91,9 @@ export function useNativeAuthState(): NativeAuthStateWithStatus {
         })
       )
       .catch(() => {
-        // Bridge unavailable (e.g. Expo Go / iOS without bridge) — treat as unauthenticated.
         setState({ uid: null, isAuthenticated: false, status: 'unauthenticated' });
       });
 
-    // Subscribe to real-time updates from the native AuthBridgeModule.
     const subscription = addAuthStateListener((s) =>
       setState({
         ...s,

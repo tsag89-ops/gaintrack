@@ -50,17 +50,17 @@ interface ExerciseHistory {
 }
 
 const CONFIDENCE_COLORS: Record<string, string> = {
-  high: '#10B981',
-  medium: '#F59E0B',
-  low: '#6B7280',
+  high: '#4CAF50',
+  medium: '#FFC107',
+  low: '#B0B0B0',
 };
 
 const TREND_ICONS: Record<string, { icon: string; color: string }> = {
-  improving: { icon: 'trending-up', color: '#10B981' },
-  stable: { icon: 'remove', color: '#F59E0B' },
-  declining: { icon: 'trending-down', color: '#EF4444' },
-  not_enough_data: { icon: 'help-circle', color: '#6B7280' },
-  no_data: { icon: 'help-circle', color: '#6B7280' },
+  improving: { icon: 'trending-up', color: '#4CAF50' },
+  stable: { icon: 'remove', color: '#FFC107' },
+  declining: { icon: 'trending-down', color: '#F44336' },
+  not_enough_data: { icon: 'help-circle', color: '#B0B0B0' },
+  no_data: { icon: 'help-circle', color: '#B0B0B0' },
 };
 
 export default function ProgressionScreen() {
@@ -123,13 +123,13 @@ export default function ProgressionScreen() {
           <Text style={styles.headerSubtitle}>Smart weight recommendations</Text>
         </View>
         <View style={styles.aiIcon}>
-          <Ionicons name="sparkles" size={24} color="#10B981" />
+          <Ionicons name="sparkles" size={24} color="#4CAF50" />
         </View>
       </View>
 
       {isLoading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#10B981" />
+          <ActivityIndicator size="large" color="#4CAF50" />
           <Text style={styles.loadingText}>Analyzing your workouts...</Text>
         </View>
       ) : (
@@ -137,7 +137,7 @@ export default function ProgressionScreen() {
           style={styles.content}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10B981" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4CAF50" />
           }
         >
           {/* Stats Card */}
@@ -154,7 +154,7 @@ export default function ProgressionScreen() {
 
           {suggestions.length === 0 ? (
             <View style={styles.emptyState}>
-              <Ionicons name="analytics-outline" size={64} color="#374151" />
+              <Ionicons name="analytics-outline" size={64} color="#303030" />
               <Text style={styles.emptyTitle}>No Suggestions Yet</Text>
               <Text style={styles.emptySubtitle}>
                 Complete more workouts to get personalized progression recommendations.
@@ -201,13 +201,13 @@ export default function ProgressionScreen() {
                         </Text>
                       </View>
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+                    <Ionicons name="chevron-forward" size={20} color="#B0B0B0" />
                   </View>
 
                   <View style={styles.progressionInfo}>
                     <View style={styles.weightChange}>
                       <Text style={styles.currentWeight}>{suggestion.current_weight}</Text>
-                      <Ionicons name="arrow-forward" size={20} color="#10B981" />
+                      <Ionicons name="arrow-forward" size={20} color="#4CAF50" />
                       <Text style={styles.suggestedWeight}>{suggestion.suggested_weight}</Text>
                       <Text style={styles.weightUnit}>lbs</Text>
                     </View>
@@ -250,18 +250,18 @@ export default function ProgressionScreen() {
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>{exerciseHistory.exercise_name}</Text>
                   <TouchableOpacity onPress={() => setShowHistory(false)}>
-                    <Ionicons name="close" size={24} color="#9CA3AF" />
+                    <Ionicons name="close" size={24} color="#B0B0B0" />
                   </TouchableOpacity>
                 </View>
 
                 <View style={styles.prCard}>
                   <View style={styles.prItem}>
-                    <Ionicons name="trophy" size={24} color="#F59E0B" />
+                    <Ionicons name="trophy" size={24} color="#FFC107" />
                     <Text style={styles.prValue}>{exerciseHistory.personal_records.max_weight} lbs</Text>
                     <Text style={styles.prLabel}>Max Weight</Text>
                   </View>
                   <View style={styles.prItem}>
-                    <Ionicons name="flame" size={24} color="#EF4444" />
+                    <Ionicons name="flame" size={24} color="#F44336" />
                     <Text style={styles.prValue}>{exerciseHistory.personal_records.max_volume}</Text>
                     <Text style={styles.prLabel}>Max Volume</Text>
                   </View>
@@ -269,7 +269,7 @@ export default function ProgressionScreen() {
                     <Ionicons
                       name={TREND_ICONS[exerciseHistory.trend]?.icon as any || 'help-circle'}
                       size={24}
-                      color={TREND_ICONS[exerciseHistory.trend]?.color || '#6B7280'}
+                      color={TREND_ICONS[exerciseHistory.trend]?.color || '#B0B0B0'}
                     />
                     <Text style={[styles.prValue, { textTransform: 'capitalize' }]}>
                       {exerciseHistory.trend.replace('_', ' ')}
@@ -321,7 +321,7 @@ export default function ProgressionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
   },
   header: {
     flexDirection: 'row',
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#B0B0B0',
     marginTop: 2,
   },
   aiIcon: {
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#10B98120',
+    backgroundColor: '#4CAF5020',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 14,
     marginTop: 12,
   },
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   },
   statsCard: {
     flexDirection: 'row',
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   statLabel: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 12,
     marginTop: 4,
   },
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   emptySubtitle: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 14,
     textAlign: 'center',
     marginTop: 8,
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   suggestionCard: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -464,44 +464,44 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   currentWeight: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 24,
     fontWeight: '700',
   },
   suggestedWeight: {
-    color: '#10B981',
+    color: '#4CAF50',
     fontSize: 24,
     fontWeight: '700',
   },
   weightUnit: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 14,
     marginLeft: 4,
   },
   increaseInfo: {
-    backgroundColor: '#10B98120',
+    backgroundColor: '#4CAF5020',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
   },
   increaseAmount: {
-    color: '#10B981',
+    color: '#4CAF50',
     fontSize: 12,
     fontWeight: '600',
   },
   reason: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 12,
   },
   recentPerformance: {
     borderTopWidth: 1,
-    borderTopColor: '#374151',
+    borderTopColor: '#303030',
     paddingTop: 12,
   },
   recentTitle: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 12,
     marginBottom: 8,
   },
@@ -511,13 +511,13 @@ const styles = StyleSheet.create({
   },
   perfItem: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     borderRadius: 8,
     padding: 8,
     alignItems: 'center',
   },
   perfDate: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 10,
   },
   perfWeight: {
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   perfRpe: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 10,
     marginTop: 2,
   },
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
   modalHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#4B5563',
+    backgroundColor: '#2D2D2D',
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 20,
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
   },
   prCard: {
     flexDirection: 'row',
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   prLabel: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 11,
     marginTop: 4,
   },
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
   historyItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     borderRadius: 10,
     padding: 12,
     marginBottom: 8,
@@ -606,7 +606,7 @@ const styles = StyleSheet.create({
     width: 60,
   },
   historyDateText: {
-    color: '#10B981',
+    color: '#4CAF50',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   historyLabel: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 10,
     marginTop: 2,
   },

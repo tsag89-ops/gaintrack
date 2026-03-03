@@ -22,7 +22,7 @@ export default function CallbackScreen() {
 
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color="#10B981" />
+      <ActivityIndicator size="large" color="#4CAF50" />
       <Text style={styles.text}>Loading GainTrack...</Text>
     </View>
   );
@@ -31,12 +31,12 @@ export default function CallbackScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     justifyContent: 'center',
     alignItems: 'center',
   },
   text: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 16,
     marginTop: 16,
   },

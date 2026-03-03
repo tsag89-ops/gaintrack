@@ -75,12 +75,30 @@ export async function createWorkout(
   uid: string,
   data: Omit<Workout, 'workout_id' | 'created_at'>,
 ): Promise<Workout> {
-  const payload = {
+  // Strip embedded exercise objects (contain undefined fields) — only keep
+  // the fields actually needed for display/history.
+  const cleanedExercises = (data.exercises ?? []).map((ex: any) => ({
+    exercise_id: ex.exercise_id,
+    exercise_name: ex.exercise_name,
+    notes: ex.notes ?? null,
+    sets: (ex.sets ?? []).map((s: any) => ({
+      set_id: s.set_id,
+      set_number: s.set_number,
+      reps: s.reps ?? 0,
+      weight: s.weight ?? 0,
+      rpe: s.rpe ?? null,
+      completed: s.completed ?? false,
+      is_warmup: s.is_warmup ?? false,
+    })),
+  }));
+
+  // JSON round-trip strips any remaining undefined values (Firestore rejects them).
+  const payload = JSON.parse(JSON.stringify({
     ...data,
+    exercises: cleanedExercises,
     created_at: new Date().toISOString(),
-    // Ensure date is always present
     date: data.date ?? new Date().toISOString(),
-  };
+  }));
 
   const ref = await workoutsCol(uid).add(payload);
 

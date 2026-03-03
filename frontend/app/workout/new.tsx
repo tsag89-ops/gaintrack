@@ -174,7 +174,7 @@ export default function NewWorkoutScreen() {
           value={workoutName}
           onChangeText={setWorkoutName}
           placeholder="Workout Name"
-          placeholderTextColor="#6B7280"
+          placeholderTextColor="#B0B0B0"
         />
         <TouchableOpacity
           style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
@@ -193,10 +193,10 @@ export default function NewWorkoutScreen() {
               <Text style={styles.exerciseName}>{exercise.exercise_name}</Text>
               <View style={styles.exerciseActions}>
                 <TouchableOpacity onPress={() => handleExercisePress(exercise)}>
-                  <Ionicons name="create-outline" size={20} color="#10B981" />
+                  <Ionicons name="create-outline" size={20} color="#4CAF50" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => removeExercise(exercise.exercise_id)}>
-                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                  <Ionicons name="trash-outline" size={20} color="#F44336" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -217,7 +217,7 @@ export default function NewWorkoutScreen() {
                 style={styles.addSetsButton}
                 onPress={() => handleExercisePress(exercise)}
               >
-                <Ionicons name="add" size={18} color="#10B981" />
+                <Ionicons name="add" size={18} color="#4CAF50" />
                 <Text style={styles.addSetsText}>Add Sets</Text>
               </TouchableOpacity>
             )}
@@ -229,7 +229,7 @@ export default function NewWorkoutScreen() {
           style={styles.addExerciseButton}
           onPress={() => setShowExercisePicker(true)}
         >
-          <Ionicons name="add-circle" size={24} color="#10B981" />
+          <Ionicons name="add-circle" size={24} color="#4CAF50" />
           <Text style={styles.addExerciseText}>Add Exercise</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -241,18 +241,18 @@ export default function NewWorkoutScreen() {
             <View style={styles.pickerHeader}>
               <Text style={styles.pickerTitle}>Add Exercise</Text>
               <TouchableOpacity onPress={() => setShowExercisePicker(false)}>
-                <Ionicons name="close" size={24} color="#9CA3AF" />
+                <Ionicons name="close" size={24} color="#B0B0B0" />
               </TouchableOpacity>
             </View>
 
             <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#6B7280" />
+              <Ionicons name="search" size={20} color="#B0B0B0" />
               <TextInput
                 style={styles.searchInput}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Search exercises..."
-                placeholderTextColor="#6B7280"
+                placeholderTextColor="#B0B0B0"
               />
             </View>
 
@@ -284,7 +284,7 @@ export default function NewWorkoutScreen() {
             </ScrollView>
 
             {isLoading ? (
-              <ActivityIndicator size="large" color="#10B981" style={{ marginTop: 40 }} />
+              <ActivityIndicator size="large" color="#4CAF50" style={{ marginTop: 40 }} />
             ) : (
               <ScrollView style={styles.exerciseList}>
                 {filteredExercises.map((ex) => (
@@ -318,7 +318,7 @@ export default function NewWorkoutScreen() {
                         )}
                       </View>
                     </View>
-                    <Ionicons name="add-circle" size={24} color="#10B981" />
+                    <Ionicons name="add-circle" size={24} color="#4CAF50" />
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -342,7 +342,7 @@ export default function NewWorkoutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
   },
   header: {
     flexDirection: 'row',
@@ -359,13 +359,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
   },
   saveButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 10,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   exerciseCard: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -411,11 +411,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   setsSummaryText: {
-    color: '#10B981',
+    color: '#4CAF50',
     fontSize: 14,
   },
   setsDetail: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 14,
   },
   addSetsButton: {
@@ -424,12 +424,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 12,
     paddingVertical: 10,
-    backgroundColor: '#10B98115',
+    backgroundColor: '#4CAF5015',
     borderRadius: 8,
     gap: 6,
   },
   addSetsText: {
-    color: '#10B981',
+    color: '#4CAF50',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -439,14 +439,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 16,
     borderWidth: 2,
-    borderColor: '#10B981',
+    borderColor: '#4CAF50',
     borderStyle: 'dashed',
     borderRadius: 12,
     gap: 8,
     marginTop: 8,
   },
   addExerciseText: {
-    color: '#10B981',
+    color: '#4CAF50',
     fontSize: 16,
     fontWeight: '600',
   },
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   pickerContent: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 20,
@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     marginHorizontal: 20,
     paddingHorizontal: 12,
     borderRadius: 10,
@@ -500,14 +500,14 @@ const styles = StyleSheet.create({
   categoryChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#374151',
+    backgroundColor: '#303030',
     borderRadius: 20,
   },
   categoryChipActive: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#4CAF50',
   },
   categoryChipText: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#374151',
+    borderBottomColor: '#303030',
   },
   exerciseListName: {
     color: '#FFFFFF',
@@ -549,11 +549,11 @@ const styles = StyleSheet.create({
   compoundBadge: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: '#3B82F620',
+    backgroundColor: '#2196F320',
     borderRadius: 4,
   },
   compoundBadgeText: {
-    color: '#3B82F6',
+    color: '#2196F3',
     fontSize: 11,
     fontWeight: '600',
   },
