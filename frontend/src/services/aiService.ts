@@ -8,16 +8,16 @@
 //       eas env:create --scope project --name EXPO_PUBLIC_AI_API_KEY --value your_key_here
 //  4. Set endpoint, model, and key in EAS preview environment (OpenRouter):
 //       eas env:create --scope project --name EXPO_PUBLIC_AI_ENDPOINT --value https://openrouter.ai/api/v1/chat/completions
-//       eas env:create --scope project --name EXPO_PUBLIC_AI_MODEL    --value openai/gpt-4o-mini
-//       eas env:create --scope project --name EXPO_PUBLIC_AI_API_KEY  --value sk-or-v1-...
+//       eas env:create --scope project --name EXPO_PUBLIC_AI_MODEL    --value openai/gpt-oss-120b:free
+//       eas env:create --scope project --name OPENROUTER_API_KEY      --value sk-or-v1-...
 // ─────────────────────────────────────────────────────────────────────────────
 
 import axios from 'axios';
 
 // ── AI provider config — set via EAS env vars ───────────────────────────────
 const AI_ENDPOINT = process.env.EXPO_PUBLIC_AI_ENDPOINT ?? '';
-const AI_MODEL    = process.env.EXPO_PUBLIC_AI_MODEL    ?? 'gpt-4o-mini';
-const AI_API_KEY  = process.env.EXPO_PUBLIC_AI_API_KEY  ?? '';
+const AI_MODEL    = process.env.EXPO_PUBLIC_AI_MODEL    ?? 'openai/gpt-oss-120b:free';
+const AI_API_KEY  = process.env.OPENROUTER_API_KEY  ?? '';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface AISuggestion {

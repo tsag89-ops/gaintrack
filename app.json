@@ -7,10 +7,14 @@
     },
     "android": {
       "package": "com.tsag89ops.gaintrack",
-       "googleServicesFile": "./android/app/google-services.json"
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "ios": {
       "bundleIdentifier": "com.tsag89ops.gaintrack"
+    },
+    "runtimeVersion": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/bc70c02e-50b6-456b-a2e5-048015270e3b"
     }
   }
 }
