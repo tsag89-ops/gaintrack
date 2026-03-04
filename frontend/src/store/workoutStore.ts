@@ -18,6 +18,9 @@ interface WorkoutState {
   setExercises: (exercises: Exercise[]) => void;
   setLoading: (loading: boolean) => void;
 
+  // ── Local workout initialization ──────────────────────────────────────────
+  startWorkout: (name: string) => void;
+
   // ── In-workout local mutations (unchanged) ───────────────────────────────
   addExerciseToWorkout: (exercise: WorkoutExercise) => void;
   updateExerciseInWorkout: (exerciseId: string, sets: WorkoutSet[]) => void;
@@ -72,6 +75,16 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   setLoading:         (isLoading)      => set({ isLoading }),
 
   // ── In-workout local mutations ─────────────────────────────────────────
+
+  startWorkout: (name) => set({
+    currentWorkout: {
+      workout_id: Date.now().toString(),
+      name,
+      date: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      exercises: [],
+    },
+  }),
 
   addExerciseToWorkout: (exercise) => {
     const current = get().currentWorkout;

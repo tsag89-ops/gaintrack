@@ -12,13 +12,14 @@ import {
   ScrollView,
   FlatList,
   Animated,
+  ActivityIndicator,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { WorkoutExercise, WorkoutSet } from '../../src/types';
 import { ExerciseVideo } from '../../src/components/ExerciseVideo';
 import { useNativeAuthState } from '../../src/hooks/useAuth';
@@ -28,7 +29,9 @@ const REST_SECONDS = 90;
 
 const ActiveWorkoutScreen: React.FC = () => {
   const router = useRouter();
-  const { currentWorkout, updateExerciseInWorkout, setCurrentWorkout, createWorkout } = useWorkoutStore();
+  const { name: nameParam } = useLocalSearchParams<{ name: string }>();
+  const workoutTitle = nameParam || 'New Workout';
+  const { currentWorkout, updateExerciseInWorkout, setCurrentWorkout, createWorkout, startWorkout } = useWorkoutStore();
   const { uid } = useNativeAuthState();
   const [exerciseList, setExerciseList] = useState(currentWorkout?.exercises || []);
   const [addModalVisible, setAddModalVisible] = useState(false);
@@ -75,6 +78,13 @@ const ActiveWorkoutScreen: React.FC = () => {
     setRestTime(REST_SECONDS);
     setActiveRest(true);
   };
+
+  // Auto-init if navigated directly from new.tsx with a name param
+  useEffect(() => {
+    if (!currentWorkout) {
+      startWorkout(workoutTitle);
+    }
+  }, []);
 
   // Countdown logic
   useEffect(() => {
@@ -228,14 +238,14 @@ const ActiveWorkoutScreen: React.FC = () => {
   if (!currentWorkout) {
     return (
       <View style={styles.container}>
-        <Text style={styles.emptyText}>No active workout. Start a workout from the main screen.</Text>
+        <ActivityIndicator size="large" color="#FF6200" style={{ marginTop: 40 }} />
       </View>
     );
   }
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Text style={styles.title}>{currentWorkout.name || 'Active Workout'}</Text>
+      <Text style={styles.title}>{currentWorkout.name || workoutTitle}</Text>
       <TouchableOpacity style={styles.addExerciseBtn} onPress={() => setAddModalVisible(true)}>
         <Text style={styles.addExerciseText}>+ Add Exercise</Text>
       </TouchableOpacity>

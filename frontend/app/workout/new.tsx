@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +13,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { exerciseApiExtended as exerciseApi } from '../../src/services/api';
 import { useWorkoutStore } from '../../src/store/workoutStore';
-import { useNativeAuthState } from '../../src/hooks/useAuth';
 import { Exercise, WorkoutExercise, WorkoutSet } from '../../src/types';
 import { getCategoryColor } from '../../src/utils/helpers';
 import { SetLoggerSheet } from '../../src/components/SetLoggerSheet';
@@ -25,15 +23,13 @@ const CATEGORIES = ['all', 'chest', 'back', 'shoulders', 'legs', 'arms', 'core']
 
 export default function NewWorkoutScreen() {
   const router = useRouter();
-  const { createWorkout } = useWorkoutStore();
-  const { uid } = useNativeAuthState();
+  const { startWorkout } = useWorkoutStore();
   const [workoutName, setWorkoutName] = useState('Workout');
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<WorkoutExercise | null>(null);
   const [showSetLogger, setShowSetLogger] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -137,30 +133,9 @@ export default function NewWorkoutScreen() {
     }
   };
 
-  const saveWorkout = async () => {
-    if (exercises.length === 0) {
-      Alert.alert('Error', 'Please add at least one exercise');
-      return;
-    }
-    if (!uid) {
-      Alert.alert('Error', 'Not signed in. Please log in and try again.');
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      await createWorkout(uid, {
-        name: workoutName,
-        exercises,
-        date: new Date().toISOString(),
-      });
-      router.back();
-    } catch (error) {
-      console.error('Error saving workout:', error);
-      Alert.alert('Error', String(error));
-    } finally {
-      setIsSaving(false);
-    }
+  const handleStartWorkout = () => {
+    startWorkout(workoutName);
+    router.push({ pathname: '/workout/active', params: { name: workoutName } });
   };
 
   return (
@@ -177,11 +152,10 @@ export default function NewWorkoutScreen() {
           placeholderTextColor="#B0B0B0"
         />
         <TouchableOpacity
-          style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
-          onPress={saveWorkout}
-          disabled={isSaving}
+          style={styles.saveButton}
+          onPress={handleStartWorkout}
         >
-          <Text style={styles.saveButtonText}>{isSaving ? 'Saving' : 'Save'}</Text>
+          <Text style={styles.saveButtonText}>Start</Text>
         </TouchableOpacity>
       </View>
 
