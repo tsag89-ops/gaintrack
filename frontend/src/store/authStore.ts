@@ -44,35 +44,38 @@ export const useAuthStore = create<AuthState>((set) => ({
   setUser: (user) => set({ user }),
 
   setSession: async (user, token) => {
+    let finalUser = user;
     try {
-      // Restore any equipment/goals saved before this login (persists across logout)
-      const uid = (user as any).id ?? (user as any).user_id;
-      if (uid) {
-        const prefsStr = await storage.getItem(`user_prefs_${uid}`);
-        if (prefsStr) {
-          const prefs = JSON.parse(prefsStr);
-          if (prefs.equipment !== undefined) user = { ...user, equipment: prefs.equipment };
-          if (prefs.goals !== undefined) user = { ...user, goals: prefs.goals };
-          if (prefs.units !== undefined) user = { ...user, units: prefs.units };
+      // Preserve equipment + goals from a previous session for the same account
+      // so logout → login never resets user-edited preferences to defaults.
+      const existing = await storage.getItem('user');
+      if (existing) {
+        const prev = JSON.parse(existing) as User;
+        if (prev.id === user.id) {
+          finalUser = {
+            ...user,
+            equipment: prev.equipment ?? user.equipment,
+            goals: prev.goals ?? user.goals,
+          };
         }
       }
-      await storage.setItem('user', JSON.stringify(user));
+      await storage.setItem('user', JSON.stringify(finalUser));
       await storage.setItem('sessionToken', token);
     } catch (e) {
       console.warn('setSession storage error:', e);
     }
-    set({ user, sessionToken: token, isAuthenticated: true, isLoading: false });
+    set({ user: finalUser, sessionToken: token, isAuthenticated: true, isLoading: false });
   },
 
   logout: async () => {
     try {
-      await storage.removeItem('user');
+      // Only remove the session token — keep the user object in storage so
+      // equipment + goals survive logout and are restored on next login.
       await storage.removeItem('sessionToken');
       await auth.signOut();
     } catch (e) {
       console.warn('logout error:', e);
     }
-    // Force state update synchronously after storage clear
     set(() => ({ user: null, sessionToken: null, isAuthenticated: false, isLoading: false }));
   },
 
