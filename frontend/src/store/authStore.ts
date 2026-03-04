@@ -4,8 +4,11 @@ import { auth } from '../config/firebase';
 
 interface User {
   id: string;
+  user_id?: string;
   name: string;
   email: string;
+  picture?: string | null;
+  created_at?: string;
   goals?: {
     daily_calories: number;
     protein_grams: number;
@@ -14,6 +17,11 @@ interface User {
     workouts_per_week: number;
   };
   equipment?: string[];
+  units?: {
+    weight: 'kg' | 'lbs';
+    height: 'cm' | 'in';
+    distance: 'km' | 'mi';
+  };
 }
 
 interface AuthState {
@@ -37,6 +45,17 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setSession: async (user, token) => {
     try {
+      // Restore any equipment/goals saved before this login (persists across logout)
+      const uid = (user as any).id ?? (user as any).user_id;
+      if (uid) {
+        const prefsStr = await storage.getItem(`user_prefs_${uid}`);
+        if (prefsStr) {
+          const prefs = JSON.parse(prefsStr);
+          if (prefs.equipment !== undefined) user = { ...user, equipment: prefs.equipment };
+          if (prefs.goals !== undefined) user = { ...user, goals: prefs.goals };
+          if (prefs.units !== undefined) user = { ...user, units: prefs.units };
+        }
+      }
       await storage.setItem('user', JSON.stringify(user));
       await storage.setItem('sessionToken', token);
     } catch (e) {

@@ -22,6 +22,7 @@ import { useRouter } from 'expo-router';
 import { WorkoutExercise, WorkoutSet } from '../../src/types';
 import { ExerciseVideo } from '../../src/components/ExerciseVideo';
 import { useNativeAuthState } from '../../src/hooks/useAuth';
+import { seedExercises } from '../../src/data/seedData';
 
 const REST_SECONDS = 90;
 
@@ -399,7 +400,6 @@ const ActiveWorkoutScreen: React.FC = () => {
 export default ActiveWorkoutScreen;
 
 // Helper functions to get videoUrl/instructions by exercise name
-import { seedExercises } from '../../src/data/seedData';
 function getExerciseVideoUrl(name: string) {
   const ex = seedExercises.find(e => e.name === name);
   return ex?.videoUrl || 'https://www.youtube.com/embed/rT7DgCr-3pg';

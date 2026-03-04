@@ -187,6 +187,14 @@ export const userApi = {
       const user = JSON.parse(userStr);
       user.goals = goals;
       await storage.setItem('user', JSON.stringify(user));
+      // Persist independently of session so prefs survive logout/login
+      const uid = user.id ?? user.user_id;
+      if (uid) {
+        const prefsStr = await storage.getItem(`user_prefs_${uid}`);
+        const prefs = prefsStr ? JSON.parse(prefsStr) : {};
+        prefs.goals = goals;
+        await storage.setItem(`user_prefs_${uid}`, JSON.stringify(prefs));
+      }
       return { message: 'Goals updated', goals };
     }
     throw new Error('User not found');
@@ -198,7 +206,34 @@ export const userApi = {
       const user = JSON.parse(userStr);
       user.equipment = equipment;
       await storage.setItem('user', JSON.stringify(user));
+      // Persist independently of session so prefs survive logout/login
+      const uid = user.id ?? user.user_id;
+      if (uid) {
+        const prefsStr = await storage.getItem(`user_prefs_${uid}`);
+        const prefs = prefsStr ? JSON.parse(prefsStr) : {};
+        prefs.equipment = equipment;
+        await storage.setItem(`user_prefs_${uid}`, JSON.stringify(prefs));
+      }
       return { message: 'Equipment updated', equipment };
+    }
+    throw new Error('User not found');
+  },
+
+  updateUnits: async (units: { weight: 'kg' | 'lbs'; height: 'cm' | 'in'; distance: 'km' | 'mi' }) => {
+    const userStr = await storage.getItem('user');
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      user.units = units;
+      await storage.setItem('user', JSON.stringify(user));
+      // Persist independently of session so prefs survive logout/login
+      const uid = user.id ?? user.user_id;
+      if (uid) {
+        const prefsStr = await storage.getItem(`user_prefs_${uid}`);
+        const prefs = prefsStr ? JSON.parse(prefsStr) : {};
+        prefs.units = units;
+        await storage.setItem(`user_prefs_${uid}`, JSON.stringify(prefs));
+      }
+      return { message: 'Units updated', units };
     }
     throw new Error('User not found');
   },

@@ -82,7 +82,7 @@ export function useUserWorkouts(): UseUserWorkoutsResult {
         // TODO: add .orderBy('date', 'desc').limit(50) for pagination
         .get();
 
-      const docs: FirestoreWorkout[] = snapshot.docs.map((d) => ({
+      const docs: FirestoreWorkout[] = snapshot.docs.map((d: any) => ({
         id: d.id,
         ...(d.data() as Omit<FirestoreWorkout, 'id'>),
       }));

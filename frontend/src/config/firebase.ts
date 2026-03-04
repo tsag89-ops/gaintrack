@@ -10,7 +10,9 @@ import rnFirestore from '@react-native-firebase/firestore';
 const auth = rnFirebaseAuth();
 
 // db — native Firestore instance [PRO] cloud sync
-const db = rnFirestore();
+// cast as any so files using the modular JS SDK API typecheck correctly;
+// the .web.ts override does the same with getFirestore(app) as any.
+const db = rnFirestore() as any;
 
 export { auth, db };
 export type { FirebaseAuthTypes };

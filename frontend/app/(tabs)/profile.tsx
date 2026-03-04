@@ -59,6 +59,21 @@ export default function ProfileScreen() {
   // Equipment state
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(user?.equipment || []);
 
+  // Units state
+  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>(user?.units?.weight || 'kg');
+  const [heightUnit, setHeightUnit] = useState<'cm' | 'in'>(user?.units?.height || 'cm');
+  const [distanceUnit, setDistanceUnit] = useState<'km' | 'mi'>(user?.units?.distance || 'km');
+
+  const saveUnits = async (w: 'kg' | 'lbs', h: 'cm' | 'in', d: 'km' | 'mi') => {
+    try {
+      const units = { weight: w, height: h, distance: d };
+      await userApi.updateUnits(units);
+      if (user) setUser({ ...user, units });
+    } catch (error) {
+      console.error('Error saving units:', error);
+    }
+  };
+
 const handleDeleteAccount = async () => {
   // Step 1: initial confirmation
   const confirmed = await new Promise<boolean>((resolve) =>
@@ -262,6 +277,62 @@ const handleLogout = async () => {
           </TouchableOpacity>
         </View>
 
+        {/* Units Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Units</Text>
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="barbell-outline" size={22} color="#FF6200" />
+              <Text style={styles.settingLabel}>Weight</Text>
+            </View>
+            <View style={styles.unitToggleRow}>
+              {(['kg', 'lbs'] as const).map((opt) => (
+                <TouchableOpacity
+                  key={opt}
+                  style={[styles.unitPill, weightUnit === opt && styles.unitPillActive]}
+                  onPress={() => { setWeightUnit(opt); saveUnits(opt, heightUnit, distanceUnit); }}
+                >
+                  <Text style={[styles.unitPillText, weightUnit === opt && styles.unitPillTextActive]}>{opt}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="resize-outline" size={22} color="#FF6200" />
+              <Text style={styles.settingLabel}>Height</Text>
+            </View>
+            <View style={styles.unitToggleRow}>
+              {(['cm', 'in'] as const).map((opt) => (
+                <TouchableOpacity
+                  key={opt}
+                  style={[styles.unitPill, heightUnit === opt && styles.unitPillActive]}
+                  onPress={() => { setHeightUnit(opt); saveUnits(weightUnit, opt, distanceUnit); }}
+                >
+                  <Text style={[styles.unitPillText, heightUnit === opt && styles.unitPillTextActive]}>{opt}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="navigate-outline" size={22} color="#FF6200" />
+              <Text style={styles.settingLabel}>Distance</Text>
+            </View>
+            <View style={styles.unitToggleRow}>
+              {(['km', 'mi'] as const).map((opt) => (
+                <TouchableOpacity
+                  key={opt}
+                  style={[styles.unitPill, distanceUnit === opt && styles.unitPillActive]}
+                  onPress={() => { setDistanceUnit(opt); saveUnits(weightUnit, heightUnit, opt); }}
+                >
+                  <Text style={[styles.unitPillText, distanceUnit === opt && styles.unitPillTextActive]}>{opt}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+
         {/* Goals Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Daily Goals</Text>
@@ -379,6 +450,14 @@ const handleLogout = async () => {
             <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={saveGoals} disabled={isSaving}>
               <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save Goals'}</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.resetButton} onPress={() => {
+              setCalories('2000');
+              setProtein('150');
+              setCarbs('200');
+              setFat('65');
+            }}>
+              <Text style={styles.resetButtonText}>Restore Defaults</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -410,6 +489,9 @@ const handleLogout = async () => {
             </View>
             <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={saveEquipment} disabled={isSaving}>
               <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save Equipment'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.resetButton} onPress={() => setSelectedEquipment(['dumbbells', 'barbell', 'pullup_bar'])}>
+              <Text style={styles.resetButtonText}>Restore Defaults</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -470,4 +552,11 @@ const styles = StyleSheet.create({
   equipmentItemSelected: { borderColor: '#10B981', backgroundColor: '#10B98115' },
   equipmentLabel: { color: '#6B7280', fontSize: 11, marginTop: 6, textAlign: 'center' },
   equipmentLabelSelected: { color: '#10B981' },
+  resetButton: { paddingVertical: 12, alignItems: 'center', marginTop: 8 },
+  resetButtonText: { color: '#6B7280', fontSize: 14, textDecorationLine: 'underline' },
+  unitToggleRow: { flexDirection: 'row', gap: 8 },
+  unitPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#111827', borderWidth: 1.5, borderColor: '#374151' },
+  unitPillActive: { borderColor: '#FF6200', backgroundColor: '#FF620018' },
+  unitPillText: { color: '#6B7280', fontSize: 13, fontWeight: '600' },
+  unitPillTextActive: { color: '#FF6200' },
 });
