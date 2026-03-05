@@ -31,10 +31,11 @@ import { calc1RM } from '../../src/utils/fitness';
 const SCREEN_W = Dimensions.get('window').width;
 const WORKOUTS_KEY = 'gaintrack_workouts';
 const MEASUREMENTS_KEY = 'gaintrack_measurements';
+const NUTRITION_KEY = 'gaintrack_nutrition';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Tab = '1rm' | 'volume' | 'prs' | 'bodyweight';
+type Tab = '1rm' | 'volume' | 'prs' | 'bodyweight' | 'nutrition';
 
 interface StoredSet {
   reps: number;
@@ -123,6 +124,7 @@ export default function ProgressScreen() {
 
   const [workouts, setWorkouts] = useState<StoredWorkout[]>([]);
   const [measurements, setMeasurements] = useState<StoredMeasurement[]>([]);
+  const [nutritionDays, setNutritionDays] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('1rm');
   const [selectedExercise, setSelectedExercise] = useState('');
   const [showPicker, setShowPicker] = useState(false);
@@ -132,12 +134,15 @@ export default function ProgressScreen() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [wRaw, mRaw] = await Promise.all([
+      const [wRaw, mRaw, nRaw] = await Promise.all([
         AsyncStorage.getItem(WORKOUTS_KEY),
         AsyncStorage.getItem(MEASUREMENTS_KEY),
+        AsyncStorage.getItem(NUTRITION_KEY),
       ]);
       const wArr: StoredWorkout[] = wRaw ? JSON.parse(wRaw) : [];
       const mArr: StoredMeasurement[] = mRaw ? JSON.parse(mRaw) : [];
+      const nArr: any[] = nRaw ? JSON.parse(nRaw) : [];
+      setNutritionDays(nArr);
       const sortedW = [...wArr].sort(
         (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
       );
@@ -236,6 +241,29 @@ export default function ProgressScreen() {
       .slice(-12);
     return { labels: pts.map((p) => shortDate(p.date)), data: pts.map((p) => p.val) };
   }, [measurements]);
+
+  const nutritionChart = useMemo(() => {
+    const now = new Date();
+    const days: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      days.push(d.toISOString().split('T')[0]);
+    }
+    const map: Record<string, any> = Object.fromEntries(
+      nutritionDays.map((n: any) => [n.date, n])
+    );
+    const calories = days.map(d => map[d]?.total_calories ?? 0);
+    return {
+      labels: days.map(d => (d.slice(5, 7) + '/' + d.slice(8, 10))),
+      calories,
+      avgCalories: Math.round(calories.reduce((s, v) => s + v, 0) / 7),
+      avgProtein:  Math.round(days.reduce((s, d) => s + (map[d]?.total_protein ?? 0), 0) / 7),
+      avgCarbs:    Math.round(days.reduce((s, d) => s + (map[d]?.total_carbs   ?? 0), 0) / 7),
+      avgFat:      Math.round(days.reduce((s, d) => s + (map[d]?.total_fat     ?? 0), 0) / 7),
+      daysLogged:  calories.filter(v => v > 0).length,
+    };
+  }, [nutritionDays]);
 
   const handleExport = async () => {
     if (!isPro) { // [PRO]
@@ -348,7 +376,7 @@ export default function ProgressScreen() {
       </View>
 
       <View style={styles.tabBar}>
-        {(['1rm', 'volume', 'prs', 'bodyweight'] as Tab[]).map((tab) => (
+        {(['1rm', 'volume', 'prs', 'bodyweight', 'nutrition'] as Tab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tabItem, activeTab === tab && styles.tabItemActive]}
@@ -356,7 +384,7 @@ export default function ProgressScreen() {
             activeOpacity={0.75}
           >
             <Text style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}>
-              {tab === '1rm' ? '1RM' : tab === 'prs' ? 'PRs' : tab === 'volume' ? 'Volume' : 'Weight'}
+              {tab === '1rm' ? '1RM' : tab === 'prs' ? 'PRs' : tab === 'volume' ? 'Volume' : tab === 'bodyweight' ? 'Weight' : 'Nutrition'}
             </Text>
           </TouchableOpacity>
         ))}

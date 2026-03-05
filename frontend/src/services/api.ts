@@ -12,6 +12,8 @@ const NUTRITION_KEY      = 'gaintrack_nutrition';
 const MEASUREMENTS_KEY   = 'gaintrack_measurements';
 const FOODS_VERSION_KEY  = 'gaintrack_foods_version';
 const CURRENT_FOODS_VERSION = 2; // bump when seedFoods changes
+const RECENT_FOODS_KEY   = 'gaintrack_recent_foods';
+const RECENT_LIMIT       = 10;
 
 // Helper functions
 const getStoredData = async <T,>(key: string): Promise<T[]> => {
@@ -311,6 +313,66 @@ export const foodApi = {
     dateEntry.total_fat      = allEntries.reduce((s: number, e: any) => s + (e.fat      ?? 0), 0);
     if (index >= 0) nutrition[index] = dateEntry;
     else nutrition.push(dateEntry);
+    await storeData(NUTRITION_KEY, nutrition);
+    return dateEntry;
+  },
+
+  createCustomFood: async (foodData: { name: string; calories: number; protein: number; carbs: number; fat: number; unit: string }) => {
+    const foods = await getStoredData<any>(FOODS_KEY);
+    const id = 'custom_' + Date.now();
+    const newFood = {
+      id,
+      food_id: id,
+      name: foodData.name.trim(),
+      calories: foodData.calories,
+      protein: foodData.protein,
+      carbs: foodData.carbs,
+      fats: foodData.fat,
+      fat: foodData.fat,
+      unit: foodData.unit || '1 serving',
+      category: 'custom',
+      custom: true,
+    };
+    foods.push(newFood);
+    await storeData(FOODS_KEY, foods);
+    return newFood;
+  },
+
+  recordRecentFood: async (foodId: string) => {
+    const raw = await storage.getItem(RECENT_FOODS_KEY);
+    const ids: string[] = raw ? JSON.parse(raw) : [];
+    const deduped = [foodId, ...ids.filter((id: string) => id !== foodId)].slice(0, RECENT_LIMIT);
+    await storage.setItem(RECENT_FOODS_KEY, JSON.stringify(deduped));
+  },
+
+  getRecentFoods: async () => {
+    const raw = await storage.getItem(RECENT_FOODS_KEY);
+    if (!raw) return [];
+    const ids: string[] = JSON.parse(raw);
+    const foods = await getStoredData<any>(FOODS_KEY);
+    const map: Record<string, any> = Object.fromEntries(foods.map((f: any) => [f.food_id, f]));
+    return ids.map((id: string) => map[id]).filter(Boolean);
+  },
+
+  updateMealEntry: async (date: string, mealType: string, entryIndex: number, updates: any) => {
+    const nutrition = await getStoredData<any>(NUTRITION_KEY);
+    const index = nutrition.findIndex((n: any) => n.date === date);
+    if (index < 0) return null;
+    const dateEntry = nutrition[index];
+    const meal: any[] = dateEntry.meals[mealType] ?? [];
+    if (entryIndex < 0 || entryIndex >= meal.length) return null;
+    dateEntry.meals[mealType][entryIndex] = { ...meal[entryIndex], ...updates };
+    const allEntries = [
+      ...dateEntry.meals.breakfast,
+      ...dateEntry.meals.lunch,
+      ...dateEntry.meals.dinner,
+      ...dateEntry.meals.snacks,
+    ];
+    dateEntry.total_calories = allEntries.reduce((s: number, e: any) => s + (e.calories ?? 0), 0);
+    dateEntry.total_protein  = allEntries.reduce((s: number, e: any) => s + (e.protein  ?? 0), 0);
+    dateEntry.total_carbs    = allEntries.reduce((s: number, e: any) => s + (e.carbs    ?? 0), 0);
+    dateEntry.total_fat      = allEntries.reduce((s: number, e: any) => s + (e.fat      ?? 0), 0);
+    nutrition[index] = dateEntry;
     await storeData(NUTRITION_KEY, nutrition);
     return dateEntry;
   },

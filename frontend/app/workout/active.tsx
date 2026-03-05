@@ -24,6 +24,8 @@ import { WorkoutExercise, WorkoutSet } from '../../src/types';
 import { ExerciseVideo } from '../../src/components/ExerciseVideo';
 import { useNativeAuthState } from '../../src/hooks/useAuth';
 import { seedExercises } from '../../src/data/seedData';
+import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 
 const REST_SECONDS = 90;
 
@@ -60,6 +62,9 @@ const ActiveWorkoutScreen: React.FC = () => {
   const [restTime, setRestTime] = useState(0);
   const [activeRest, setActiveRest] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [elapsedSecs, setElapsedSecs] = useState(0);
+  const startedAtRef = useRef<number>(Date.now());
+  const notifIdRef = useRef<string | null>(null);
 
   // Undo-delete state
   type DeletedItem = { exercise: any; index: number };
@@ -74,20 +79,54 @@ const ActiveWorkoutScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalExercise, setModalExercise] = useState<WorkoutExercise | null>(null);
 
-  // Start rest timer
-  const startRest = () => {
-    setRestTime(REST_SECONDS);
-    setActiveRest(true);
+  // Format elapsed seconds as MM:SS or H:MM:SS
+  const formatDuration = (secs: number): string => {
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    return h > 0
+      ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+      : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  // Auto-init if navigated directly from new.tsx with a name param;
-  // first attempt to restore any in-progress workout that survived a restart.
+  // Cancel any pending rest-over notification
+  const cancelRestNotif = () => {
+    if (notifIdRef.current) {
+      Notifications.cancelScheduledNotificationAsync(notifIdRef.current).catch(() => null);
+      notifIdRef.current = null;
+    }
+  };
+
+  // Start rest timer + schedule bell notification [Feature 5]
+  const startRest = async () => {
+    setRestTime(REST_SECONDS);
+    setActiveRest(true);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🔔 Rest over!',
+          body: 'Time for your next set 💪',
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: REST_SECONDS,
+        },
+      });
+      notifIdRef.current = id;
+    } catch {}
+  };
+
+  // Auto-init; restore in-progress or start fresh; request notification permissions [Feature 1]
   useEffect(() => {
+    Notifications.requestPermissionsAsync().catch(() => null);
     const init = async () => {
       const restored = await restoreInProgress();
       if (restored !== null) {
-        // currentWorkout was rehydrated by restoreInProgress
-        setExerciseList(restored);
+        setExerciseList(restored.exerciseList);
+        startedAtRef.current = restored.startedAt;
+        setElapsedSecs(Math.floor((Date.now() - restored.startedAt) / 1000));
       } else if (!currentWorkout) {
         startWorkout(workoutTitle);
       }
@@ -98,19 +137,35 @@ const ActiveWorkoutScreen: React.FC = () => {
   // Persist exerciseList (and currentWorkout metadata) on every mutation.
   useEffect(() => {
     if (currentWorkout) {
-      persistInProgress(currentWorkout, exerciseList);
+      persistInProgress(currentWorkout, exerciseList, startedAtRef.current);
     }
   }, [exerciseList, currentWorkout]);
 
-  // Countdown logic
+  // Duration ticker — updates once per second [Feature 1]
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsedSecs(Math.floor((Date.now() - startedAtRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Countdown — vibrate each tick in last 5 s; cancel notif when done in-app [Feature 5]
   useEffect(() => {
     if (activeRest && restTime > 0) {
       const interval = setInterval(() => {
-        setRestTime((t) => t - 1);
+        setRestTime((t) => {
+          const next = t - 1;
+          if (next > 0 && next <= 5) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => null);
+          }
+          return next;
+        });
       }, 1000);
       return () => clearInterval(interval);
-    } else if (restTime === 0) {
+    } else if (activeRest && restTime === 0) {
       setActiveRest(false);
+      cancelRestNotif();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => null);
     }
   }, [activeRest, restTime]);
 
@@ -131,6 +186,26 @@ const ActiveWorkoutScreen: React.FC = () => {
       ex.exercise_id === exerciseId ? { ...ex, sets: [...ex.sets, newSet] } : ex
     );
     setExerciseList(updated);
+  };
+
+  // Tap checkmark to complete a set; auto-start rest on first completion [Feature 3]
+  const toggleSetComplete = (exerciseId: string, setIdx: number) => {
+    const exercise = exerciseList.find((ex) => ex.exercise_id === exerciseId);
+    if (!exercise) return;
+    const wasComplete = exercise.sets[setIdx]?.completed ?? false;
+    const sets = exercise.sets.map((s, idx) =>
+      idx === setIdx ? { ...s, completed: !s.completed } : s
+    );
+    const updated = exerciseList.map((ex) =>
+      ex.exercise_id === exerciseId ? { ...ex, sets } : ex
+    );
+    setExerciseList(updated);
+    if (!wasComplete) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (!activeRest) startRest();
+    } else {
+      Haptics.selectionAsync();
+    }
   };
 
   // Swipeable refs — keyed by exercise_id
@@ -229,7 +304,29 @@ const ActiveWorkoutScreen: React.FC = () => {
     setExerciseList(updated);
   };
 
-  // Finish workout: save to Firestore [PRO]
+  // Detect per-exercise PRs using Brzycki 1RM formula; persist & return names [Feature 2]
+  const detectAndSavePRs = async (exercises: WorkoutExercise[]): Promise<string[]> => {
+    const PR_KEY = 'gaintrack_prs';
+    const raw = await AsyncStorage.getItem(PR_KEY);
+    const prs: Record<string, number> = raw ? JSON.parse(raw) : {};
+    const newPRs: string[] = [];
+    for (const ex of exercises) {
+      const best = Math.max(
+        0,
+        ...ex.sets
+          .filter((s) => !s.is_warmup && s.reps > 0 && s.weight > 0 && s.reps < 37)
+          .map((s) => s.weight * (36 / (37 - s.reps))),
+      );
+      if (best > 0 && best > (prs[ex.exercise_id] ?? 0)) {
+        prs[ex.exercise_id] = best;
+        newPRs.push(ex.exercise_name);
+      }
+    }
+    await AsyncStorage.setItem(PR_KEY, JSON.stringify(prs));
+    return newPRs;
+  };
+
+  // Finish workout: save to Firestore, detect PRs, stamp duration, prompt template [PRO]
   const finishWorkout = async () => {
     if (!currentWorkout) return;
     if (!uid) {
@@ -242,11 +339,41 @@ const ActiveWorkoutScreen: React.FC = () => {
       return;
     }
     setSaving(true);
+    cancelRestNotif();
     try {
-      const updatedWorkout = { ...currentWorkout, exercises: validExercises };
+      const durationSeconds = Math.floor((Date.now() - startedAtRef.current) / 1000);
+      const updatedWorkout = { ...currentWorkout, exercises: validExercises, duration: durationSeconds };
       await createWorkout(uid, updatedWorkout);
+      const newPRs = await detectAndSavePRs(validExercises);
       await clearInProgress();
-      Alert.alert('Workout saved!');
+      const title = newPRs.length > 0
+        ? `🏆 ${newPRs.length} new PR${newPRs.length > 1 ? 's' : ''}!`
+        : 'Workout saved!';
+      const body = newPRs.length > 0
+        ? `Records broken: ${newPRs.join(', ')}\n\nSave as template?`
+        : 'Save as a template for next time?';
+      Alert.alert(title, body, [
+        {
+          text: 'Save Template',
+          onPress: async () => {
+            const tmplRaw = await AsyncStorage.getItem('gaintrack_templates');
+            const templates = tmplRaw ? JSON.parse(tmplRaw) : [];
+            templates.unshift({
+              id: Date.now().toString(),
+              name: currentWorkout.name,
+              exercises: validExercises.map((ex) => ({
+                exercise_id: ex.exercise_id,
+                exercise_name: ex.exercise_name,
+                exercise: ex.exercise,
+              })),
+              createdAt: new Date().toISOString(),
+            });
+            // [PRO] unlimited templates; free tier capped at 3
+            await AsyncStorage.setItem('gaintrack_templates', JSON.stringify(templates.slice(0, 10)));
+          },
+        },
+        { text: 'Skip', style: 'cancel' },
+      ]);
       setCurrentWorkout(null);
       router.replace('/');
     } catch (e) {
@@ -267,7 +394,11 @@ const ActiveWorkoutScreen: React.FC = () => {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Text style={styles.title}>{currentWorkout.name || workoutTitle}</Text>
+      {/* Duration timer header [Feature 1] */}
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>{currentWorkout.name || workoutTitle}</Text>
+        <Text style={styles.durationText}>{formatDuration(elapsedSecs)}</Text>
+      </View>
       <TouchableOpacity style={styles.addExerciseBtn} onPress={() => setAddModalVisible(true)}>
         <Text style={styles.addExerciseText}>+ Add Exercise</Text>
       </TouchableOpacity>
@@ -324,7 +455,19 @@ const ActiveWorkoutScreen: React.FC = () => {
               data={item.sets}
               keyExtractor={(_, idx) => idx.toString()}
               renderItem={({ item: set, index }) => (
-                <View style={styles.setRow}>
+                <View style={[styles.setRow, set.completed && styles.setRowComplete]}>
+                  {/* Tap-to-complete checkmark [Feature 3] */}
+                  <TouchableOpacity
+                    style={styles.setCompleteBtn}
+                    onPress={() => toggleSetComplete(item.exercise_id, index)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons
+                      name={set.completed ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={22}
+                      color={set.completed ? '#4CAF50' : '#555'}
+                    />
+                  </TouchableOpacity>
                   <Text style={styles.setNum}>Set {set.set_number}</Text>
                   <TextInput
                     style={styles.input}
@@ -362,7 +505,9 @@ const ActiveWorkoutScreen: React.FC = () => {
               <Text style={styles.restBtnText}>Start Rest Timer</Text>
             </TouchableOpacity>
             {activeRest && (
-              <Text style={styles.restTimer}>Rest: {restTime}s</Text>
+              <Text style={[styles.restTimer, restTime <= 5 && { color: '#F44336' }]}>
+                {restTime <= 5 ? '⚠️' : '⏱'} {restTime}s {restTime <= 5 ? '— go!' : 'rest…'}
+              </Text>
             )}
           </View>
           </Swipeable>
@@ -668,5 +813,26 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  // ── Feature 1: Duration header ──
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  durationText: {
+    color: '#B0B0B0',
+    fontSize: 15,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  // ── Feature 3: Set completion ──
+  setCompleteBtn: {
+    marginRight: 6,
+  },
+  setRowComplete: {
+    backgroundColor: 'rgba(76,175,80,0.08)',
+    borderRadius: 6,
   },
 });

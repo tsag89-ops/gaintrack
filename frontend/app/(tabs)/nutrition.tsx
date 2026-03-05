@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Animated,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,8 +54,24 @@ function MacroBar({ label, current, goal, color }: { label: string; current: num
   );
 }
 
-function SwipeableFoodEntry({ entry, onDelete }: { entry: any; onDelete: () => void }) {
+function SwipeableFoodEntry({ entry, onDelete, onEdit }: { entry: any; onDelete: () => void; onEdit: () => void }) {
   const swipeRef = useRef<Swipeable>(null);
+
+  const renderLeftAction = (_: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
+    const scale = dragX.interpolate({ inputRange: [0, 72], outputRange: [0.8, 1], extrapolate: 'clamp' });
+    return (
+      <TouchableOpacity
+        style={styles.editAction}
+        onPress={() => { swipeRef.current?.close(); onEdit(); }}
+        activeOpacity={0.8}
+      >
+        <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
+          <Ionicons name="pencil-outline" size={20} color="#FFFFFF" />
+          <Text style={styles.editActionText}>Edit</Text>
+        </Animated.View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderRightAction = (_: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
     const scale = dragX.interpolate({ inputRange: [-72, 0], outputRange: [1, 0.8], extrapolate: 'clamp' });
@@ -66,7 +84,7 @@ function SwipeableFoodEntry({ entry, onDelete }: { entry: any; onDelete: () => v
         }}
         activeOpacity={0.8}
       >
-        <Animated.View style={{ transform: [{ scale }] }}>
+        <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
           <Ionicons name="trash-outline" size={20} color="#FFFFFF" />
           <Text style={styles.deleteActionText}>Delete</Text>
         </Animated.View>
@@ -75,7 +93,7 @@ function SwipeableFoodEntry({ entry, onDelete }: { entry: any; onDelete: () => v
   };
 
   return (
-    <Swipeable ref={swipeRef} renderRightActions={renderRightAction} rightThreshold={40} overshootRight={false}>
+    <Swipeable ref={swipeRef} renderLeftActions={renderLeftAction} renderRightActions={renderRightAction} leftThreshold={40} rightThreshold={40} overshootLeft={false} overshootRight={false}>
       <View style={styles.foodEntry}>
         <Text style={styles.foodName} numberOfLines={1}>{entry.food_name ?? entry.name ?? 'Food'}</Text>
         <Text style={styles.foodMacros}>
@@ -138,6 +156,36 @@ export default function NutritionScreen() {
       }
     }
   }, [dateStr, isPro, userId]);
+
+  const [editTarget, setEditTarget] = useState<{ entry: any; mealType: MealType; idx: number } | null>(null);
+  const [editServings, setEditServings] = useState('1');
+
+  const openEdit = useCallback((entry: any, mealType: MealType, idx: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setEditServings(String(entry.servings ?? 1));
+    setEditTarget({ entry, mealType, idx });
+  }, []);
+
+  const handleEditEntry = useCallback(async () => {
+    if (!editTarget) return;
+    const s = parseFloat(editServings) || 1;
+    const { entry, mealType, idx } = editTarget;
+    const base = entry.servings && entry.servings > 0 ? 1 / entry.servings : 1;
+    const updates = {
+      servings: s,
+      calories: (entry.calories ?? 0) * base * s,
+      protein:  (entry.protein  ?? 0) * base * s,
+      carbs:    (entry.carbs    ?? 0) * base * s,
+      fat:      (entry.fat      ?? 0) * base * s,
+    };
+    const updated = await foodApi.updateMealEntry(dateStr, mealType, idx, updates);
+    if (updated) {
+      setNutrition({ ...updated });
+      if (isPro && userId) saveDailyNutrition(userId, updated).catch(() => {});
+    }
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setEditTarget(null);
+  }, [editTarget, editServings, dateStr, isPro, userId]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -216,6 +264,7 @@ export default function NutritionScreen() {
                     key={`${mealType}-${idx}`}
                     entry={entry}
                     onDelete={() => handleDeleteEntry(mealType, idx)}
+                    onEdit={() => openEdit(entry, mealType, idx)}
                   />
                 ))
               )}
@@ -223,6 +272,59 @@ export default function NutritionScreen() {
           );
         })}
       </ScrollView>
+
+      {/* Edit Entry Modal */}
+      <Modal visible={!!editTarget} transparent animationType="fade" onRequestClose={() => setEditTarget(null)}>
+        <View style={styles.editModalOverlay}>
+          <View style={styles.editModalContent}>
+            <View style={styles.editModalHeader}>
+              <Text style={styles.editModalTitle} numberOfLines={1}>
+                {editTarget?.entry?.food_name ?? editTarget?.entry?.name ?? 'Edit Entry'}
+              </Text>
+              <TouchableOpacity onPress={() => setEditTarget(null)}>
+                <Ionicons name="close" size={22} color="#B0B0B0" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.editServingsRow}>
+              <Text style={styles.editServingsLabel}>Servings</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <TouchableOpacity style={styles.editServingsBtn} onPress={() => { const v = Math.max(0.5, (parseFloat(editServings) || 1) - 0.5); setEditServings(String(v)); }}>
+                  <Ionicons name="remove" size={18} color="#FF6200" />
+                </TouchableOpacity>
+                <TextInput
+                  style={styles.editServingsInput}
+                  value={editServings}
+                  onChangeText={setEditServings}
+                  keyboardType="decimal-pad"
+                  selectTextOnFocus
+                />
+                <TouchableOpacity style={styles.editServingsBtn} onPress={() => { const v = (parseFloat(editServings) || 1) + 0.5; setEditServings(String(v)); }}>
+                  <Ionicons name="add" size={18} color="#FF6200" />
+                </TouchableOpacity>
+              </View>
+            </View>
+            {editTarget && (() => {
+              const s = parseFloat(editServings) || 1;
+              const base = editTarget.entry.servings && editTarget.entry.servings > 0 ? 1 / editTarget.entry.servings : 1;
+              const cal = Math.round((editTarget.entry.calories ?? 0) * base * s);
+              const pro = Math.round((editTarget.entry.protein  ?? 0) * base * s);
+              const car = Math.round((editTarget.entry.carbs    ?? 0) * base * s);
+              const fat = Math.round((editTarget.entry.fat      ?? 0) * base * s);
+              return (
+                <View style={styles.editMacroRow}>
+                  <View style={styles.editMacroItem}><Text style={styles.editMacroVal}>{cal}</Text><Text style={styles.editMacroLbl}>kcal</Text></View>
+                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#FF6200' }]}>{pro}g</Text><Text style={styles.editMacroLbl}>P</Text></View>
+                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#3B82F6' }]}>{car}g</Text><Text style={styles.editMacroLbl}>C</Text></View>
+                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#F59E0B' }]}>{fat}g</Text><Text style={styles.editMacroLbl}>F</Text></View>
+                </View>
+              );
+            })()}
+            <TouchableOpacity style={styles.editSaveBtn} onPress={handleEditEntry}>
+              <Text style={styles.editSaveBtnText}>Update Entry</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -265,4 +367,22 @@ const styles = StyleSheet.create({
 
   deleteAction: { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F44336', width: 72, borderTopWidth: 1, borderTopColor: '#2D2D2D' },
   deleteActionText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', marginTop: 3 },
+
+  editAction: { justifyContent: 'center', alignItems: 'center', backgroundColor: '#3B82F6', width: 72, borderTopWidth: 1, borderTopColor: '#2D2D2D' },
+  editActionText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', marginTop: 3 },
+
+  editModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  editModalContent: { backgroundColor: '#252525', borderRadius: 18, padding: 20, width: '100%' },
+  editModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  editModalTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', flex: 1, marginRight: 8 },
+  editServingsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  editServingsLabel: { color: '#B0B0B0', fontSize: 14, fontWeight: '600' },
+  editServingsInput: { backgroundColor: '#1A1A1A', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, color: '#FFFFFF', fontSize: 16, fontWeight: '700', minWidth: 60, textAlign: 'center', borderWidth: 1, borderColor: '#3A3A3A' },
+  editServingsBtn: { padding: 6 },
+  editMacroRow: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: '#1A1A1A', borderRadius: 10, paddingVertical: 12, marginBottom: 16 },
+  editMacroItem: { alignItems: 'center' },
+  editMacroVal: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  editMacroLbl: { color: '#B0B0B0', fontSize: 11, marginTop: 2 },
+  editSaveBtn: { backgroundColor: '#FF6200', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
+  editSaveBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
 });

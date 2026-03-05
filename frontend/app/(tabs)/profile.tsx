@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '../../src/store/authStore';
 import { userApi } from '../../src/services/api';
 import { getEquipmentLabel } from '../../src/utils/helpers';
@@ -46,6 +47,14 @@ export default function ProfileScreen() {
   const [protein, setProtein] = useState(String(user?.goals?.protein_grams || 150));
   const [carbs, setCarbs] = useState(String(user?.goals?.carbs_grams || 200));
   const [fat, setFat] = useState(String(user?.goals?.fat_grams || 65));
+
+  // TDEE wizard state
+  const [showTDEE, setShowTDEE] = useState(false);
+  const [tdeeWeight, setTdeeWeight] = useState('');
+  const [tdeeHeight, setTdeeHeight] = useState('');
+  const [tdeeAge, setTdeeAge] = useState('');
+  const [tdeeSex, setTdeeSex] = useState<'male' | 'female'>('male');
+  const [tdeeActivity, setTdeeActivity] = useState(1.55);
 
   // Equipment state
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>(user?.equipment || []);
@@ -136,6 +145,24 @@ const handleLogout = async () => {
 
 
 
+
+  const calculateTDEE = () => {
+    const w = parseFloat(tdeeWeight);
+    const h = parseFloat(tdeeHeight);
+    const a = parseInt(tdeeAge);
+    if (!w || !h || !a) { Alert.alert('Missing info', 'Enter weight (kg), height (cm), and age.'); return; }
+    const bmr = tdeeSex === 'male' ? 10 * w + 6.25 * h - 5 * a + 5 : 10 * w + 6.25 * h - 5 * a - 161;
+    const tdee = Math.round(bmr * tdeeActivity);
+    const prot = Math.round(w * 2.2);
+    const fatG = Math.round(w * 0.9);
+    const carbG = Math.max(0, Math.round((tdee - prot * 4 - fatG * 9) / 4));
+    setCalories(String(tdee));
+    setProtein(String(prot));
+    setCarbs(String(carbG));
+    setFat(String(fatG));
+    setShowTDEE(false);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
 
   const saveGoals = async () => {
     try {
@@ -422,6 +449,64 @@ const handleLogout = async () => {
                 <Ionicons name="close" size={24} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
+            {/* TDEE Wizard */}
+            <TouchableOpacity style={styles.tdeeToggle} onPress={() => setShowTDEE(v => !v)}>
+              <Ionicons name="calculator-outline" size={18} color="#FF6200" />
+              <Text style={styles.tdeeToggleText}>Calculate with TDEE</Text>
+              <Ionicons name={showTDEE ? 'chevron-up' : 'chevron-down'} size={16} color="#B0B0B0" />
+            </TouchableOpacity>
+            {showTDEE && (
+              <View style={styles.tdeeSection}>
+                <View style={styles.tdeeRow}>
+                  <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.inputLabel}>Weight (kg)</Text>
+                    <TextInput style={styles.input} value={tdeeWeight} onChangeText={setTdeeWeight} keyboardType="decimal-pad" placeholder="75" placeholderTextColor="#6B7280" />
+                  </View>
+                  <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.inputLabel}>Height (cm)</Text>
+                    <TextInput style={styles.input} value={tdeeHeight} onChangeText={setTdeeHeight} keyboardType="decimal-pad" placeholder="175" placeholderTextColor="#6B7280" />
+                  </View>
+                </View>
+                <View style={styles.tdeeRow}>
+                  <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.inputLabel}>Age</Text>
+                    <TextInput style={styles.input} value={tdeeAge} onChangeText={setTdeeAge} keyboardType="numeric" placeholder="25" placeholderTextColor="#6B7280" />
+                  </View>
+                  <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.inputLabel}>Sex</Text>
+                    <View style={styles.sexRow}>
+                      {(['male', 'female'] as const).map(s => (
+                        <TouchableOpacity key={s} style={[styles.sexPill, tdeeSex === s && styles.sexPillActive]} onPress={() => setTdeeSex(s)}>
+                          <Text style={[styles.sexPillText, tdeeSex === s && styles.sexPillTextActive]}>{s === 'male' ? 'Male' : 'Female'}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Activity Level</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {[
+                        { label: 'Sedentary', value: 1.2 },
+                        { label: 'Light', value: 1.375 },
+                        { label: 'Moderate', value: 1.55 },
+                        { label: 'Active', value: 1.725 },
+                        { label: 'Very Active', value: 1.9 },
+                      ].map(opt => (
+                        <TouchableOpacity key={opt.value} style={[styles.activityPill, tdeeActivity === opt.value && styles.activityPillActive]} onPress={() => setTdeeActivity(opt.value)}>
+                          <Text style={[styles.activityPillText, tdeeActivity === opt.value && styles.activityPillTextActive]}>{opt.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+                <TouchableOpacity style={styles.tdeeCalcBtn} onPress={calculateTDEE}>
+                  <Ionicons name="flash" size={16} color="#FFFFFF" />
+                  <Text style={styles.tdeeCalcBtnText}>Apply TDEE Goals</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Daily Calories</Text>
               <TextInput style={styles.input} value={calories} onChangeText={setCalories} keyboardType="numeric" placeholder="2000" placeholderTextColor="#6B7280" />
@@ -550,4 +635,19 @@ const styles = StyleSheet.create({
   unitPillActive: { borderColor: '#FF6200', backgroundColor: '#FF620018' },
   unitPillText: { color: '#6B7280', fontSize: 13, fontWeight: '600' },
   unitPillTextActive: { color: '#FF6200' },
+  tdeeToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 4, marginBottom: 4 },
+  tdeeToggleText: { flex: 1, color: '#FF6200', fontSize: 14, fontWeight: '600' },
+  tdeeSection: { backgroundColor: '#111827', borderRadius: 12, padding: 14, marginBottom: 14 },
+  tdeeRow: { flexDirection: 'row', gap: 12 },
+  sexRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
+  sexPill: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#1F2937', alignItems: 'center', borderWidth: 1.5, borderColor: 'transparent' },
+  sexPillActive: { borderColor: '#FF6200', backgroundColor: '#FF620015' },
+  sexPillText: { color: '#6B7280', fontSize: 13, fontWeight: '600' },
+  sexPillTextActive: { color: '#FF6200' },
+  activityPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#1F2937', borderWidth: 1.5, borderColor: 'transparent' },
+  activityPillActive: { borderColor: '#FF6200', backgroundColor: '#FF620015' },
+  activityPillText: { color: '#6B7280', fontSize: 13, fontWeight: '600' },
+  activityPillTextActive: { color: '#FF6200' },
+  tdeeCalcBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FF6200', paddingVertical: 12, borderRadius: 10, marginTop: 8 },
+  tdeeCalcBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
 });

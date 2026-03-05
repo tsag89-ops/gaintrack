@@ -1,14 +1,14 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout, WorkoutExercise, WorkoutSet, Exercise } from '../types';
-
-const ACTIVE_WORKOUT_KEY = 'gaintrack_active_workout';
 import {
   loadUserWorkouts as fsLoadUserWorkouts,
   createWorkout    as fsCreateWorkout,
   updateWorkout    as fsUpdateWorkout,
   deleteWorkout    as fsDeleteWorkout,
 } from '../services/workoutFirestore';
+
+const ACTIVE_WORKOUT_KEY = 'gaintrack_active_workout';
 
 interface WorkoutState {
   workouts: Workout[];
@@ -25,8 +25,8 @@ interface WorkoutState {
   startWorkout: (name: string) => void;
 
   // ── In-progress persistence ─────────────────────────────────────────────
-  persistInProgress: (workout: Workout, exerciseList: WorkoutExercise[]) => Promise<void>;
-  restoreInProgress: () => Promise<WorkoutExercise[] | null>;
+  persistInProgress: (workout: Workout, exerciseList: WorkoutExercise[], startedAt: number) => Promise<void>;
+  restoreInProgress: () => Promise<{ exerciseList: WorkoutExercise[]; startedAt: number } | null>;
   clearInProgress: () => Promise<void>;
 
   // ── In-workout local mutations (unchanged) ───────────────────────────────
@@ -84,11 +84,11 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   // ── In-progress persistence ─────────────────────────────────────────────
 
-  persistInProgress: async (workout, exerciseList) => {
+  persistInProgress: async (workout, exerciseList, startedAt) => {
     try {
       await AsyncStorage.setItem(
         ACTIVE_WORKOUT_KEY,
-        JSON.stringify({ workout, exerciseList }),
+        JSON.stringify({ workout, exerciseList, startedAt }),
       );
     } catch (err) {
       console.warn('[workoutStore] persistInProgress failed:', err);
@@ -99,12 +99,13 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     try {
       const raw = await AsyncStorage.getItem(ACTIVE_WORKOUT_KEY);
       if (!raw) return null;
-      const { workout, exerciseList } = JSON.parse(raw) as {
+      const { workout, exerciseList, startedAt } = JSON.parse(raw) as {
         workout: Workout;
         exerciseList: WorkoutExercise[];
+        startedAt: number;
       };
       set({ currentWorkout: workout });
-      return exerciseList;
+      return { exerciseList, startedAt: startedAt ?? Date.now() };
     } catch (err) {
       console.warn('[workoutStore] restoreInProgress failed:', err);
       return null;

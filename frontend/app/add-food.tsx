@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,9 +39,19 @@ export default function AddFoodScreen() {
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
   const [servings, setServings] = useState('1');
   const [isAdding, setIsAdding] = useState(false);
+  const [recentFoods, setRecentFoods] = useState<Food[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createCalories, setCreateCalories] = useState('');
+  const [createProtein, setCreateProtein] = useState('');
+  const [createCarbs, setCreateCarbs] = useState('');
+  const [createFat, setCreateFat] = useState('');
+  const [createUnit, setCreateUnit] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     fetchFoods();
+    loadRecentFoods();
   }, []);
 
   const fetchFoods = async () => {
@@ -52,6 +63,36 @@ export default function AddFoodScreen() {
       console.error('Error fetching foods:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadRecentFoods = async () => {
+    const recent = await foodApi.getRecentFoods();
+    setRecentFoods(recent as Food[]);
+  };
+
+  const handleCreateFood = async () => {
+    if (!createName.trim()) return;
+    try {
+      setIsCreating(true);
+      const newFood = await foodApi.createCustomFood({
+        name: createName.trim(),
+        calories: parseFloat(createCalories) || 0,
+        protein: parseFloat(createProtein) || 0,
+        carbs: parseFloat(createCarbs) || 0,
+        fat: parseFloat(createFat) || 0,
+        unit: createUnit.trim() || '1 serving',
+      });
+      setFoods(prev => [...prev, newFood as Food]);
+      setShowCreateModal(false);
+      setCreateName(''); setCreateCalories(''); setCreateProtein('');
+      setCreateCarbs(''); setCreateFat(''); setCreateUnit('');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      handleSelectFood(newFood as Food);
+    } catch (e) {
+      Alert.alert('Error', 'Failed to create food');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -87,6 +128,7 @@ export default function AddFoodScreen() {
       fat: selectedFood.fat * servingCount,
     });
     setTodayNutrition(updatedNutrition);
+    await foodApi.recordRecentFood(selectedFood.food_id);
     // [PRO] Persist to Firestore for cross-device sync
     if (isPro && userId) {
       saveDailyNutrition(userId, updatedNutrition).catch(() => {});
@@ -124,7 +166,9 @@ export default function AddFoodScreen() {
             <Ionicons name="close" size={28} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Add to {getMealTitle()}</Text>
-          <View style={{ width: 28 }} />
+          <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowCreateModal(true); }} style={styles.closeButton}>
+            <Ionicons name="add-circle-outline" size={28} color="#FF6200" />
+          </TouchableOpacity>
         </View>
 
         {/* Search */}
@@ -181,6 +225,32 @@ export default function AddFoodScreen() {
           </View>
         ) : (
           <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+            {!searchQuery && selectedCategory === 'all' && recentFoods.length > 0 && (
+              <>
+                <Text style={styles.sectionHeader}>Recent</Text>
+                {recentFoods.map((food) => (
+                  <TouchableOpacity
+                    key={'recent-' + food.food_id}
+                    style={[styles.foodCard, selectedFood?.food_id === food.food_id && styles.foodCardSelected]}
+                    onPress={() => handleSelectFood(food)}
+                  >
+                    <View style={styles.foodInfo}>
+                      <Text style={styles.foodName}>{food.name}</Text>
+                      <Text style={styles.foodServing}>{food.unit}</Text>
+                    </View>
+                    <View style={styles.foodMacros}>
+                      <Text style={styles.foodCalories}>{food.calories} cal</Text>
+                      <View style={styles.macroRow}>
+                        <Text style={[styles.macroText, { color: '#EF4444' }]}>P {food.protein}g</Text>
+                        <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {food.carbs}g</Text>
+                        <Text style={[styles.macroText, { color: '#F59E0B' }]}>F {food.fat}g</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+                <Text style={styles.sectionHeader}>All Foods</Text>
+              </>
+            )}
             {filteredFoods.map((food) => (
               <TouchableOpacity
                 key={food.food_id}
@@ -286,6 +356,54 @@ export default function AddFoodScreen() {
             </TouchableOpacity>
           </View>
         )}
+        {/* Create Food Modal */}
+        <Modal visible={showCreateModal} animationType="slide" transparent onRequestClose={() => setShowCreateModal(false)}>
+          <View style={styles.createModalOverlay}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+              <View style={styles.createModalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Create Food</Text>
+                  <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+                    <Ionicons name="close" size={24} color="#B0B0B0" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.createField}>
+                  <Text style={styles.createLabel}>Food Name *</Text>
+                  <TextInput style={styles.createInput} value={createName} onChangeText={setCreateName} placeholder="e.g. Protein Bar" placeholderTextColor="#6B7280" />
+                </View>
+                <View style={styles.createField}>
+                  <Text style={styles.createLabel}>Serving Size</Text>
+                  <TextInput style={styles.createInput} value={createUnit} onChangeText={setCreateUnit} placeholder="e.g. 100g, 1 bar" placeholderTextColor="#6B7280" />
+                </View>
+                <View style={styles.createMacroGrid}>
+                  <View style={styles.createMacroCell}>
+                    <Text style={styles.createLabel}>Calories</Text>
+                    <TextInput style={styles.createInput} value={createCalories} onChangeText={setCreateCalories} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#6B7280" />
+                  </View>
+                  <View style={styles.createMacroCell}>
+                    <Text style={styles.createLabel}>Protein (g)</Text>
+                    <TextInput style={styles.createInput} value={createProtein} onChangeText={setCreateProtein} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#6B7280" />
+                  </View>
+                  <View style={styles.createMacroCell}>
+                    <Text style={styles.createLabel}>Carbs (g)</Text>
+                    <TextInput style={styles.createInput} value={createCarbs} onChangeText={setCreateCarbs} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#6B7280" />
+                  </View>
+                  <View style={styles.createMacroCell}>
+                    <Text style={styles.createLabel}>Fat (g)</Text>
+                    <TextInput style={styles.createInput} value={createFat} onChangeText={setCreateFat} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#6B7280" />
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[styles.addButton, (!createName.trim() || isCreating) && styles.addButtonDisabled]}
+                  onPress={handleCreateFood}
+                  disabled={!createName.trim() || isCreating}
+                >
+                  <Text style={styles.addButtonText}>{isCreating ? 'Saving...' : 'Save Food'}</Text>
+                </TouchableOpacity>
+              </View>
+            </KeyboardAvoidingView>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -489,5 +607,64 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  sectionHeader: {
+    color: '#B0B0B0',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  createModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  createModalContent: {
+    backgroundColor: '#252525',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  createField: {
+    marginBottom: 12,
+  },
+  createLabel: {
+    color: '#B0B0B0',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  createInput: {
+    backgroundColor: '#1A1A1A',
+    borderRadius: 10,
+    padding: 12,
+    color: '#FFFFFF',
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: '#3A3A3A',
+  },
+  createMacroGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 4,
+  },
+  createMacroCell: {
+    width: '47%',
   },
 });
