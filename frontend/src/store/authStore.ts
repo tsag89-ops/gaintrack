@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { storage } from '../utils/storage';
 import { auth, db } from '../config/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface User {
   id: string;
@@ -35,6 +36,24 @@ interface AuthState {
   loadStoredAuth: () => Promise<void>;
 }
 
+// ─── Platform-safe Firestore upsert ──────────────────────────────────────────
+async function upsertUserProfile(userId: string, data: object) {
+  try {
+    // Web SDK modular API — works on web, iOS, and Android
+    await setDoc(doc(db, 'users', userId), data, { merge: true });
+    console.log('[authStore] Firestore profile upsert success ✅');
+  } catch (e) {
+    // Fallback: native @react-native-firebase syntax (Android native builds)
+    try {
+      await (db as any).collection('users').doc(userId).set(data, { merge: true });
+      console.log('[authStore] Firestore profile upsert success (native) ✅');
+    } catch (e2) {
+      console.warn('[authStore] Firestore profile save failed:', e2);
+    }
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   sessionToken: null,
@@ -66,17 +85,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
     set({ user: finalUser, sessionToken: token, isAuthenticated: true, isLoading: false });
 
-    // Upsert user profile in Firestore — merge:true so existing fields are never overwritten
-    db.collection('users').doc(finalUser.id).set(
-      {
-        uid: finalUser.id,
-        email: finalUser.email,
-        displayName: finalUser.name || '',
-        createdAt: new Date().toISOString(),
-        isPro: false,
-      },
-      { merge: true },
-    ).catch((e: unknown) => console.warn('[authStore] Firestore profile save failed:', e));
+    // Upsert user profile — now works on web + iOS + Android
+    await upsertUserProfile(finalUser.id, {
+      uid: finalUser.id,
+      email: finalUser.email,
+      displayName: finalUser.name || '',
+      createdAt: new Date().toISOString(),
+    });
   },
 
   logout: async () => {
