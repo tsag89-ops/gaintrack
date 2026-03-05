@@ -220,9 +220,14 @@ const ActiveWorkoutScreen: React.FC = () => {
       Alert.alert('Not signed in', 'Please log in to save workouts.');
       return;
     }
+    const validExercises = exerciseList.filter((ex) => ex.sets.length > 0);
+    if (validExercises.length === 0) {
+      Alert.alert('Nothing to save', 'Add at least one exercise with a set before finishing.');
+      return;
+    }
     setSaving(true);
     try {
-      const updatedWorkout = { ...currentWorkout, exercises: exerciseList };
+      const updatedWorkout = { ...currentWorkout, exercises: validExercises };
       await createWorkout(uid, updatedWorkout);
       Alert.alert('Workout saved!');
       setCurrentWorkout(null);

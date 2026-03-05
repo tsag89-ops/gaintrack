@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { storage } from '../utils/storage';
-import { auth } from '../config/firebase';
+import { auth, db } from '../config/firebase';
 
 interface User {
   id: string;
@@ -65,6 +65,18 @@ export const useAuthStore = create<AuthState>((set) => ({
       console.warn('setSession storage error:', e);
     }
     set({ user: finalUser, sessionToken: token, isAuthenticated: true, isLoading: false });
+
+    // Upsert user profile in Firestore — merge:true so existing fields are never overwritten
+    db.collection('users').doc(finalUser.id).set(
+      {
+        uid: finalUser.id,
+        email: finalUser.email,
+        displayName: finalUser.name || '',
+        createdAt: new Date().toISOString(),
+        isPro: false,
+      },
+      { merge: true },
+    ).catch((e: unknown) => console.warn('[authStore] Firestore profile save failed:', e));
   },
 
   logout: async () => {
