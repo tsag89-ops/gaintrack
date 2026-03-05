@@ -11,6 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { Exercise } from '../../src/types';
 import { theme } from '../../src/constants/theme';
 import { ExercisePicker } from '../../src/components/ExercisePicker';
+import { usePro } from '../../src/hooks/usePro';
 
 // In browse mode there is no active workout, so we show a small "added" toast
 // and optionally push to /workout/new pre-populated (future enhancement).
@@ -19,8 +20,7 @@ export default function ExercisesScreen() {
   const router = useRouter();
   const [lastAdded, setLastAdded] = useState<Exercise | null>(null);
 
-  // TODO: wire up actual RevenueCat usePro() hook — hardcoded false for free users
-  const isPro = false;
+  const { isPro } = usePro();
 
   const handleAdd = async (exercise: Exercise, _superset?: boolean) => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

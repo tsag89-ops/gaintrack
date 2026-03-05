@@ -132,8 +132,16 @@ export const useAuthStore = create<AuthState>((set) => ({
       ]);
       if (userStr && token) {
         const user = JSON.parse(userStr) as User;
-        // isPro is already persisted in AsyncStorage from last login ✅
+        // Restore immediately from cache so the UI is not blocked
         set({ user, sessionToken: token, isAuthenticated: true, isLoading: false });
+        // Then refresh isPro from Firestore in the background
+        fetchIsPro(user.id).then((isPro) => {
+          set((state) => ({
+            user: state.user ? { ...state.user, isPro } : state.user,
+          }));
+          // Persist refreshed isPro back to AsyncStorage
+          storage.setItem('user', JSON.stringify({ ...user, isPro })).catch(() => {});
+        });
       } else {
         set({ isLoading: false });
       }

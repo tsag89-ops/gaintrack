@@ -263,7 +263,43 @@ export const foodApi = {
 export const statsApi = {
   getStats: async () => ({ totalWorkouts: 0, totalVolume: 0, streak: 0 }),
   getProgress: async () => ([]),
-  getCalendarData: async (year: number, month: number): Promise<Record<string, any>> => ({}),
+  getCalendarData: async (year: number, month: number): Promise<Record<string, any>> => {
+    const [workouts, nutrition] = await Promise.all([
+      getStoredData<any>(WORKOUTS_KEY),
+      getStoredData<any>(NUTRITION_KEY),
+    ]);
+    const result: Record<string, any> = {};
+
+    workouts.forEach((w: any) => {
+      if (!w.date) return;
+      const d = new Date(w.date);
+      if (isNaN(d.getTime())) return;
+      if (d.getFullYear() !== year || d.getMonth() + 1 !== month) return;
+      const key = d.toISOString().split('T')[0];
+      if (!result[key]) result[key] = { workouts: [], nutrition: null };
+      result[key].workouts.push({
+        workout_id: w.workout_id,
+        name: w.name ?? 'Workout',
+        exercise_count: (w.exercises ?? []).length,
+      });
+    });
+
+    nutrition.forEach((n: any) => {
+      if (!n.date) return;
+      const d = new Date(n.date);
+      if (isNaN(d.getTime())) return;
+      if (d.getFullYear() !== year || d.getMonth() + 1 !== month) return;
+      if (!result[n.date]) result[n.date] = { workouts: [], nutrition: null };
+      if ((n.total_calories ?? 0) > 0) {
+        result[n.date].nutrition = {
+          calories: n.total_calories ?? 0,
+          protein: n.total_protein ?? 0,
+        };
+      }
+    });
+
+    return result;
+  },
   getWorkoutVolume: async (days: number) => ([]),
   getNutritionAdherence: async (days: number) => ([]),
 };

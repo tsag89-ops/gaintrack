@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Platform,
@@ -13,13 +13,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
 import { userApi } from '../../src/services/api';
 import { getEquipmentLabel } from '../../src/utils/helpers';
 import { useAuth } from '../../src/hooks/useAuth';
 import { deleteAccount, signOut as nativeSignOut, REQUIRES_RECENT_LOGIN } from '../../src/services/authBridge';
-import { useProStatus } from '../../src/hooks/useProStatus'; // [PRO]
+import { usePro } from '../../src/hooks/usePro'; // [PRO]
 
 const EQUIPMENT_OPTIONS = [
   { id: 'dumbbells', icon: 'fitness-outline' },
@@ -35,16 +34,8 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, setUser, logout } = useAuthStore();
 
-  // [PRO] Live subscription state from RevenueCat
-  const { isPro, refresh: refreshPro } = useProStatus();
-
-  // Re-check Pro status every time this tab comes into focus
-  // (e.g. after returning from the paywall screen)
-  useFocusEffect(
-    useCallback(() => {
-      refreshPro();
-    }, [refreshPro]),
-  );
+  // [PRO] Reads user.isPro from authStore (Firestore-backed — updates on every login)
+  const { isPro } = usePro();
 
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);

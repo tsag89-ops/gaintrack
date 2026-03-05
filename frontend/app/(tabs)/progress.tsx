@@ -14,6 +14,7 @@ import {
   Modal,
   FlatList,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -255,10 +256,25 @@ export default function ProgressScreen() {
           });
         });
       });
+      const csv = rows.join('\n');
+
+      // Web: use browser Blob download
+      if (Platform.OS === 'web') {
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'gaintrack_workouts.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      // Native: write to file system and share
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const FS = FileSystem as any;
       const path: string = (FS.documentDirectory ?? '') + 'gaintrack_workouts.csv';
-      await FS.writeAsStringAsync(path, rows.join('\n'), { encoding: 'utf8' });
+      await FS.writeAsStringAsync(path, csv, { encoding: 'utf8' });
       await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export GainTrack Data' });
     } catch (e) {
       Alert.alert('Export failed', String(e));

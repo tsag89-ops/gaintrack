@@ -8,6 +8,9 @@
 - Theme: Vibrant Orange (#FF6200) + Charcoal (#2D2D2D) — dark mode only
 - Reference Hevy app exactly for all UI/UX. Use vibrant orange (#FF6200)/charcoal (#2D2D2D) theme globally. Keep existing structure.
 - Agent Role: You are the GainTrack Dev Agent. KEEP ALL EXISTING FILES INTACT. Enhance only. Expo managed workflow.
+- Task: Implement new features, fix bugs, optimize performance, and maintain code quality across the entire codebase. Follow instructions in this file for all changes.
+- usePro.ts reads user.isPro from authStore — Firestore is the single source of truth for isPro. Never hardcode isPro on any platform.
+- loadStoredAuth refreshes isPro from Firestore in background on every app start — cache loads instantly, Firestore is source of truth for Pro status. isPro is only written server-side (RevenueCat webhook or admin console), never by the client. This ensures Pro upgrades, cancellations, and refunds are reflected on next app start without blocking UI.
 
 ---
 
