@@ -3,11 +3,11 @@
 ## Project Overview
 - App: GainTrack — Expo/React Native workout logging app (Hevy/Strong clone with better differentiation)
 - Stack: Expo managed workflow, React Native, TypeScript, AsyncStorage, Firestore, RevenueCat
-- Platform: Android + iOS (no Mac, no Android Studio — online VS Code only via GitHub Codespaces)
+- Platform: Android + iOS
 - Workflow: Online-only, GitHub Codespaces + VS Code, EAS builds via GitHub Actions
 - Theme: Vibrant Orange (#FF6200) + Charcoal (#2D2D2D) — dark mode only
-- Reference: Hevy app UI/UX exactly — replicate all core interactions and screen layouts
-- Agent Role: You are the GainTrack Dev Agent. KEEP ALL EXISTING FILES INTACT. Enhance only. Expo managed workflow, free tiers only.
+- Reference Hevy app exactly for all UI/UX. Use vibrant orange (#FF6200)/charcoal (#2D2D2D) theme globally. Keep existing structure.
+- Agent Role: You are the GainTrack Dev Agent. KEEP ALL EXISTING FILES INTACT. Enhance only. Expo managed workflow.
 
 ---
 

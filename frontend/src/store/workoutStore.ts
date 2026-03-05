@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout, WorkoutExercise, WorkoutSet, Exercise } from '../types';
 import {
   loadUserWorkouts as fsLoadUserWorkouts,
@@ -131,6 +132,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     try {
       const workouts = await fsLoadUserWorkouts(uid, limit);
       set({ workouts, isLoading: false });
+      await AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(workouts));
     } catch (err) {
       console.error('[workoutStore] loadUserWorkouts failed:', err);
       set({ isLoading: false });
@@ -139,24 +141,31 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   createWorkout: async (uid, data) => {
     const saved = await fsCreateWorkout(uid, data);
-    // Prepend to local list so the home screen reflects the new entry immediately
-    set((state) => ({ workouts: [saved, ...state.workouts] }));
+    set((state) => {
+      const updated = [saved, ...state.workouts];
+      AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
+      return { workouts: updated };
+    });
     return saved;
   },
 
   updateWorkout: async (uid, workoutId, updates) => {
     await fsUpdateWorkout(uid, workoutId, updates);
-    set((state) => ({
-      workouts: state.workouts.map((w) =>
+    set((state) => {
+      const updated = state.workouts.map((w) =>
         w.workout_id === workoutId ? { ...w, ...updates } : w
-      ),
-    }));
+      );
+      AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
+      return { workouts: updated };
+    });
   },
 
   deleteWorkout: async (uid, workoutId) => {
     await fsDeleteWorkout(uid, workoutId);
-    set((state) => ({
-      workouts: state.workouts.filter((w) => w.workout_id !== workoutId),
-    }));
+    set((state) => {
+      const updated = state.workouts.filter((w) => w.workout_id !== workoutId);
+      AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
+      return { workouts: updated };
+    });
   },
 }));

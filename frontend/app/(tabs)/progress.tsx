@@ -23,6 +23,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { colors, typography, spacing, radii } from '../../src/constants/theme';
 import { usePro } from '../../src/hooks/usePro';
+import { calc1RM } from '../../src/utils/fitness';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -77,14 +78,6 @@ interface ChartDataSet {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Brzycki 1RM formula */
-const calc1RM = (weight: number, reps: number): number => {
-  if (weight <= 0 || reps <= 0) return 0;
-  if (reps === 1) return weight;
-  if (reps >= 37) return weight;
-  return Math.round(weight * (36 / (37 - reps)));
-};
 
 /** ISO week label e.g. "2025-W04" */
 const isoWeekLabel = (dateStr: string): string => {

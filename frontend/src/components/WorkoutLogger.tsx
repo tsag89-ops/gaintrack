@@ -32,11 +32,7 @@ import { collection, doc, setDoc } from 'firebase/firestore';
 import { colors, typography, spacing, radii, shadows } from '../constants/theme';
 import { WorkoutExercise, WorkoutSet, Exercise } from '../types';
 
-// ─── Brzycki 1RM formula ──────────────────────────────────────────────────────
-const calc1RM = (weight: number, reps: number): number => {
-  if (reps <= 0 || reps >= 37) return weight;
-  return Math.round(weight * (36 / (37 - reps)));
-};
+import { calc1RM } from '../utils/fitness';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
