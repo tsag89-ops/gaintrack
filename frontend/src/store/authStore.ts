@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { storage } from '../utils/storage';
 import { auth, db } from '../config/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface User {
   id: string;
@@ -10,6 +10,7 @@ interface User {
   email: string;
   picture?: string | null;
   created_at?: string;
+  isPro?: boolean;
   goals?: {
     daily_calories: number;
     protein_grams: number;
@@ -36,14 +37,11 @@ interface AuthState {
   loadStoredAuth: () => Promise<void>;
 }
 
-// ─── Platform-safe Firestore upsert ──────────────────────────────────────────
 async function upsertUserProfile(userId: string, data: object) {
   try {
-    // Web SDK modular API — works on web, iOS, and Android
     await setDoc(doc(db, 'users', userId), data, { merge: true });
     console.log('[authStore] Firestore profile upsert success ✅');
   } catch (e) {
-    // Fallback: native @react-native-firebase syntax (Android native builds)
     try {
       await (db as any).collection('users').doc(userId).set(data, { merge: true });
       console.log('[authStore] Firestore profile upsert success (native) ✅');
@@ -52,7 +50,20 @@ async function upsertUserProfile(userId: string, data: object) {
     }
   }
 }
-// ─────────────────────────────────────────────────────────────────────────────
+
+async function fetchIsPro(userId: string): Promise<boolean> {
+  try {
+    const snap = await getDoc(doc(db, 'users', userId));
+    if (snap.exists()) {
+      const isPro = snap.data().isPro ?? false;
+      console.log('[authStore] isPro from Firestore:', isPro);
+      return isPro;
+    }
+  } catch (e) {
+    console.warn('[authStore] Firestore isPro read failed:', e);
+  }
+  return false;
+}
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
@@ -65,8 +76,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   setSession: async (user, token) => {
     let finalUser = user;
     try {
-      // Preserve equipment + goals from a previous session for the same account
-      // so logout → login never resets user-edited preferences to defaults.
       const existing = await storage.getItem('user');
       if (existing) {
         const prev = JSON.parse(existing) as User;
@@ -78,32 +87,41 @@ export const useAuthStore = create<AuthState>((set) => ({
           };
         }
       }
-      await storage.setItem('user', JSON.stringify(finalUser));
-      await storage.setItem('sessionToken', token);
     } catch (e) {
       console.warn('setSession storage error:', e);
     }
-    set({ user: finalUser, sessionToken: token, isAuthenticated: true, isLoading: false });
 
-    // Upsert user profile — now works on web + iOS + Android
+    // Write profile — NO isPro here (blocked by Security Rules)
     await upsertUserProfile(finalUser.id, {
       uid: finalUser.id,
       email: finalUser.email,
       displayName: finalUser.name || '',
       createdAt: new Date().toISOString(),
     });
+
+    // Read isPro from Firestore (only source of truth)
+    const isPro = await fetchIsPro(finalUser.id);
+    finalUser = { ...finalUser, isPro };
+
+    // Save full user (with isPro) to AsyncStorage
+    try {
+      await storage.setItem('user', JSON.stringify(finalUser));
+      await storage.setItem('sessionToken', token);
+    } catch (e) {
+      console.warn('setSession storage save error:', e);
+    }
+
+    set({ user: finalUser, sessionToken: token, isAuthenticated: true, isLoading: false });
   },
 
   logout: async () => {
     try {
-      // Only remove the session token — keep the user object in storage so
-      // equipment + goals survive logout and are restored on next login.
       await storage.removeItem('sessionToken');
       await auth.signOut();
     } catch (e) {
       console.warn('logout error:', e);
     }
-    set(() => ({ user: null, sessionToken: null, isAuthenticated: false, isLoading: false }));
+    set({ user: null, sessionToken: null, isAuthenticated: false, isLoading: false });
   },
 
   loadStoredAuth: async () => {
@@ -113,7 +131,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         storage.getItem('sessionToken'),
       ]);
       if (userStr && token) {
-        const user = JSON.parse(userStr);
+        const user = JSON.parse(userStr) as User;
+        // isPro is already persisted in AsyncStorage from last login ✅
         set({ user, sessionToken: token, isAuthenticated: true, isLoading: false });
       } else {
         set({ isLoading: false });
