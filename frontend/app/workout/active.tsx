@@ -31,7 +31,8 @@ const ActiveWorkoutScreen: React.FC = () => {
   const router = useRouter();
   const { name: nameParam } = useLocalSearchParams<{ name: string }>();
   const workoutTitle = nameParam || 'New Workout';
-  const { currentWorkout, updateExerciseInWorkout, setCurrentWorkout, createWorkout, startWorkout } = useWorkoutStore();
+  const { currentWorkout, updateExerciseInWorkout, setCurrentWorkout, createWorkout, startWorkout,
+    persistInProgress, restoreInProgress, clearInProgress } = useWorkoutStore();
   const { uid } = useNativeAuthState();
   const [exerciseList, setExerciseList] = useState(currentWorkout?.exercises || []);
   const [addModalVisible, setAddModalVisible] = useState(false);
@@ -79,12 +80,27 @@ const ActiveWorkoutScreen: React.FC = () => {
     setActiveRest(true);
   };
 
-  // Auto-init if navigated directly from new.tsx with a name param
+  // Auto-init if navigated directly from new.tsx with a name param;
+  // first attempt to restore any in-progress workout that survived a restart.
   useEffect(() => {
-    if (!currentWorkout) {
-      startWorkout(workoutTitle);
-    }
+    const init = async () => {
+      const restored = await restoreInProgress();
+      if (restored !== null) {
+        // currentWorkout was rehydrated by restoreInProgress
+        setExerciseList(restored);
+      } else if (!currentWorkout) {
+        startWorkout(workoutTitle);
+      }
+    };
+    init();
   }, []);
+
+  // Persist exerciseList (and currentWorkout metadata) on every mutation.
+  useEffect(() => {
+    if (currentWorkout) {
+      persistInProgress(currentWorkout, exerciseList);
+    }
+  }, [exerciseList, currentWorkout]);
 
   // Countdown logic
   useEffect(() => {
@@ -229,6 +245,7 @@ const ActiveWorkoutScreen: React.FC = () => {
     try {
       const updatedWorkout = { ...currentWorkout, exercises: validExercises };
       await createWorkout(uid, updatedWorkout);
+      await clearInProgress();
       Alert.alert('Workout saved!');
       setCurrentWorkout(null);
       router.replace('/');

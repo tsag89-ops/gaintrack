@@ -1,20 +1,24 @@
 // frontend/app/(tabs)/nutrition.tsx
 // Daily nutrition log — macro summary + per-meal food entries
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Animated,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { format, addDays, subDays } from 'date-fns';
-import { nutritionApi } from '../../src/services/api';
+import { nutritionApi, foodApi } from '../../src/services/api';
+import { getDailyNutritionFromFirestore, saveDailyNutrition } from '../../src/services/firestore';
 import { useAuthStore } from '../../src/store/authStore';
+import { usePro } from '../../src/hooks/usePro';
 import { DailyNutrition, MealType } from '../../src/types';
 
 const MEAL_ICONS: Record<MealType, string> = {
@@ -48,9 +52,45 @@ function MacroBar({ label, current, goal, color }: { label: string; current: num
   );
 }
 
+function SwipeableFoodEntry({ entry, onDelete }: { entry: any; onDelete: () => void }) {
+  const swipeRef = useRef<Swipeable>(null);
+
+  const renderRightAction = (_: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
+    const scale = dragX.interpolate({ inputRange: [-72, 0], outputRange: [1, 0.8], extrapolate: 'clamp' });
+    return (
+      <TouchableOpacity
+        style={styles.deleteAction}
+        onPress={() => {
+          swipeRef.current?.close();
+          onDelete();
+        }}
+        activeOpacity={0.8}
+      >
+        <Animated.View style={{ transform: [{ scale }] }}>
+          <Ionicons name="trash-outline" size={20} color="#FFFFFF" />
+          <Text style={styles.deleteActionText}>Delete</Text>
+        </Animated.View>
+      </TouchableOpacity>
+    );
+  };
+
+  return (
+    <Swipeable ref={swipeRef} renderRightActions={renderRightAction} rightThreshold={40} overshootRight={false}>
+      <View style={styles.foodEntry}>
+        <Text style={styles.foodName} numberOfLines={1}>{entry.food_name ?? entry.name ?? 'Food'}</Text>
+        <Text style={styles.foodMacros}>
+          {Math.round(entry.calories ?? 0)} kcal · P {Math.round(entry.protein ?? 0)}g · C {Math.round(entry.carbs ?? 0)}g · F {Math.round(entry.fat ?? 0)}g
+        </Text>
+      </View>
+    </Swipeable>
+  );
+}
+
 export default function NutritionScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const userId = user?.id;
+  const { isPro } = usePro();
   const goals = user?.goals ?? { daily_calories: 2000, protein_grams: 150, carbs_grams: 200, fat_grams: 65 };
 
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -60,9 +100,19 @@ export default function NutritionScreen() {
   const isToday = dateStr === format(new Date(), 'yyyy-MM-dd');
 
   const load = useCallback(async () => {
-    const data = await nutritionApi.getDailyNutrition(dateStr);
-    setNutrition(data);
-  }, [dateStr]);
+    // Local-first: instant display, works offline
+    const local = await nutritionApi.getDailyNutrition(dateStr);
+    setNutrition(local);
+    // [PRO] Sync from Firestore for cross-device data
+    if (isPro && userId) {
+      const remote = await getDailyNutritionFromFirestore(userId, dateStr);
+      if (remote) {
+        setNutrition(remote);
+        // Keep local cache in sync with Firestore
+        await nutritionApi.saveDailyNutrition(dateStr, remote);
+      }
+    }
+  }, [dateStr, isPro, userId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -76,6 +126,18 @@ export default function NutritionScreen() {
 
   const getMealCalories = (type: MealType) =>
     (meals[type] ?? []).reduce((sum, e: any) => sum + (e.calories ?? 0), 0);
+
+  const handleDeleteEntry = useCallback(async (mealType: MealType, idx: number) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    const updated = await foodApi.deleteMealEntry(dateStr, mealType, idx);
+    if (updated) {
+      setNutrition({ ...updated });
+      // [PRO] Keep Firestore in sync
+      if (isPro && userId) {
+        saveDailyNutrition(userId, updated).catch(() => {});
+      }
+    }
+  }, [dateStr, isPro, userId]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -150,12 +212,11 @@ export default function NutritionScreen() {
                 <Text style={styles.emptyMeal}>No foods logged</Text>
               ) : (
                 entries.map((entry: any, idx: number) => (
-                  <View key={idx} style={styles.foodEntry}>
-                    <Text style={styles.foodName} numberOfLines={1}>{entry.food_name ?? entry.name ?? 'Food'}</Text>
-                    <Text style={styles.foodMacros}>
-                      {Math.round(entry.calories ?? 0)} kcal · P {Math.round(entry.protein ?? 0)}g · C {Math.round(entry.carbs ?? 0)}g · F {Math.round(entry.fat ?? 0)}g
-                    </Text>
-                  </View>
+                  <SwipeableFoodEntry
+                    key={`${mealType}-${idx}`}
+                    entry={entry}
+                    onDelete={() => handleDeleteEntry(mealType, idx)}
+                  />
                 ))
               )}
             </View>
@@ -198,7 +259,10 @@ const styles = StyleSheet.create({
   mealKcal: { fontSize: 12, color: '#B0B0B0' },
   addBtn: { padding: 4 },
   emptyMeal: { fontSize: 13, color: '#666', paddingHorizontal: 14, paddingBottom: 12 },
-  foodEntry: { paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#2D2D2D' },
+  foodEntry: { paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#2D2D2D', backgroundColor: '#252525' },
   foodName: { fontSize: 14, color: '#FFFFFF', fontWeight: '500' },
   foodMacros: { fontSize: 12, color: '#B0B0B0', marginTop: 2 },
+
+  deleteAction: { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F44336', width: 72, borderTopWidth: 1, borderTopColor: '#2D2D2D' },
+  deleteActionText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700', marginTop: 3 },
 });

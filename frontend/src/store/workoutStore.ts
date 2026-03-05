@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout, WorkoutExercise, WorkoutSet, Exercise } from '../types';
+
+const ACTIVE_WORKOUT_KEY = 'gaintrack_active_workout';
 import {
   loadUserWorkouts as fsLoadUserWorkouts,
   createWorkout    as fsCreateWorkout,
@@ -21,6 +23,11 @@ interface WorkoutState {
 
   // ── Local workout initialization ──────────────────────────────────────────
   startWorkout: (name: string) => void;
+
+  // ── In-progress persistence ─────────────────────────────────────────────
+  persistInProgress: (workout: Workout, exerciseList: WorkoutExercise[]) => Promise<void>;
+  restoreInProgress: () => Promise<WorkoutExercise[] | null>;
+  clearInProgress: () => Promise<void>;
 
   // ── In-workout local mutations (unchanged) ───────────────────────────────
   addExerciseToWorkout: (exercise: WorkoutExercise) => void;
@@ -74,6 +81,43 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   setCurrentWorkout:  (currentWorkout) => set({ currentWorkout }),
   setExercises:       (exercises)      => set({ exercises }),
   setLoading:         (isLoading)      => set({ isLoading }),
+
+  // ── In-progress persistence ─────────────────────────────────────────────
+
+  persistInProgress: async (workout, exerciseList) => {
+    try {
+      await AsyncStorage.setItem(
+        ACTIVE_WORKOUT_KEY,
+        JSON.stringify({ workout, exerciseList }),
+      );
+    } catch (err) {
+      console.warn('[workoutStore] persistInProgress failed:', err);
+    }
+  },
+
+  restoreInProgress: async () => {
+    try {
+      const raw = await AsyncStorage.getItem(ACTIVE_WORKOUT_KEY);
+      if (!raw) return null;
+      const { workout, exerciseList } = JSON.parse(raw) as {
+        workout: Workout;
+        exerciseList: WorkoutExercise[];
+      };
+      set({ currentWorkout: workout });
+      return exerciseList;
+    } catch (err) {
+      console.warn('[workoutStore] restoreInProgress failed:', err);
+      return null;
+    }
+  },
+
+  clearInProgress: async () => {
+    try {
+      await AsyncStorage.removeItem(ACTIVE_WORKOUT_KEY);
+    } catch (err) {
+      console.warn('[workoutStore] clearInProgress failed:', err);
+    }
+  },
 
   // ── In-workout local mutations ─────────────────────────────────────────
 

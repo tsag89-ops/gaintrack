@@ -2,13 +2,16 @@
 // All data is stored locally on device. No external server required.
 
 import { storage } from '../utils/storage';
+import { seedFoods } from '../data/seedData';
 
 // Storage keys
-const WORKOUTS_KEY = 'gaintrack_workouts';
-const EXERCISES_KEY = 'gaintrack_exercises';
-const FOODS_KEY = 'gaintrack_foods';
-const NUTRITION_KEY = 'gaintrack_nutrition';
-const MEASUREMENTS_KEY = 'gaintrack_measurements';
+const WORKOUTS_KEY       = 'gaintrack_workouts';
+const EXERCISES_KEY      = 'gaintrack_exercises';
+const FOODS_KEY          = 'gaintrack_foods';
+const NUTRITION_KEY      = 'gaintrack_nutrition';
+const MEASUREMENTS_KEY   = 'gaintrack_measurements';
+const FOODS_VERSION_KEY  = 'gaintrack_foods_version';
+const CURRENT_FOODS_VERSION = 2; // bump when seedFoods changes
 
 // Helper functions
 const getStoredData = async <T,>(key: string): Promise<T[]> => {
@@ -63,6 +66,17 @@ const initializeExercises = async () => {
 };
 
 initializeExercises();
+
+const initializeFoods = async () => {
+  const storedVersion = await storage.getItem(FOODS_VERSION_KEY);
+  const foods = await getStoredData(FOODS_KEY);
+  // Re-seed whenever the food DB version is outdated or missing
+  if (foods.length === 0 || Number(storedVersion) < CURRENT_FOODS_VERSION) {
+    await storeData(FOODS_KEY, seedFoods);
+    await storage.setItem(FOODS_VERSION_KEY, String(CURRENT_FOODS_VERSION));
+  }
+};
+initializeFoods();
 
 // Auth API (now uses local storage from authStore)
 export const authApi = {
@@ -152,6 +166,14 @@ export const nutritionApi = {
       total_carbs: 0,
       total_fat: 0,
     };
+  },
+
+  saveDailyNutrition: async (date: string, data: any): Promise<void> => {
+    const nutrition = await getStoredData<any>(NUTRITION_KEY);
+    const index = nutrition.findIndex((n: any) => n.date === date);
+    if (index >= 0) nutrition[index] = data;
+    else nutrition.push(data);
+    await storeData(NUTRITION_KEY, nutrition);
   },
 };
 
@@ -244,6 +266,29 @@ export const userApi = {
 export const foodApi = {
   getFoods: nutritionApi.getFoods,
   getAll: async () => nutritionApi.getFoods(),
+
+  deleteMealEntry: async (date: string, mealType: string, entryIndex: number) => {
+    const nutrition = await getStoredData<any>(NUTRITION_KEY);
+    const index = nutrition.findIndex((n: any) => n.date === date);
+    if (index < 0) return null;
+    const dateEntry = nutrition[index];
+    const meal: any[] = dateEntry.meals[mealType] ?? [];
+    dateEntry.meals[mealType] = meal.filter((_: any, i: number) => i !== entryIndex);
+    const allEntries = [
+      ...dateEntry.meals.breakfast,
+      ...dateEntry.meals.lunch,
+      ...dateEntry.meals.dinner,
+      ...dateEntry.meals.snacks,
+    ];
+    dateEntry.total_calories = allEntries.reduce((s: number, e: any) => s + (e.calories ?? 0), 0);
+    dateEntry.total_protein  = allEntries.reduce((s: number, e: any) => s + (e.protein  ?? 0), 0);
+    dateEntry.total_carbs    = allEntries.reduce((s: number, e: any) => s + (e.carbs    ?? 0), 0);
+    dateEntry.total_fat      = allEntries.reduce((s: number, e: any) => s + (e.fat      ?? 0), 0);
+    nutrition[index] = dateEntry;
+    await storeData(NUTRITION_KEY, nutrition);
+    return dateEntry;
+  },
+
   addMealEntry: async (entry: any) => {
     const nutrition = await getStoredData<any>(NUTRITION_KEY);
     const index = nutrition.findIndex((n: any) => n.date === entry.date);
@@ -253,6 +298,17 @@ export const foodApi = {
       total_calories: 0, total_protein: 0, total_carbs: 0, total_fat: 0,
     };
     dateEntry.meals[entry.meal_type].push(entry);
+    // Recalculate totals from all meal entries
+    const allEntries = [
+      ...dateEntry.meals.breakfast,
+      ...dateEntry.meals.lunch,
+      ...dateEntry.meals.dinner,
+      ...dateEntry.meals.snacks,
+    ];
+    dateEntry.total_calories = allEntries.reduce((s: number, e: any) => s + (e.calories ?? 0), 0);
+    dateEntry.total_protein  = allEntries.reduce((s: number, e: any) => s + (e.protein  ?? 0), 0);
+    dateEntry.total_carbs    = allEntries.reduce((s: number, e: any) => s + (e.carbs    ?? 0), 0);
+    dateEntry.total_fat      = allEntries.reduce((s: number, e: any) => s + (e.fat      ?? 0), 0);
     if (index >= 0) nutrition[index] = dateEntry;
     else nutrition.push(dateEntry);
     await storeData(NUTRITION_KEY, nutrition);

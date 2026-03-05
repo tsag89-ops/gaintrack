@@ -14,7 +14,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { foodApi, nutritionApi } from '../src/services/api';
+import * as Haptics from 'expo-haptics';
+import { foodApi } from '../src/services/api';
+import { saveDailyNutrition } from '../src/services/firestore';
+import { useAuthStore } from '../src/store/authStore';
+import { usePro } from '../src/hooks/usePro';
 import { Food, MealType } from '../src/types';
 import { useNutritionStore } from '../src/store/nutritionStore';
 
@@ -25,6 +29,8 @@ export default function AddFoodScreen() {
   const router = useRouter();
   const { mealType, date } = useLocalSearchParams<{ mealType: string; date: string }>();
   const { setTodayNutrition } = useNutritionStore();
+  const userId = useAuthStore((s) => s.user?.id);
+  const { isPro } = usePro();
   const [foods, setFoods] = useState<Food[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -56,6 +62,7 @@ export default function AddFoodScreen() {
   });
 
   const handleSelectFood = (food: Food) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedFood(food);
     setServings('1');
   };
@@ -67,6 +74,7 @@ export default function AddFoodScreen() {
 
   try {
     setIsAdding(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const updatedNutrition = await foodApi.addMealEntry({
       date,
       meal_type: mealType,
@@ -79,6 +87,10 @@ export default function AddFoodScreen() {
       fat: selectedFood.fat * servingCount,
     });
     setTodayNutrition(updatedNutrition);
+    // [PRO] Persist to Firestore for cross-device sync
+    if (isPro && userId) {
+      saveDailyNutrition(userId, updatedNutrition).catch(() => {});
+    }
     router.back();
   } catch (error) {
     console.error('Error adding food:', error);
@@ -125,6 +137,11 @@ export default function AddFoodScreen() {
             placeholder="Search foods..."
             placeholderTextColor="#6B7280"
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close-circle" size={18} color="#6B7280" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Categories */}
@@ -141,7 +158,10 @@ export default function AddFoodScreen() {
                 styles.categoryChip,
                 selectedCategory === cat && styles.categoryChipActive,
               ]}
-              onPress={() => setSelectedCategory(cat)}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSelectedCategory(cat);
+              }}
             >
               <Text
                 style={[
@@ -157,7 +177,7 @@ export default function AddFoodScreen() {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#10B981" />
+            <ActivityIndicator size="large" color="#FF6200" />
           </View>
         ) : (
           <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
@@ -172,7 +192,7 @@ export default function AddFoodScreen() {
               >
                 <View style={styles.foodInfo}>
                   <Text style={styles.foodName}>{food.name}</Text>
-                  <Text style={styles.foodServing}>{food.serving_size}</Text>
+                  <Text style={styles.foodServing}>{food.unit}</Text>
                 </View>
                 <View style={styles.foodMacros}>
                   <Text style={styles.foodCalories}>{food.calories} cal</Text>
@@ -201,7 +221,10 @@ export default function AddFoodScreen() {
               <Text style={styles.servingsLabel}>Servings</Text>
               <View style={styles.servingsInput}>
                 <TouchableOpacity
-                  onPress={() => setServings(String(Math.max(0.5, servingCount - 0.5)))}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setServings(String(Math.max(0.5, servingCount - 0.5)));
+                  }}
                   style={styles.servingsButton}
                 >
                   <Ionicons name="remove" size={20} color="#FFFFFF" />
@@ -213,7 +236,10 @@ export default function AddFoodScreen() {
                   keyboardType="decimal-pad"
                 />
                 <TouchableOpacity
-                  onPress={() => setServings(String(servingCount + 0.5))}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setServings(String(servingCount + 0.5));
+                  }}
                   style={styles.servingsButton}
                 >
                   <Ionicons name="add" size={20} color="#FFFFFF" />
@@ -268,7 +294,7 @@ export default function AddFoodScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
   },
   header: {
     flexDirection: 'row',
@@ -288,7 +314,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     marginHorizontal: 20,
     paddingHorizontal: 12,
     borderRadius: 10,
@@ -312,14 +338,14 @@ const styles = StyleSheet.create({
   categoryChip: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#374151',
+    backgroundColor: '#2D2D2D',
     borderRadius: 20,
   },
   categoryChipActive: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#FF6200',
   },
   categoryChipText: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -342,7 +368,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderRadius: 12,
     padding: 14,
     marginBottom: 8,
@@ -350,7 +376,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   foodCardSelected: {
-    borderColor: '#10B981',
+    borderColor: '#FF6200',
   },
   foodInfo: {
     flex: 1,
@@ -361,7 +387,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   foodServing: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 12,
     marginTop: 2,
   },
@@ -369,7 +395,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   foodCalories: {
-    color: '#10B981',
+    color: '#FF6200',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -383,7 +409,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   selectedPanel: {
-    backgroundColor: '#1F2937',
+    backgroundColor: '#252525',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
@@ -407,13 +433,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   servingsLabel: {
-    color: '#9CA3AF',
+    color: '#B0B0B0',
     fontSize: 14,
   },
   servingsInput: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     borderRadius: 8,
   },
   servingsButton: {
@@ -429,7 +455,7 @@ const styles = StyleSheet.create({
   totalMacros: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: '#111827',
+    backgroundColor: '#1A1A1A',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -443,7 +469,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   totalMacroLabel: {
-    color: '#6B7280',
+    color: '#B0B0B0',
     fontSize: 11,
     marginTop: 4,
   },
@@ -451,7 +477,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#10B981',
+    backgroundColor: '#FF6200',
     paddingVertical: 16,
     borderRadius: 12,
     gap: 8,

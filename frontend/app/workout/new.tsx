@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { exerciseApiExtended as exerciseApi } from '../../src/services/api';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import { Exercise, WorkoutExercise, WorkoutSet } from '../../src/types';
@@ -23,15 +23,38 @@ const CATEGORIES = ['all', 'chest', 'back', 'shoulders', 'legs', 'arms', 'core']
 
 export default function NewWorkoutScreen() {
   const router = useRouter();
+  const { preloadExercise } = useLocalSearchParams<{ preloadExercise?: string }>();
   const { startWorkout } = useWorkoutStore();
   const [workoutName, setWorkoutName] = useState('Workout');
-  const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
+
+  // Pre-populate exercise from browse mode if provided
+  const preloaded = React.useMemo<WorkoutExercise | null>(() => {
+    if (!preloadExercise) return null;
+    try {
+      const ex: Exercise = JSON.parse(preloadExercise);
+      return {
+        exercise_id: ex.exercise_id || ex.id,
+        exercise_name: ex.name,
+        exercise: ex,
+        sets: [],
+        notes: undefined,
+      };
+    } catch {
+      return null;
+    }
+  }, [preloadExercise]);
+
+  const [exercises, setExercises] = useState<WorkoutExercise[]>(() =>
+    preloaded ? [preloaded] : []
+  );
   const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedExercise, setSelectedExercise] = useState<WorkoutExercise | null>(null);
-  const [showSetLogger, setShowSetLogger] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState<WorkoutExercise | null>(
+    preloaded ?? null
+  );
+  const [showSetLogger, setShowSetLogger] = useState(preloaded !== null);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {

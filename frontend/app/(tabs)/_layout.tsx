@@ -84,6 +84,11 @@ export default function TabLayout() {
           ),
         }}
       />
+      {/* exercises.tsx is accessed via Browse Exercises modal in the Workouts tab */}
+      <Tabs.Screen
+        name="exercises"
+        options={{ href: null }}
+      />
     </Tabs>
   );
 }

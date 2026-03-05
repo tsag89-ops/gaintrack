@@ -5,6 +5,7 @@
 import {
   collection,
   doc,
+  getDoc,
   setDoc,
   getDocs,
   writeBatch,
@@ -15,7 +16,7 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Workout, Exercise } from '../types';
+import { Workout, Exercise, DailyNutrition } from '../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -253,6 +254,77 @@ export const getProgress = async (userId: string): Promise<ProgressEntry[]> => {
     return snap.docs.map((d) => d.data() as ProgressEntry);
   } catch (err) {
     console.warn('[Firestore] getProgress error:', err);
+    return [];
+  }
+};
+// ─── Nutrition ────────────────────────────────────────────────────────────────
+
+/**
+ * Overwrites a daily nutrition document (full replace — totals always consistent).
+ * Path: Users/{userId}/nutrition/{date}
+ * [PRO]
+ */
+export const saveDailyNutrition = async (
+  userId: string,
+  data: DailyNutrition,
+): Promise<void> => {
+  if (!db || !userId) return;
+  try {
+    const ref = doc(db, 'Users', userId, 'nutrition', data.date);
+    // Strip internal Firestore metadata before writing
+    const { ...payload } = data as any;
+    delete payload._updatedAt;
+    await setDoc(ref, { ...payload, _updatedAt: serverTimestamp() });
+  } catch (err) {
+    console.warn('[Firestore] saveDailyNutrition error:', err);
+  }
+};
+
+/**
+ * Fetches a single daily nutrition document by date.
+ * Returns null if the document does not exist.
+ * [PRO]
+ */
+export const getDailyNutritionFromFirestore = async (
+  userId: string,
+  date: string,
+): Promise<DailyNutrition | null> => {
+  if (!db || !userId) return null;
+  try {
+    const ref = doc(db, 'Users', userId, 'nutrition', date);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      const d = snap.data() as any;
+      delete d._updatedAt;
+      return d as DailyNutrition;
+    }
+    return null;
+  } catch (err) {
+    console.warn('[Firestore] getDailyNutritionFromFirestore error:', err);
+    return null;
+  }
+};
+
+/**
+ * Fetches all daily nutrition documents for the user.
+ * Used for bulk restore / cross-device initial sync.
+ * [PRO]
+ */
+export const getAllNutritionFromFirestore = async (
+  userId: string,
+): Promise<DailyNutrition[]> => {
+  if (!db || !userId) return [];
+  try {
+    const snap = await getDocs(
+      collection(db, 'Users', userId, 'nutrition'),
+    );
+    return snap.docs.map((d) => {
+      const data = d.data() as any;
+      delete data._updatedAt;
+      return data as DailyNutrition;
+    });
+  } catch (err) {
+    console.warn('[Firestore] getAllNutritionFromFirestore error:', err);
     return [];
   }
 };
