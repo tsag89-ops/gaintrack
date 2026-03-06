@@ -25,6 +25,7 @@ import * as Sharing from 'expo-sharing';
 import { colors, typography, spacing, radii } from '../../src/constants/theme';
 import { usePro } from '../../src/hooks/usePro';
 import { calc1RM } from '../../src/utils/fitness';
+import { format } from 'date-fns';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -142,6 +143,7 @@ export default function ProgressScreen() {
       const wArr: StoredWorkout[] = wRaw ? JSON.parse(wRaw) : [];
       const mArr: StoredMeasurement[] = mRaw ? JSON.parse(mRaw) : [];
       const nArr: any[] = nRaw ? JSON.parse(nRaw) : [];
+      console.log('[NutritionChart] raw data:', nArr);
       setNutritionDays(nArr);
       const sortedW = [...wArr].sort(
         (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
@@ -248,7 +250,7 @@ export default function ProgressScreen() {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      days.push(d.toISOString().split('T')[0]);
+      days.push(format(d, 'yyyy-MM-dd'));
     }
     const map: Record<string, any> = Object.fromEntries(
       nutritionDays.map((n: any) => [n.date, n])
@@ -565,6 +567,54 @@ export default function ProgressScreen() {
                     <StatBox label="Avg / day" value={nutritionChart.avgCalories + ' kcal'} />
                     <StatBox label="Avg protein" value={nutritionChart.avgProtein + 'g'} />
                     <StatBox label="Days logged" value={nutritionChart.daysLogged + ' / 7'} />
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'nutrition' && (
+            <View>
+              <Text style={styles.sectionTitle}>Calorie &amp; Macro Intake</Text>
+              <Text style={styles.sectionSubtitle}>Last 7 days</Text>
+              {nutritionChart.daysLogged === 0 ? (
+                <EmptyState
+                  icon="nutrition-outline"
+                  title="No nutrition logged"
+                  subtitle="Log meals in the Nutrition tab to see your calorie trends here"
+                />
+              ) : (
+                <View>
+                  <View style={styles.chartCard}>
+                    <Text style={styles.cardTitle}>Daily Calories</Text>
+                    <Text style={styles.cardSubtitle}>
+                      {nutritionChart.daysLogged} of 7 days logged
+                    </Text>
+                    <BarChart
+                      data={{ labels: nutritionChart.labels, datasets: [{ data: nutritionChart.calories }] }}
+                      width={SCREEN_W - 48}
+                      height={200}
+                      chartConfig={{ ...CHART_CFG, color: (o = 1) => `rgba(255,98,0,${o})` }}
+                      style={styles.chart}
+                      yAxisLabel=""
+                      yAxisSuffix=""
+                      fromZero
+                      showValuesOnTopOfBars={false}
+                      withInnerLines
+                    />
+                    <View style={styles.statRow}>
+                      <StatBox label="Avg / day" value={nutritionChart.avgCalories + ' kcal'} />
+                      <StatBox label="Avg protein" value={nutritionChart.avgProtein + 'g'} />
+                      <StatBox label="Days logged" value={nutritionChart.daysLogged + ' / 7'} />
+                    </View>
+                  </View>
+                  <View style={styles.chartCard}>
+                    <Text style={styles.cardTitle}>Avg Macros / Day</Text>
+                    <View style={styles.statRow}>
+                      <StatBox label="Protein" value={nutritionChart.avgProtein + 'g'} valueColor={colors.primary} />
+                      <StatBox label="Carbs" value={nutritionChart.avgCarbs + 'g'} valueColor="#3B82F6" />
+                      <StatBox label="Fat" value={nutritionChart.avgFat + 'g'} valueColor="#F59E0B" />
+                    </View>
                   </View>
                 </View>
               )}

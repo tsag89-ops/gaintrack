@@ -95,7 +95,9 @@ export default function MeasurementsScreen() {
       ]);
       setMeasurements(measurementsData);
       setProgress((progressData as any)?.changes || {});
-      setNutritionDays(nRaw ? JSON.parse(nRaw) : []);
+      const parsedNutrition = nRaw ? JSON.parse(nRaw) : [];
+      console.log('[NutritionChart] raw data:', parsedNutrition);
+      setNutritionDays(parsedNutrition);
     } catch (error) {
       console.error('Error fetching measurements:', error);
     } finally {
