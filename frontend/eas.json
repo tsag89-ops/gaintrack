@@ -19,12 +19,14 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
+      "credentialsSource": "local",
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
       "channel": "production",
+      "credentialsSource": "local",
       "android": {
         "buildType": "apk"
       }

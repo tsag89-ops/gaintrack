@@ -12,12 +12,28 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { measurementsApi } from '../src/services/api';
 import { format } from 'date-fns';
+import { LineChart } from 'react-native-chart-kit';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const SCREEN_W = Dimensions.get('window').width;
+const NUTRITION_KEY = 'gaintrack_nutrition';
+const CHART_CFG = {
+  backgroundColor: '#252525',
+  backgroundGradientFrom: '#252525',
+  backgroundGradientTo: '#252525',
+  decimalPlaces: 1,
+  color: (opacity = 1) => `rgba(255, 98, 0, ${opacity})`,
+  labelColor: (opacity = 1) => `rgba(176, 176, 176, ${opacity})`,
+  propsForDots: { r: '4', strokeWidth: '2', stroke: '#FF6200' },
+  propsForBackgroundLines: { stroke: '#303030', strokeDasharray: '' },
+};
 
 interface Measurement {
   measurement_id: string;
@@ -67,16 +83,19 @@ export default function MeasurementsScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [newMeasurement, setNewMeasurement] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'history' | 'progress'>('history');
+  const [nutritionDays, setNutritionDays] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [measurementsData, progressData] = await Promise.all([
+      const [measurementsData, progressData, nRaw] = await Promise.all([
         measurementsApi.getAll(30),
         measurementsApi.getProgress(90),
+        AsyncStorage.getItem(NUTRITION_KEY),
       ]);
       setMeasurements(measurementsData);
       setProgress((progressData as any)?.changes || {});
+      setNutritionDays(nRaw ? JSON.parse(nRaw) : []);
     } catch (error) {
       console.error('Error fetching measurements:', error);
     } finally {
@@ -165,6 +184,30 @@ export default function MeasurementsScreen() {
 
   const isDecreaseGood = (key: string) => {
     return ['weight', 'waist', 'body_fat', 'hips'].includes(key);
+  };
+
+  // ── Chart data ──────────────────────────────────────────────────────────────
+
+  // Weight trend: last 20 entries with weight, ascending order for display
+  const weightEntries = [...measurements]
+    .filter(m => typeof m.weight === 'number' && (m.weight as number) > 0)
+    .reverse()
+    .slice(-20);
+  const weightChartData = {
+    labels: weightEntries.map(m => format(new Date(m.date), 'M/d')),
+    data: weightEntries.map(m => m.weight as number),
+  };
+
+  // Calorie trend: last 14 days with logged nutrition
+  const calDayMap: Record<string, number> = {};
+  nutritionDays.forEach((n: any) => { if (n?.date) calDayMap[n.date] = n.total_calories ?? 0; });
+  const calEntries = Object.entries(calDayMap)
+    .filter(([, v]) => v > 0)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-14);
+  const calChartData = {
+    labels: calEntries.map(([d]) => d.slice(5, 7) + '/' + d.slice(8, 10)),
+    data: calEntries.map(([, v]) => Math.round(v)),
   };
 
   return (
@@ -268,26 +311,90 @@ export default function MeasurementsScreen() {
             </>
           ) : (
             <>
-              {Object.keys(progress).length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Ionicons name="analytics-outline" size={64} color="#303030" />
-                  <Text style={styles.emptyTitle}>Not enough data</Text>
-                  <Text style={styles.emptySubtitle}>
-                    Add more measurements to see your progress over time
-                  </Text>
+              {/* Weight Trend Chart */}
+              {weightChartData.data.length > 1 && (
+                <View style={styles.chartCard}>
+                  <Text style={styles.chartTitle}>Weight Trend</Text>
+                  <Text style={styles.chartSubtitle}>Last {weightChartData.data.length} entries</Text>
+                  <LineChart
+                    data={{ labels: weightChartData.labels, datasets: [{ data: weightChartData.data, strokeWidth: 2 }] }}
+                    width={SCREEN_W - 40}
+                    height={200}
+                    chartConfig={CHART_CFG}
+                    bezier
+                    withShadow={false}
+                    style={{ borderRadius: 12 }}
+                    yAxisSuffix=" lbs"
+                    formatYLabel={(y) => String(Math.round(Number(y)))}
+                  />
+                  <View style={styles.chartStats}>
+                    <View style={styles.chartStatBox}>
+                      <Text style={styles.chartStatValue}>{weightChartData.data[weightChartData.data.length - 1]} lbs</Text>
+                      <Text style={styles.chartStatLabel}>Current</Text>
+                    </View>
+                    <View style={styles.chartStatBox}>
+                      <Text style={styles.chartStatValue}>{Math.min(...weightChartData.data)} lbs</Text>
+                      <Text style={styles.chartStatLabel}>Lowest</Text>
+                    </View>
+                    <View style={styles.chartStatBox}>
+                      <Text style={[
+                        styles.chartStatValue,
+                        { color: weightChartData.data[weightChartData.data.length - 1] <= weightChartData.data[0] ? '#4CAF50' : '#F44336' },
+                      ]}>
+                        {(weightChartData.data[weightChartData.data.length - 1] >= weightChartData.data[0] ? '+' : '') +
+                          (Math.round((weightChartData.data[weightChartData.data.length - 1] - weightChartData.data[0]) * 10) / 10)} lbs
+                      </Text>
+                      <Text style={styles.chartStatLabel}>Change</Text>
+                    </View>
+                  </View>
                 </View>
+              )}
+
+              {/* Daily Calorie Intake alongside weight trends */}
+              {calChartData.data.length > 1 && (
+                <View style={styles.chartCard}>
+                  <Text style={styles.chartTitle}>Daily Calorie Intake</Text>
+                  <Text style={styles.chartSubtitle}>Alongside your weight data · last {calChartData.data.length} days</Text>
+                  <LineChart
+                    data={{
+                      labels: calChartData.labels,
+                      datasets: [{ data: calChartData.data, strokeWidth: 2, color: (o = 1) => `rgba(59,130,246,${o})` }],
+                    }}
+                    width={SCREEN_W - 40}
+                    height={180}
+                    chartConfig={{ ...CHART_CFG, color: (o = 1) => `rgba(59,130,246,${o})`, propsForDots: { r: '3', strokeWidth: '2', stroke: '#3B82F6' } }}
+                    bezier
+                    withShadow={false}
+                    style={{ borderRadius: 12 }}
+                    yAxisSuffix=" kcal"
+                    formatYLabel={(y) => String(Math.round(Number(y) / 100) * 100)}
+                  />
+                </View>
+              )}
+
+              {/* Measurement Progress Stats */}
+              {Object.keys(progress).length === 0 ? (
+                weightChartData.data.length < 2 ? (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="analytics-outline" size={64} color="#303030" />
+                    <Text style={styles.emptyTitle}>Not enough data</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Add more measurements to see your progress over time
+                    </Text>
+                  </View>
+                ) : null
               ) : (
                 <View style={styles.progressGrid}>
                   {MEASUREMENT_FIELDS.filter(f => progress[f.key]).map((field) => {
                     const data = progress[field.key];
-                    const changeColor = isDecreaseGood(field.key) 
-                      ? getChangeColor(data.change) 
+                    const changeColor = isDecreaseGood(field.key)
+                      ? getChangeColor(data.change)
                       : getGainColor(data.change);
-                    
+
                     return (
                       <View key={field.key} style={styles.progressCard}>
                         <View style={styles.progressHeader}>
-                          <Ionicons name={field.icon as any} size={20} color="#4CAF50" />
+                          <Ionicons name={field.icon as any} size={20} color="#FF6200" />
                           <Text style={styles.progressLabel}>{field.label}</Text>
                         </View>
                         <View style={styles.progressValues}>
@@ -412,7 +519,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FF6200',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -434,7 +541,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   activeTab: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FF6200',
   },
   tabText: {
     color: '#B0B0B0',
@@ -475,7 +582,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   emptyButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FF6200',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
@@ -499,7 +606,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardDate: {
-    color: '#4CAF50',
+    color: '#FF6200',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -645,7 +752,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   saveButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#FF6200',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -658,5 +765,44 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  chartCard: {
+    backgroundColor: '#252525',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+  },
+  chartTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  chartSubtitle: {
+    color: '#B0B0B0',
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  chartStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#303030',
+  },
+  chartStatBox: {
+    alignItems: 'center',
+  },
+  chartStatValue: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  chartStatLabel: {
+    color: '#B0B0B0',
+    fontSize: 12,
+    marginTop: 2,
   },
 });

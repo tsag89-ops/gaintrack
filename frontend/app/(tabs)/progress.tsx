@@ -544,6 +544,30 @@ export default function ProgressScreen() {
                   })}
                 </View>
               )}
+              {/* Calorie Intake alongside weight — correlation view */}
+              {nutritionChart.daysLogged > 0 && (
+                <View style={styles.chartCard}>
+                  <Text style={styles.cardTitle}>Calorie Intake</Text>
+                  <Text style={styles.cardSubtitle}>Alongside your weight trend — last 7 days</Text>
+                  <BarChart
+                    data={{ labels: nutritionChart.labels, datasets: [{ data: nutritionChart.calories }] }}
+                    width={SCREEN_W - 48}
+                    height={160}
+                    chartConfig={{ ...CHART_CFG, color: (o = 1) => `rgba(59,130,246,${o})` }}
+                    style={styles.chart}
+                    yAxisLabel=""
+                    yAxisSuffix=""
+                    fromZero
+                    showValuesOnTopOfBars={false}
+                    withInnerLines
+                  />
+                  <View style={styles.statRow}>
+                    <StatBox label="Avg / day" value={nutritionChart.avgCalories + ' kcal'} />
+                    <StatBox label="Avg protein" value={nutritionChart.avgProtein + 'g'} />
+                    <StatBox label="Days logged" value={nutritionChart.daysLogged + ' / 7'} />
+                  </View>
+                </View>
+              )}
             </View>
           )}
         </ScrollView>

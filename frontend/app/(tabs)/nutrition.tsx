@@ -10,6 +10,7 @@ import {
   Animated,
   Modal,
   TextInput,
+  Image,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -95,9 +96,18 @@ function SwipeableFoodEntry({ entry, onDelete, onEdit }: { entry: any; onDelete:
   return (
     <Swipeable ref={swipeRef} renderLeftActions={renderLeftAction} renderRightActions={renderRightAction} leftThreshold={40} rightThreshold={40} overshootLeft={false} overshootRight={false}>
       <View style={styles.foodEntry}>
-        <Text style={styles.foodName} numberOfLines={1}>{entry.food_name ?? entry.name ?? 'Food'}</Text>
-        <Text style={styles.foodMacros}>
-          {Math.round(entry.calories ?? 0)} kcal · P {Math.round(entry.protein ?? 0)}g · C {Math.round(entry.carbs ?? 0)}g · F {Math.round(entry.fat ?? 0)}g
+        {entry.imageUrl ? (
+          <Image source={{ uri: entry.imageUrl }} style={styles.foodEntryThumb} />
+        ) : null}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.foodName} numberOfLines={1}>{entry.food_name ?? entry.name ?? 'Food'}</Text>
+          <Text style={styles.foodMacros}>
+            {Math.round(entry.calories ?? 0)} kcal · P {Math.round(entry.protein ?? 0)}g · C {Math.round(entry.carbs ?? 0)}g · F {Math.round(entry.fat ?? 0)}g
+          </Text>
+        </View>
+      </View>
+    </Swipeable>
+  );
         </Text>
       </View>
     </Swipeable>
@@ -361,7 +371,8 @@ const styles = StyleSheet.create({
   mealKcal: { fontSize: 12, color: '#B0B0B0' },
   addBtn: { padding: 4 },
   emptyMeal: { fontSize: 13, color: '#666', paddingHorizontal: 14, paddingBottom: 12 },
-  foodEntry: { paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#2D2D2D', backgroundColor: '#252525' },
+  foodEntry: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#2D2D2D', backgroundColor: '#252525', gap: 10 },
+  foodEntryThumb: { width: 36, height: 36, borderRadius: 6, backgroundColor: '#2D2D2D' },
   foodName: { fontSize: 14, color: '#FFFFFF', fontWeight: '500' },
   foodMacros: { fontSize: 12, color: '#B0B0B0', marginTop: 2 },
 

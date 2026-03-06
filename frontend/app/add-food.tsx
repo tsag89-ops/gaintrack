@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +23,8 @@ import { useAuthStore } from '../src/store/authStore';
 import { usePro } from '../src/hooks/usePro';
 import { Food, MealType } from '../src/types';
 import { useNutritionStore } from '../src/store/nutritionStore';
+import { searchFood, FoodItem } from '../src/services/foodSearch';
+import BarcodeScanner from '../src/components/BarcodeScanner';
 
 
 const CATEGORIES = ['all', 'protein', 'carbs', 'fats', 'vegetables', 'dairy'];
@@ -40,6 +43,13 @@ export default function AddFoodScreen() {
   const [servings, setServings] = useState('1');
   const [isAdding, setIsAdding] = useState(false);
   const [recentFoods, setRecentFoods] = useState<Food[]>([]);
+  // Open Food Facts search
+  const [offResults, setOffResults] = useState<FoodItem[]>([]);
+  const [offLoading, setOffLoading] = useState(false);
+  const [selectedOFFFood, setSelectedOFFFood] = useState<FoodItem | null>(null);
+  const [servingGrams, setServingGrams] = useState('100');
+  const [showScanner, setShowScanner] = useState(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createCalories, setCreateCalories] = useState('');
@@ -53,6 +63,27 @@ export default function AddFoodScreen() {
     fetchFoods();
     loadRecentFoods();
   }, []);
+
+  // Debounced Open Food Facts search
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    if (searchQuery.trim().length < 2) {
+      setOffResults([]);
+      return;
+    }
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        setOffLoading(true);
+        const results = await searchFood(searchQuery.trim());
+        setOffResults(results);
+      } catch {
+        // silently fail – local results still shown
+      } finally {
+        setOffLoading(false);
+      }
+    }, 500);
+    return () => { if (debounceTimer.current) clearTimeout(debounceTimer.current); };
+  }, [searchQuery]);
 
   const fetchFoods = async () => {
     try {
@@ -104,43 +135,88 @@ export default function AddFoodScreen() {
 
   const handleSelectFood = (food: Food) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedOFFFood(null);
     setSelectedFood(food);
     setServings('1');
   };
 
+  const handleSelectOFFFood = (item: FoodItem) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedFood(null);
+    setSelectedOFFFood(item);
+    setServingGrams('100');
+  };
+
+  const handleBarcodeFoodFound = (item: FoodItem) => {
+    setShowScanner(false);
+    handleSelectOFFFood(item);
+  };
+
+  const handleBarcodeNotFound = (barcode: string) => {
+    setShowScanner(false);
+    // Pre-fill create modal with barcode so user can add manually
+    setCreateName('');
+    setCreateCalories('');
+    setCreateProtein('');
+    setCreateCarbs('');
+    setCreateFat('');
+    setCreateUnit('100g');
+    setShowCreateModal(true);
+  };
+
   const handleAddFood = async () => {
-  if (!selectedFood || !mealType || !date) return;
+    if (!mealType || !date) return;
 
-  const servingCount = parseFloat(servings) || 1;
+    const isOFF = !!selectedOFFFood;
+    const grams = parseFloat(servingGrams) || 100;
+    const servingCount = parseFloat(servings) || 1;
 
-  try {
-    setIsAdding(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const updatedNutrition = await foodApi.addMealEntry({
-      date,
-      meal_type: mealType,
-      food_id: selectedFood.food_id,
-      food_name: selectedFood.name,
-      servings: servingCount,
-      calories: selectedFood.calories * servingCount,
-      protein: selectedFood.protein * servingCount,
-      carbs: selectedFood.carbs * servingCount,
-      fat: selectedFood.fat * servingCount,
-    });
-    setTodayNutrition(updatedNutrition);
-    await foodApi.recordRecentFood(selectedFood.food_id);
-    // [PRO] Persist to Firestore for cross-device sync
-    if (isPro && userId) {
-      saveDailyNutrition(userId, updatedNutrition).catch(() => {});
+    if (!isOFF && !selectedFood) return;
+
+    try {
+      setIsAdding(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      const entry = isOFF
+        ? {
+            date,
+            meal_type: mealType,
+            food_id: selectedOFFFood!.id,
+            food_name: selectedOFFFood!.name,
+            servings: grams / 100,
+            calories: (selectedOFFFood!.calories * grams) / 100,
+            protein: (selectedOFFFood!.protein * grams) / 100,
+            carbs: (selectedOFFFood!.carbs * grams) / 100,
+            fat: (selectedOFFFood!.fat * grams) / 100,
+            imageUrl: selectedOFFFood!.imageUrl,
+          }
+        : {
+            date,
+            meal_type: mealType,
+            food_id: selectedFood!.food_id,
+            food_name: selectedFood!.name,
+            servings: servingCount,
+            calories: selectedFood!.calories * servingCount,
+            protein: selectedFood!.protein * servingCount,
+            carbs: selectedFood!.carbs * servingCount,
+            fat: selectedFood!.fat * servingCount,
+          };
+
+      const updatedNutrition = await foodApi.addMealEntry(entry);
+      setTodayNutrition(updatedNutrition);
+      if (!isOFF) await foodApi.recordRecentFood(selectedFood!.food_id);
+      // [PRO] Persist to Firestore for cross-device sync
+      if (isPro && userId) {
+        saveDailyNutrition(userId, updatedNutrition).catch(() => {});
+      }
+      router.back();
+    } catch (error) {
+      console.error('Error adding food:', error);
+      Alert.alert('Error', 'Failed to add food');
+    } finally {
+      setIsAdding(false);
     }
-    router.back();
-  } catch (error) {
-    console.error('Error adding food:', error);
-    Alert.alert('Error', 'Failed to add food');
-  } finally {
-    setIsAdding(false);
-  }
-};
+  };
 
 
   const getMealTitle = () => {
@@ -154,9 +230,19 @@ export default function AddFoodScreen() {
   };
 
   const servingCount = parseFloat(servings) || 1;
+  const gramsVal = parseFloat(servingGrams) || 100;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Barcode Scanner Modal */}
+      <Modal visible={showScanner} animationType="slide" statusBarTranslucent onRequestClose={() => setShowScanner(false)}>
+        <BarcodeScanner
+          onFoodFound={handleBarcodeFoodFound}
+          onNotFound={handleBarcodeNotFound}
+          onClose={() => setShowScanner(false)}
+        />
+      </Modal>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -171,21 +257,30 @@ export default function AddFoodScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Search */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#6B7280" />
-          <TextInput
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search foods..."
-            placeholderTextColor="#6B7280"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close-circle" size={18} color="#6B7280" />
-            </TouchableOpacity>
-          )}
+        {/* Search + Scan row */}
+        <View style={styles.searchRow}>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#6B7280" />
+            <TextInput
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search foods or scan barcode..."
+              placeholderTextColor="#6B7280"
+            />
+            {offLoading && <ActivityIndicator size="small" color="#FF6200" style={{ marginRight: 4 }} />}
+            {searchQuery.length > 0 && !offLoading && (
+              <TouchableOpacity onPress={() => { setSearchQuery(''); setOffResults([]); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={18} color="#6B7280" />
+              </TouchableOpacity>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.scanButton}
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowScanner(true); }}
+          >
+            <Ionicons name="barcode-outline" size={22} color="#FF6200" />
+          </TouchableOpacity>
         </View>
 
         {/* Categories */}
@@ -225,6 +320,42 @@ export default function AddFoodScreen() {
           </View>
         ) : (
           <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+            {/* Open Food Facts results */}
+            {offResults.length > 0 && (
+              <>
+                <Text style={styles.sectionHeader}>Open Food Facts Results</Text>
+                {offResults.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.foodCard, selectedOFFFood?.id === item.id && styles.foodCardSelected]}
+                    onPress={() => handleSelectOFFFood(item)}
+                  >
+                    {item.imageUrl ? (
+                      <Image source={{ uri: item.imageUrl }} style={styles.foodThumb} />
+                    ) : (
+                      <View style={styles.foodThumbPlaceholder}>
+                        <Ionicons name="nutrition-outline" size={20} color="#6B7280" />
+                      </View>
+                    )}
+                    <View style={styles.foodInfo}>
+                      <Text style={styles.foodName} numberOfLines={1}>{item.name}</Text>
+                      {item.brand ? <Text style={styles.foodServing} numberOfLines={1}>{item.brand}</Text> : null}
+                      <Text style={styles.foodServing}>per 100g</Text>
+                    </View>
+                    <View style={styles.foodMacros}>
+                      <Text style={styles.foodCalories}>{Math.round(item.calories)} kcal</Text>
+                      <View style={styles.macroRow}>
+                        <Text style={[styles.macroText, { color: '#EF4444' }]}>P {Math.round(item.protein)}g</Text>
+                        <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {Math.round(item.carbs)}g</Text>
+                        <Text style={[styles.macroText, { color: '#F59E0B' }]}>F {Math.round(item.fat)}g</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+                <Text style={styles.sectionHeader}>Local Foods</Text>
+              </>
+            )}
+
             {!searchQuery && selectedCategory === 'all' && recentFoods.length > 0 && (
               <>
                 <Text style={styles.sectionHeader}>Recent</Text>
@@ -277,7 +408,79 @@ export default function AddFoodScreen() {
           </ScrollView>
         )}
 
-        {/* Selected Food Panel */}
+        {/* Selected OFF Food Panel (grams-based) */}
+        {selectedOFFFood && (
+          <View style={styles.selectedPanel}>
+            <View style={styles.selectedHeader}>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, marginRight: 8 }}>
+                {selectedOFFFood.imageUrl ? (
+                  <Image source={{ uri: selectedOFFFood.imageUrl }} style={styles.selectedThumb} />
+                ) : null}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.selectedName} numberOfLines={1}>{selectedOFFFood.name}</Text>
+                  {selectedOFFFood.brand ? <Text style={{ color: '#B0B0B0', fontSize: 12 }}>{selectedOFFFood.brand}</Text> : null}
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setSelectedOFFFood(null)}>
+                <Ionicons name="close-circle" size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.servingsRow}>
+              <Text style={styles.servingsLabel}>Serving (grams)</Text>
+              <View style={styles.servingsInput}>
+                <TouchableOpacity
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setServingGrams(String(Math.max(5, gramsVal - 5))); }}
+                  style={styles.servingsButton}
+                >
+                  <Ionicons name="remove" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+                <TextInput
+                  style={styles.servingsValue}
+                  value={servingGrams}
+                  onChangeText={setServingGrams}
+                  keyboardType="decimal-pad"
+                />
+                <TouchableOpacity
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setServingGrams(String(gramsVal + 5)); }}
+                  style={styles.servingsButton}
+                >
+                  <Ionicons name="add" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.totalMacros}>
+              <View style={styles.totalMacroItem}>
+                <Text style={styles.totalMacroValue}>{Math.round((selectedOFFFood.calories * gramsVal) / 100)}</Text>
+                <Text style={styles.totalMacroLabel}>Calories</Text>
+              </View>
+              <View style={styles.totalMacroItem}>
+                <Text style={[styles.totalMacroValue, { color: '#EF4444' }]}>{Math.round((selectedOFFFood.protein * gramsVal) / 100)}g</Text>
+                <Text style={styles.totalMacroLabel}>Protein</Text>
+              </View>
+              <View style={styles.totalMacroItem}>
+                <Text style={[styles.totalMacroValue, { color: '#3B82F6' }]}>{Math.round((selectedOFFFood.carbs * gramsVal) / 100)}g</Text>
+                <Text style={styles.totalMacroLabel}>Carbs</Text>
+              </View>
+              <View style={styles.totalMacroItem}>
+                <Text style={[styles.totalMacroValue, { color: '#F59E0B' }]}>{Math.round((selectedOFFFood.fat * gramsVal) / 100)}g</Text>
+                <Text style={styles.totalMacroLabel}>Fat</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.addButton, isAdding && styles.addButtonDisabled]}
+              onPress={handleAddFood}
+              disabled={isAdding}
+            >
+              <Ionicons name="add-circle" size={22} color="#FFFFFF" />
+              <Text style={styles.addButtonText}>{isAdding ? 'Adding...' : 'Add to ' + getMealTitle()}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Selected Local Food Panel */}
         {selectedFood && (
           <View style={styles.selectedPanel}>
             <View style={styles.selectedHeader}>
@@ -429,14 +632,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    gap: 10,
+    marginBottom: 12,
+  },
+  scanButton: {
+    backgroundColor: '#252525',
+    borderRadius: 10,
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#252525',
-    marginHorizontal: 20,
     paddingHorizontal: 12,
     borderRadius: 10,
-    marginBottom: 12,
   },
   searchInput: {
     flex: 1,
@@ -590,6 +806,28 @@ const styles = StyleSheet.create({
     color: '#B0B0B0',
     fontSize: 11,
     marginTop: 4,
+  },
+  foodThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#2D2D2D',
+    marginRight: 10,
+  },
+  foodThumbPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#2D2D2D',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  selectedThumb: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#2D2D2D',
   },
   addButton: {
     flexDirection: 'row',
