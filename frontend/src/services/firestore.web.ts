@@ -2,7 +2,7 @@
 // Web/server stub — Firestore native calls are no-ops in the web/server bundle.
 // Metro prefers .web.ts over .ts automatically.
 
-import { Workout, Exercise } from '../types';
+import { Workout, Exercise, DailyNutrition } from '../types';
 
 export interface ProgressEntry {
   date: string;
@@ -27,3 +27,9 @@ export const getExercisesFromFirestore = async (_userId: string): Promise<Exerci
 export const syncProgress = async (_userId: string, _progress: ProgressEntry): Promise<void> => {};
 export const syncProgressBatch = async (_userId: string, _entries: ProgressEntry[]): Promise<void> => {};
 export const getProgress = async (_userId: string): Promise<ProgressEntry[]> => [];
+
+export const saveDailyNutrition = async (_userId: string, _data: DailyNutrition): Promise<void> => {};
+export const getDailyNutritionFromFirestore = async (_userId: string, _date: string): Promise<DailyNutrition | null> => null;
+export const getAllNutritionFromFirestore = async (_userId: string): Promise<DailyNutrition[]> => [];
+
+export const updateUserProfile = async (_userId: string, _data: Record<string, unknown>): Promise<void> => {};
