@@ -66,6 +66,8 @@ export default function RootLayout() {
           <Stack.Screen name="progression" options={{ presentation: 'card' }} />
           <Stack.Screen name="measurements" options={{ presentation: 'card' }} />
           <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
+          <Stack.Screen name="body-composition-goal" options={{ presentation: 'card' }} />
+          <Stack.Screen name="body-goals" options={{ presentation: 'card' }} />
           <Stack.Screen name="pro-paywall" options={{ presentation: 'modal', headerShown: false }} />
         </Stack>
         {/* AuthSplash overlays on top while auth is still resolving, preventing

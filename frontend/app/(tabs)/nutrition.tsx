@@ -108,10 +108,6 @@ function SwipeableFoodEntry({ entry, onDelete, onEdit }: { entry: any; onDelete:
       </View>
     </Swipeable>
   );
-        </Text>
-      </View>
-    </Swipeable>
-  );
 }
 
 export default function NutritionScreen() {

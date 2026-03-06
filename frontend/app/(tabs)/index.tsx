@@ -622,50 +622,6 @@ const styles = StyleSheet.create({
     color: theme.primary,
   },
 
-  // ── Resume banner ──
-  resumeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: theme.charcoal,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: theme.primary,
-    gap: 12,
-  },
-  resumeLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  resumeLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: theme.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  resumeName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: theme.textPrimary,
-    marginTop: 1,
-  },
-  resumeRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  resumeCta: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.primary,
-  },
-
   // ── Browse Exercises button ──
   browseBtn: {
     flexDirection: 'row',

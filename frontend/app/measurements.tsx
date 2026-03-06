@@ -21,9 +21,11 @@ import { measurementsApi } from '../src/services/api';
 import { format } from 'date-fns';
 import { LineChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { BodyCompositionGoals } from '../src/types/bodyGoals';
 
 const SCREEN_W = Dimensions.get('window').width;
 const NUTRITION_KEY = 'gaintrack_nutrition';
+const BODY_GOALS_KEY = 'gaintrack_body_goals';
 const CHART_CFG = {
   backgroundColor: '#252525',
   backgroundGradientFrom: '#252525',
@@ -84,20 +86,21 @@ export default function MeasurementsScreen() {
   const [newMeasurement, setNewMeasurement] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<'history' | 'progress'>('history');
   const [nutritionDays, setNutritionDays] = useState<any[]>([]);
+  const [bodyGoals, setBodyGoals] = useState<BodyCompositionGoals | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [measurementsData, progressData, nRaw] = await Promise.all([
+      const [measurementsData, progressData, nRaw, gRaw] = await Promise.all([
         measurementsApi.getAll(30),
         measurementsApi.getProgress(90),
         AsyncStorage.getItem(NUTRITION_KEY),
+        AsyncStorage.getItem(BODY_GOALS_KEY),
       ]);
       setMeasurements(measurementsData);
       setProgress((progressData as any)?.changes || {});
-      const parsedNutrition = nRaw ? JSON.parse(nRaw) : [];
-      console.log('[NutritionChart] raw data:', parsedNutrition);
-      setNutritionDays(parsedNutrition);
+      setNutritionDays(nRaw ? JSON.parse(nRaw) : []);
+      setBodyGoals(gRaw ? JSON.parse(gRaw) : null);
     } catch (error) {
       console.error('Error fetching measurements:', error);
     } finally {
@@ -316,10 +319,34 @@ export default function MeasurementsScreen() {
               {/* Weight Trend Chart */}
               {weightChartData.data.length > 1 && (
                 <View style={styles.chartCard}>
-                  <Text style={styles.chartTitle}>Weight Trend</Text>
-                  <Text style={styles.chartSubtitle}>Last {weightChartData.data.length} entries</Text>
+                  <View style={styles.chartHeaderRow}>
+                    <View>
+                      <Text style={styles.chartTitle}>Weight Trend</Text>
+                      <Text style={styles.chartSubtitle}>Last {weightChartData.data.length} entries</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.setGoalBtn}
+                      onPress={() => router.push('/body-goals' as any)}
+                    >
+                      <Ionicons name="flag-outline" size={14} color="#FF6200" />
+                      <Text style={styles.setGoalBtnText}>Set Goal</Text>
+                    </TouchableOpacity>
+                  </View>
                   <LineChart
-                    data={{ labels: weightChartData.labels, datasets: [{ data: weightChartData.data, strokeWidth: 2 }] }}
+                    data={{
+                      labels: weightChartData.labels,
+                      datasets: [
+                        { data: weightChartData.data, strokeWidth: 2 },
+                        ...(bodyGoals?.targetWeight && weightChartData.data.length > 0
+                          ? [{
+                              data: Array(weightChartData.data.length).fill(bodyGoals.targetWeight) as number[],
+                              strokeWidth: 1.5,
+                              color: (opacity = 1) => `rgba(255, 98, 0, ${opacity * 0.75})`,
+                              withDots: false,
+                            }]
+                          : []),
+                      ],
+                    }}
                     width={SCREEN_W - 40}
                     height={200}
                     chartConfig={CHART_CFG}
@@ -329,6 +356,17 @@ export default function MeasurementsScreen() {
                     yAxisSuffix=" lbs"
                     formatYLabel={(y) => String(Math.round(Number(y)))}
                   />
+                  {bodyGoals?.targetWeight && (
+                    <View style={styles.goalLineLabel}>
+                      <View style={styles.goalLineDash} />
+                      <Text style={styles.goalLineLabelText}>
+                        Goal: {bodyGoals.targetWeight} lbs
+                        {bodyGoals.targetDate
+                          ? `  ·  by ${format(new Date(bodyGoals.targetDate), 'MMM yyyy')}`
+                          : ''}
+                      </Text>
+                    </View>
+                  )}
                   <View style={styles.chartStats}>
                     <View style={styles.chartStatBox}>
                       <Text style={styles.chartStatValue}>{weightChartData.data[weightChartData.data.length - 1]} lbs</Text>
@@ -774,6 +812,48 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     overflow: 'hidden',
+  },
+  chartHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 0,
+  },
+  setGoalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1.5,
+    borderColor: '#FF6200',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  setGoalBtnText: {
+    color: '#FF6200',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  goalLineLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#303030',
+  },
+  goalLineDash: {
+    width: 20,
+    height: 2,
+    backgroundColor: '#FF6200',
+    opacity: 0.75,
+    borderRadius: 1,
+  },
+  goalLineLabelText: {
+    color: '#FF6200',
+    fontSize: 12,
+    fontWeight: '600',
   },
   chartTitle: {
     color: '#FFFFFF',

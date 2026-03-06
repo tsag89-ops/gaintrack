@@ -11,6 +11,7 @@
 - Task: Implement new features, fix bugs, optimize performance, and maintain code quality across the entire codebase. Follow instructions in this file for all changes.
 - usePro.ts reads user.isPro from authStore — Firestore is the single source of truth for isPro. Never hardcode isPro on any platform.
 - loadStoredAuth refreshes isPro from Firestore in background on every app start — cache loads instantly, Firestore is source of truth for Pro status. isPro is only written server-side (RevenueCat webhook or admin console), never by the client. This ensures Pro upgrades, cancellations, and refunds are reflected on next app start without blocking UI.
+- Always use format(date, 'yyyy-MM-dd') from date-fns for local date keys — never toISOString().split('T') which returns UTC and breaks for users in UTC+ timezones after midnight UTC.
 
 ---
 

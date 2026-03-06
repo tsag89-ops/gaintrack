@@ -293,6 +293,19 @@ const handleLogout = async () => {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push('/body-goals' as any)}
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons name="trending-down-outline" size={22} color="#FF6200" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Body Composition Goal</Text>
+                <Text style={styles.settingValue}>Set target weight, body fat & timeline</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+          </TouchableOpacity>
         </View>
 
         {/* Units Section */}

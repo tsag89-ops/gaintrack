@@ -22,10 +22,13 @@ import { LineChart, BarChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import { useRouter } from 'expo-router';
+import { format, addWeeks } from 'date-fns';
+import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, radii } from '../../src/constants/theme';
 import { usePro } from '../../src/hooks/usePro';
 import { calc1RM } from '../../src/utils/fitness';
-import { format } from 'date-fns';
+import { GOAL_KEY, type BodyCompositionGoal } from '../body-composition-goal';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -33,6 +36,7 @@ const SCREEN_W = Dimensions.get('window').width;
 const WORKOUTS_KEY = 'gaintrack_workouts';
 const MEASUREMENTS_KEY = 'gaintrack_measurements';
 const NUTRITION_KEY = 'gaintrack_nutrition';
+const KCAL_PER_KG = 7700;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -122,6 +126,7 @@ const CHART_CFG = {
 
 export default function ProgressScreen() {
   const { isPro } = usePro();
+  const router = useRouter();
 
   const [workouts, setWorkouts] = useState<StoredWorkout[]>([]);
   const [measurements, setMeasurements] = useState<StoredMeasurement[]>([]);
@@ -131,20 +136,22 @@ export default function ProgressScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [goal, setGoal] = useState<BodyCompositionGoal | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [wRaw, mRaw, nRaw] = await Promise.all([
+      const [wRaw, mRaw, nRaw, gRaw] = await Promise.all([
         AsyncStorage.getItem(WORKOUTS_KEY),
         AsyncStorage.getItem(MEASUREMENTS_KEY),
         AsyncStorage.getItem(NUTRITION_KEY),
+        AsyncStorage.getItem(GOAL_KEY),
       ]);
       const wArr: StoredWorkout[] = wRaw ? JSON.parse(wRaw) : [];
       const mArr: StoredMeasurement[] = mRaw ? JSON.parse(mRaw) : [];
       const nArr: any[] = nRaw ? JSON.parse(nRaw) : [];
-      console.log('[NutritionChart] raw data:', nArr);
       setNutritionDays(nArr);
+      setGoal(gRaw ? (JSON.parse(gRaw) as BodyCompositionGoal) : null);
       const sortedW = [...wArr].sort(
         (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
       );
@@ -244,13 +251,85 @@ export default function ProgressScreen() {
     return { labels: pts.map((p) => shortDate(p.date)), data: pts.map((p) => p.val) };
   }, [measurements]);
 
+  // ── Goal Projection chart data (bodyweight tab) ─────────────────────────
+  interface ProjectionChartData {
+    labels: string[];
+    dataset1: number[]; // actual history + flat extension at current weight
+    dataset2: number[]; // flat at current weight for history + projected values
+    currentWeight: number;
+    weeksToGoal: number;
+    projectedDate: Date;
+    dailyKcal: number;
+  }
+
+  const projectionChart = useMemo((): ProjectionChartData | null => {
+    if (!goal || goal.weeklyRate === 0) return null;
+
+    // Last 4 actual measurement data points
+    const actualPts = measurements
+      .map((m) => ({ date: m.date, val: getBW(m) }))
+      .filter((p) => p.val > 0)
+      .slice(-4);
+
+    if (actualPts.length === 0) return null;
+
+    const currentWeight = actualPts[actualPts.length - 1].val;
+    const weightDelta = goal.targetWeight - currentWeight;
+
+    // Make sure the goal direction is still valid vs current weight
+    if ((goal.weeklyRate < 0 && weightDelta >= 0) || (goal.weeklyRate > 0 && weightDelta <= 0)) {
+      return null;
+    }
+
+    const weeksToGoal = Math.abs(weightDelta / goal.weeklyRate);
+    const futurePtCount = Math.min(8, Math.ceil(weeksToGoal) || 1);
+    const today = new Date();
+
+    const futurePts = Array.from({ length: futurePtCount }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() + (i + 1) * 7);
+      const projected = currentWeight + goal.weeklyRate * (i + 1);
+      const val = goal.weeklyRate < 0
+        ? Math.max(goal.targetWeight, parseFloat(projected.toFixed(1)))
+        : Math.min(goal.targetWeight, parseFloat(projected.toFixed(1)));
+      return { date: format(d, 'yyyy-MM-dd'), val };
+    });
+
+    const labels = [
+      ...actualPts.map((p) => shortDate(p.date)),
+      ...futurePts.map((p) => shortDate(p.date)),
+    ];
+
+    // Dataset 1 (solid orange): actual history, then flat at current weight
+    const dataset1 = [
+      ...actualPts.map((p) => p.val),
+      ...futurePts.map(() => currentWeight),
+    ];
+
+    // Dataset 2 (light orange): flat at current weight for history, then projected slope
+    const dataset2 = [
+      ...actualPts.map(() => currentWeight),
+      ...futurePts.map((p) => p.val),
+    ];
+
+    return {
+      labels,
+      dataset1,
+      dataset2,
+      currentWeight,
+      weeksToGoal: Math.round(weeksToGoal * 10) / 10,
+      projectedDate: addWeeks(today, weeksToGoal),
+      dailyKcal: Math.round((goal.weeklyRate * KCAL_PER_KG) / 7),
+    };
+  }, [goal, measurements]);
+
   const nutritionChart = useMemo(() => {
     const now = new Date();
     const days: string[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      days.push(format(d, 'yyyy-MM-dd'));
+      days.push(d.toISOString().split('T')[0]);
     }
     const map: Record<string, any> = Object.fromEntries(
       nutritionDays.map((n: any) => [n.date, n])
@@ -502,7 +581,25 @@ export default function ProgressScreen() {
 
           {activeTab === 'bodyweight' && (
             <View>
-              <Text style={styles.sectionTitle}>Bodyweight</Text>
+              {/* Title row with Set Goal button */}
+              <View style={styles.bwHeaderRow}>
+                <View>
+                  <Text style={styles.sectionTitle}>Bodyweight</Text>
+                  <Text style={styles.sectionSubtitle}>Track your weight over time</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.setGoalBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push('/body-composition-goal' as any);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name="flag-outline" size={13} color={colors.primary} />
+                  <Text style={styles.setGoalBtnText}>{goal ? 'Edit Goal' : 'Set Goal'}</Text>
+                </TouchableOpacity>
+              </View>
+
               {hasData(bwChart) ? (
                 <View style={styles.chartCard}>
                   <Text style={styles.cardTitle}>Weight Trend</Text>
@@ -530,6 +627,119 @@ export default function ProgressScreen() {
                 </View>
               ) : (
                 <EmptyState icon="scale-outline" title="No bodyweight data" subtitle="Log measurements to track your weight over time" />
+              )}
+
+              {/* ── Goal Summary Card ── */}
+              {goal && (
+                <TouchableOpacity
+                  style={styles.goalCard}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push('/body-composition-goal' as any);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.goalCardHeader}>
+                    <View style={styles.goalIconWrap}>
+                      <Ionicons name="flag" size={16} color={colors.primary} />
+                    </View>
+                    <Text style={styles.goalCardTitle}>
+                      {goal.weeklyRate < 0 ? 'Cut Goal' : goal.weeklyRate > 0 ? 'Bulk Goal' : 'Maintain Goal'}
+                    </Text>
+                    <View style={styles.goalEditChip}>
+                      <Text style={styles.goalEditChipText}>Edit</Text>
+                    </View>
+                  </View>
+                  <View style={styles.goalStatRow}>
+                    <View style={styles.goalStat}>
+                      <Text style={styles.goalStatValue}>{goal.targetWeight} kg</Text>
+                      <Text style={styles.goalStatLabel}>Target</Text>
+                    </View>
+                    <Ionicons name="arrow-forward-outline" size={14} color={colors.textDisabled} />
+                    <View style={styles.goalStat}>
+                      <Text style={[
+                        styles.goalStatValue,
+                        { color: goal.weeklyRate < 0 ? colors.info : goal.weeklyRate > 0 ? colors.success : colors.textSecondary },
+                      ]}>
+                        {goal.weeklyRate > 0 ? '+' : ''}{goal.weeklyRate} kg/wk
+                      </Text>
+                      <Text style={styles.goalStatLabel}>Rate</Text>
+                    </View>
+                    {projectionChart && (
+                      <>
+                        <Ionicons name="arrow-forward-outline" size={14} color={colors.textDisabled} />
+                        <View style={styles.goalStat}>
+                          <Text style={[styles.goalStatValue, { color: colors.primary, fontSize: typography.fontSize.sm }]}>
+                            {format(projectionChart.projectedDate, 'MMM d')}
+                          </Text>
+                          <Text style={styles.goalStatLabel}>Projected</Text>
+                        </View>
+                      </>
+                    )}
+                    {goal.targetBodyFat && (
+                      <>
+                        <Ionicons name="arrow-forward-outline" size={14} color={colors.textDisabled} />
+                        <View style={styles.goalStat}>
+                          <Text style={styles.goalStatValue}>{goal.targetBodyFat}%</Text>
+                          <Text style={styles.goalStatLabel}>Body Fat</Text>
+                        </View>
+                      </>
+                    )}
+                  </View>
+                  {projectionChart && (
+                    <Text style={styles.goalKcalNote}>
+                      {projectionChart.dailyKcal < 0 ? '−' : '+'}{Math.abs(projectionChart.dailyKcal)} kcal/day · {projectionChart.weeksToGoal} weeks to goal
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {/* ── Goal Projection Chart ── */}
+              {projectionChart && (
+                <View style={styles.chartCard}>
+                  <Text style={styles.cardTitle}>Goal Projection</Text>
+                  <Text style={styles.cardSubtitle}>
+                    Actual weight → projected path at {goal?.weeklyRate} kg/wk
+                  </Text>
+                  <LineChart
+                    data={{
+                      labels: projectionChart.labels,
+                      datasets: [
+                        {
+                          data: projectionChart.dataset1,
+                          strokeWidth: 2.5,
+                          color: (opacity = 1) => `rgba(255, 98, 0, ${opacity})`,
+                        },
+                        {
+                          data: projectionChart.dataset2,
+                          strokeWidth: 2,
+                          color: (opacity = 1) => `rgba(255, 152, 0, ${opacity * 0.55})`,
+                        },
+                      ],
+                    }}
+                    width={SCREEN_W - 48}
+                    height={200}
+                    chartConfig={CHART_CFG}
+                    bezier
+                    withShadow={false}
+                    style={styles.chart}
+                    yAxisSuffix=" kg"
+                    formatYLabel={(y) => String(Math.round(Number(y)))}
+                  />
+                  <View style={styles.projLegendRow}>
+                    <View style={styles.projLegendItem}>
+                      <View style={[styles.projLegendDot, { backgroundColor: colors.primary }]} />
+                      <Text style={styles.projLegendText}>Logged</Text>
+                    </View>
+                    <View style={styles.projLegendItem}>
+                      <View style={[styles.projLegendDot, { backgroundColor: colors.warning, opacity: 0.7 }]} />
+                      <Text style={styles.projLegendText}>Projected</Text>
+                    </View>
+                    <Text style={styles.projLegendGoal}>
+                      Goal: {goal?.targetWeight} kg
+                    </Text>
+                  </View>
+                </View>
               )}
               {measurements.length > 0 && (
                 <View style={styles.bwListCard}>
@@ -567,54 +777,6 @@ export default function ProgressScreen() {
                     <StatBox label="Avg / day" value={nutritionChart.avgCalories + ' kcal'} />
                     <StatBox label="Avg protein" value={nutritionChart.avgProtein + 'g'} />
                     <StatBox label="Days logged" value={nutritionChart.daysLogged + ' / 7'} />
-                  </View>
-                </View>
-              )}
-            </View>
-          )}
-
-          {activeTab === 'nutrition' && (
-            <View>
-              <Text style={styles.sectionTitle}>Calorie &amp; Macro Intake</Text>
-              <Text style={styles.sectionSubtitle}>Last 7 days</Text>
-              {nutritionChart.daysLogged === 0 ? (
-                <EmptyState
-                  icon="nutrition-outline"
-                  title="No nutrition logged"
-                  subtitle="Log meals in the Nutrition tab to see your calorie trends here"
-                />
-              ) : (
-                <View>
-                  <View style={styles.chartCard}>
-                    <Text style={styles.cardTitle}>Daily Calories</Text>
-                    <Text style={styles.cardSubtitle}>
-                      {nutritionChart.daysLogged} of 7 days logged
-                    </Text>
-                    <BarChart
-                      data={{ labels: nutritionChart.labels, datasets: [{ data: nutritionChart.calories }] }}
-                      width={SCREEN_W - 48}
-                      height={200}
-                      chartConfig={{ ...CHART_CFG, color: (o = 1) => `rgba(255,98,0,${o})` }}
-                      style={styles.chart}
-                      yAxisLabel=""
-                      yAxisSuffix=""
-                      fromZero
-                      showValuesOnTopOfBars={false}
-                      withInnerLines
-                    />
-                    <View style={styles.statRow}>
-                      <StatBox label="Avg / day" value={nutritionChart.avgCalories + ' kcal'} />
-                      <StatBox label="Avg protein" value={nutritionChart.avgProtein + 'g'} />
-                      <StatBox label="Days logged" value={nutritionChart.daysLogged + ' / 7'} />
-                    </View>
-                  </View>
-                  <View style={styles.chartCard}>
-                    <Text style={styles.cardTitle}>Avg Macros / Day</Text>
-                    <View style={styles.statRow}>
-                      <StatBox label="Protein" value={nutritionChart.avgProtein + 'g'} valueColor={colors.primary} />
-                      <StatBox label="Carbs" value={nutritionChart.avgCarbs + 'g'} valueColor="#3B82F6" />
-                      <StatBox label="Fat" value={nutritionChart.avgFat + 'g'} valueColor="#F59E0B" />
-                    </View>
                   </View>
                 </View>
               )}
@@ -720,6 +882,41 @@ const styles = StyleSheet.create({
   bwRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing[3], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.divider },
   bwDate: { fontSize: typography.fontSize.base, color: colors.textSecondary },
   bwWeight: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold, color: colors.textPrimary },
+  // Bodyweight header row
+  bwHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing[4] },
+  setGoalBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[1],
+    backgroundColor: colors.primaryMuted, paddingHorizontal: spacing[3], paddingVertical: spacing[2],
+    borderRadius: radii.full, borderWidth: 1, borderColor: colors.primary,
+  },
+  setGoalBtnText: { fontSize: typography.fontSize.xs, fontWeight: typography.fontWeight.semibold, color: colors.primary },
+  // Goal summary card
+  goalCard: {
+    backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing[4],
+    marginBottom: spacing[4], borderWidth: 1, borderColor: colors.primaryMuted,
+  },
+  goalCardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] },
+  goalIconWrap: {
+    width: 28, height: 28, borderRadius: radii.full,
+    backgroundColor: colors.primaryMuted, alignItems: 'center', justifyContent: 'center',
+  },
+  goalCardTitle: { flex: 1, fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.semibold, color: colors.textPrimary },
+  goalEditChip: {
+    backgroundColor: colors.charcoal, paddingHorizontal: spacing[3], paddingVertical: 3,
+    borderRadius: radii.full, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
+  },
+  goalEditChipText: { fontSize: typography.fontSize.xs, color: colors.textSecondary, fontWeight: typography.fontWeight.medium },
+  goalStatRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], flexWrap: 'wrap' },
+  goalStat: { alignItems: 'center', minWidth: 56 },
+  goalStatValue: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.bold, color: colors.textPrimary },
+  goalStatLabel: { fontSize: typography.fontSize.xs, color: colors.textSecondary, marginTop: 1 },
+  goalKcalNote: { fontSize: typography.fontSize.xs, color: colors.textDisabled, marginTop: spacing[3], fontStyle: 'italic' },
+  // Projection chart legend
+  projLegendRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[4], marginTop: spacing[3] },
+  projLegendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
+  projLegendDot: { width: 8, height: 8, borderRadius: 4 },
+  projLegendText: { fontSize: typography.fontSize.xs, color: colors.textSecondary },
+  projLegendGoal: { fontSize: typography.fontSize.xs, color: colors.primary, fontWeight: typography.fontWeight.semibold, marginLeft: 'auto' as any },
   emptyCard: { backgroundColor: colors.surface, borderRadius: radii.lg, padding: spacing[10], alignItems: 'center', gap: spacing[2], marginBottom: spacing[4] },
   emptyTitle: { fontSize: typography.fontSize.base, fontWeight: typography.fontWeight.medium, color: colors.textSecondary, textAlign: 'center' },
   emptySubtitle: { fontSize: typography.fontSize.sm, color: colors.textDisabled, textAlign: 'center', lineHeight: 20 },
