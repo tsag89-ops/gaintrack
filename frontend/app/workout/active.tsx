@@ -334,8 +334,29 @@ const ActiveWorkoutScreen: React.FC = () => {
       return;
     }
     const validExercises = exerciseList.filter((ex) => ex.sets.length > 0);
-    if (validExercises.length === 0) {
-      Alert.alert('Nothing to save', 'Add at least one exercise with a set before finishing.');
+    const hasValidSets = validExercises.some((exercise) =>
+      exercise.sets.some(
+        (set) => (Number(set.reps) || 0) > 0 && (Number(set.weight) || 0) >= 0,
+      ),
+    );
+
+    if (!hasValidSets || validExercises.length === 0) {
+      Alert.alert(
+        'Empty Workout',
+        'No sets were logged. Add at least one set with reps to save this workout.',
+        [
+          { text: 'Keep Editing', style: 'cancel' },
+          {
+            text: 'Discard Workout',
+            style: 'destructive',
+            onPress: async () => {
+              await clearInProgress();
+              setCurrentWorkout(null);
+              router.replace('/');
+            },
+          },
+        ],
+      );
       return;
     }
     setSaving(true);

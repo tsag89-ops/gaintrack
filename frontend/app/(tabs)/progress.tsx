@@ -156,7 +156,20 @@ export default function ProgressScreen() {
         (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
       );
       const sortedM = [...mArr].sort((a, b) => a.date.localeCompare(b.date));
-      setWorkouts(sortedW);
+      // Filter out workouts with no exercises and zero volume
+      const filteredW = sortedW.filter((w) => {
+        const exercises = w.exercises ?? [];
+        return !(exercises.length === 0 &&
+          exercises.reduce(
+            (v, ex) =>
+              v + (ex.sets ?? []).reduce(
+                (sv, s) => sv + (s.weight ?? 0) * (s.reps ?? 0),
+                0,
+              ),
+            0,
+          ) === 0);
+      });
+      setWorkouts(filteredW);
       setMeasurements(sortedM);
       if (sortedW.length > 0) {
         const first = sortedW
@@ -212,7 +225,8 @@ export default function ProgressScreen() {
           .filter((s) => s.reps > 0 && s.weight > 0)
           .forEach((s) => { vol += s.weight * s.reps; });
       });
-      map.set(wk, (map.get(wk) ?? 0) + vol);
+      // Skip workouts with zero volume so they don't create empty week entries
+      if (vol > 0) map.set(wk, (map.get(wk) ?? 0) + vol);
     });
     const sorted = Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b))

@@ -43,10 +43,14 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 /** Returns the last 7 day labels + volume sums from workout list */
 function buildWeeklyChartData(workouts: Workout[]) {
+  // Skip workouts with zero total volume
+  const validWorkouts = workouts.filter(
+    (w) => calculateWorkoutVolume(w.exercises ?? []) > 0,
+  );
   const days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i));
   const labels = days.map((d) => format(d, 'EEE').slice(0, 1)); // M T W …
   const data = days.map((day) => {
-    const dayWorkouts = workouts.filter((w) => {
+    const dayWorkouts = validWorkouts.filter((w) => {
       try {
         return isSameDay(parseISO(w.date), day);
       } catch {
@@ -65,8 +69,12 @@ function buildWeeklyChartData(workouts: Workout[]) {
 
 /** Consecutive-day workout streak ending today */
 function calcStreak(workouts: Workout[]): number {
+  // Only count workouts with actual volume
+  const validWorkouts = workouts.filter(
+    (w) => calculateWorkoutVolume(w.exercises ?? []) > 0,
+  );
   const dates = new Set(
-    workouts.map((w) => {
+    validWorkouts.map((w) => {
       try {
         return format(parseISO(w.date), 'yyyy-MM-dd');
       } catch {
@@ -133,7 +141,15 @@ export default function HomeScreen() {
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const recentWorkouts = useMemo(
-    () => [...workouts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5),
+    () =>
+      [...workouts]
+        .filter((w) => {
+          const exercises = w.exercises ?? [];
+          // Exclude empty skeleton workouts (no exercises and zero volume)
+          return !(exercises.length === 0 && calculateWorkoutVolume(exercises) === 0);
+        })
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 5),
     [workouts],
   );
 
