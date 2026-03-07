@@ -102,6 +102,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             ...user,
             equipment: prev.equipment ?? user.equipment,
             goals: prev.goals ?? user.goals,
+            isPro: prev.isPro ?? user.isPro, // preserve cached Pro status as fallback
           };
         }
       }
@@ -141,6 +142,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await storage.setItem('user', JSON.stringify(finalUser));
       await storage.setItem('sessionToken', token);
+      // Keep gaintrack_pro_status in sync so usePro() native fallback is correct
+      await storage.setItem('gaintrack_pro_status', String(isPro));
     } catch (e) {
       console.warn('setSession storage save error:', e);
     }
@@ -152,7 +155,11 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     try {
-      await storage.removeItem('sessionToken');
+      await Promise.all([
+        storage.removeItem('sessionToken'),
+        storage.removeItem('user'),
+        storage.removeItem('gaintrack_pro_status'),
+      ]);
       await resetRevenueCatUser(); // Reset to anonymous RC identity on logout
       await auth.signOut();
     } catch (e) {
