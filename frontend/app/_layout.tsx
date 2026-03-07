@@ -55,11 +55,15 @@ export default function RootLayout() {
   const { status } = useNativeAuthState();
   const segments = useSegments();
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, loadStoredAuth } = useAuthStore();
   // Prevent hydration mismatch (#418): auth state is unknown during SSR;
   // defer conditional rendering until after client mount.
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => { setHasMounted(true); }, []);
+
+  // Restore user + isPro from AsyncStorage on every cold start.
+  // Without this, authStore.user is always null after an app restart.
+  useEffect(() => { loadStoredAuth(); }, []);
 
   // Flush any locally-queued workouts to Firestore when connectivity restores.
   useOfflineSync();
