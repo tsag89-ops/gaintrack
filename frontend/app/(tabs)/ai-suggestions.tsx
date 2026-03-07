@@ -27,6 +27,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import Markdown from 'react-native-markdown-display';
 import { useAuthStore } from '../../src/store/authStore';
 import { usePro } from '../../src/hooks/usePro';
@@ -37,6 +38,7 @@ import { useAISuggestions } from '../../src/hooks/useAISuggestions'; // [PRO]
 // ── Constants ──────────────────────────────────────────────────────────────────
 const AI_HISTORY_KEY   = 'gaintrack_ai_history';
 const AI_USAGE_KEY     = 'gaintrack_ai_usage';
+const AI_CONSENT_KEY   = 'gaintrack_ai_consent';
 const BODY_GOALS_KEY   = 'gaintrack_body_goals';
 const BODYWEIGHT_KEY   = 'gaintrack_bodyweight';
 const MEASUREMENTS_KEY = 'gaintrack_measurements';
@@ -136,13 +138,14 @@ const CHIPS = [
 ] as const;
 
 // ── API URL helper ─────────────────────────────────────────────────────────────
-function getApiUrl(): string {
+// Returns null in native production builds where the Expo server route is gone.
+function getApiUrl(): string | null {
   if (Platform.OS === 'web') return '/api/ai-chat';
   const host =
     Constants.expoConfig?.hostUri ??
-    (Constants as any).manifest2?.extra?.expoClient?.hostUri ??
-    'localhost:8081';
-  return `http://${host.split(':')[0]}:8081/api/ai-chat`;
+    (Constants as any).manifest2?.extra?.expoClient?.hostUri;
+  if (host) return `http://${host.split(':')[0]}:8081/api/ai-chat`;
+  return null; // production APK/IPA
 }
 
 // ── Typing indicator ───────────────────────────────────────────────────────────
@@ -200,6 +203,9 @@ export default function AISuggestions() {
   const [isLoading,   setIsLoading]   = useState(false);
   const [dailyUsage,  setDailyUsage]  = useState<DailyUsage>({ date: '', count: 0 });
 
+  // Consent gate — null = not yet loaded, false = not given, true = given
+  const [consentGiven, setConsentGiven] = useState<boolean | null>(null);
+
   // Active tab: 'suggestions' | 'chat'
   const [activeTab, setActiveTab] = useState<'suggestions' | 'chat'>('suggestions');
 
@@ -223,8 +229,17 @@ export default function AISuggestions() {
 
   const scrollRef    = useRef<ScrollView>(null);
   const today        = format(new Date(), 'yyyy-MM-dd');
-  const canSend      = isPro;
+  const canSend      = isPro && consentGiven === true;
   const chipsVisible = messages.length === 0 && !isLoading;
+
+  // ── Load consent state on mount and on every tab focus ───────────────────────
+  useFocusEffect(
+    useCallback(() => {
+      AsyncStorage.getItem(AI_CONSENT_KEY)
+        .then((val) => setConsentGiven(val === 'true'))
+        .catch(() => setConsentGiven(false));
+    }, []),
+  );
 
   // ── Load all data on mount ─────────────────────────────────────────────────
   useEffect(() => { loadAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -363,15 +378,52 @@ Always give specific, personalized advice referencing the user's actual data, cu
       .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
     try {
-      const res = await fetch(getApiUrl(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system: buildSystemPrompt(),
-          messages: context,
-          prompt: text,
-        }),
+      const serverUrl = getApiUrl();
+      const body = JSON.stringify({
+        system: buildSystemPrompt(),
+        messages: context,
+        prompt: text,
       });
+
+      let res: Response | undefined;
+
+      // Attempt 1: Expo server route (web + native dev)
+      if (serverUrl) {
+        try {
+          res = await fetch(serverUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+          });
+        } catch {
+          res = undefined;
+        }
+      }
+
+      // Attempt 2: direct OpenRouter fallback (native production)
+      if (!res || !res.ok) {
+        const apiKey = process.env.EXPO_PUBLIC_AI_API_KEY;
+        if (!apiKey) throw Object.assign(new Error('no_api_key'), { errorType: 'no_api_key' as const });
+        res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://gaintrack.app',
+            'X-Title': 'GainTrack',
+          },
+          body: JSON.stringify({
+            model: 'openai/gpt-oss-120b:free',
+            messages: [
+              { role: 'system', content: buildSystemPrompt() },
+              ...context,
+            ],
+            temperature: 0.7,
+            max_tokens: 800,
+            provider: { data_collection: 'allow', allow_fallbacks: true },
+          }),
+        });
+      }
 
       if (res.status === 429) {
         throw Object.assign(new Error('rate_limit'), { errorType: 'rate_limit' as const });
@@ -432,6 +484,20 @@ Always give specific, personalized advice referencing the user's actual data, cu
     }
   };
 
+  // ── Consent handlers ──────────────────────────────────────────────────────
+  const handleConsentAgree = async () => {
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await AsyncStorage.setItem(AI_CONSENT_KEY, 'true');
+    setConsentGiven(true);
+  };
+
+  const handleConsentDecline = () => {
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setConsentGiven(false);
+    // Stay on suggestions tab — AI features remain disabled
+    setActiveTab('suggestions');
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -456,6 +522,27 @@ Always give specific, personalized advice referencing the user's actual data, cu
         )}
       </View>
 
+      {/* ──── AI DATA CONSENT MODAL ──── */}
+      {consentGiven === false && (
+        <View style={styles.consentOverlay}>
+          <View style={styles.consentCard}>
+            <Ionicons name="shield-checkmark-outline" size={40} color="#FF6200" />
+            <Text style={styles.consentTitle}>AI Coach — Data & Health Notice</Text>
+            <ScrollView style={{ maxHeight: 340, width: '100%' }} showsVerticalScrollIndicator={true}>
+              <Text style={styles.consentBody}>
+                {'📊 DATA SHARING\n\nTo use GainTrack\'s AI coach, we need your permission to share your prompts and AI replies with our AI provider, OpenRouter.\n\nOpenRouter\'s free models may record and store what you type, along with the AI\'s responses, to improve their services and monitor abuse. These logs can be kept for research and quality purposes and may be reviewed by humans.\n\nYou can withdraw this consent at any time in Profile → Settings, which will immediately disable all AI features.\n\n⚕️ HEALTH & SAFETY DISCLAIMER\n\nThe AI coach provides general fitness, workout and nutrition suggestions for information and education only. It does not provide medical advice, diagnosis or treatment and is not a substitute for a doctor, physiotherapist, dietitian or any other licensed health professional.\n\nThe AI does not know your full medical history, current injuries, medications or specific health risks. Its answers are generated automatically and may be incomplete, inaccurate, or not appropriate for your personal situation. Always verify suggestions with a qualified professional and use your own judgment.\n\nBefore starting any new exercise program, changing your training load, or making significant nutrition changes based on AI suggestions, you should talk to a qualified healthcare professional — especially if you have any medical condition, past injuries, pain, dizziness, chest discomfort, shortness of breath, high blood pressure, heart issues or other health concerns.\n\nIf you feel pain, dizziness, shortness of breath, chest pain, joint instability or any unusual discomfort while following any suggestion, stop immediately and seek medical advice. In an emergency, contact your local emergency services right away — do not rely on this app or the AI.\n\nThis app is intended for users aged 16 and over. If you are under 16, please obtain parental or guardian consent before using AI features.\n\n✅ BY AGREEING, YOU ACKNOWLEDGE THAT:\n\n• You use all workouts, programs and nutrition suggestions at your own risk.\n\n• You are solely responsible for deciding what is safe and appropriate for you.\n\n• The creators, developers and partners of GainTrack are not liable for any injuries, health problems, worsening of conditions, lost progress, or other damages that may result from following any AI or app recommendations.\n\n• You consent to your prompts and AI replies being shared with OpenRouter as described above.\n\nIf you do not accept these terms, tap "I don\'t agree" and AI features will remain disabled.'}
+              </Text>
+            </ScrollView>
+            <TouchableOpacity style={styles.consentAgreeBtn} onPress={handleConsentAgree} activeOpacity={0.85}>
+              <Text style={styles.consentAgreeBtnText}>I agree, enable AI</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.consentDeclineBtn} onPress={handleConsentDecline} activeOpacity={0.85}>
+              <Text style={styles.consentDeclineBtnText}>I don't agree</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Segment control: Tips | AI Chat */}
       <View style={styles.segmentRow}>
         <TouchableOpacity
@@ -479,6 +566,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
           style={[styles.segment, activeTab === 'chat' && styles.segmentActive]}
           onPress={() => {
             if (Platform.OS !== 'web') Haptics.selectionAsync();
+            if (!consentGiven) { setConsentGiven(false); return; }
             setActiveTab('chat');
           }}
           activeOpacity={0.8}
@@ -995,6 +1083,61 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
+  },
+  // ── Consent overlay ──────────────────────────────────────────────────────
+  consentOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(26,26,26,0.97)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    zIndex: 100,
+  },
+  consentCard: {
+    backgroundColor: '#252525',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    gap: 14,
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '90%',
+  },
+  consentTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  consentBody: {
+    color: '#B0B0B0',
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'left',
+    width: '100%',
+  },
+  consentAgreeBtn: {
+    backgroundColor: '#FF6200',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  consentAgreeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  consentDeclineBtn: {
+    paddingVertical: 10,
+    width: '100%',
+    alignItems: 'center',
+  },
+  consentDeclineBtnText: {
+    color: '#B0B0B0',
+    fontSize: 14,
   },
   backToTipsBtn: {
     marginTop: 12,

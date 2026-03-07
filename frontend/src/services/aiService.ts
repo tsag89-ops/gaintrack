@@ -1,24 +1,64 @@
 // src/services/aiService.ts
 //
-// ─── SETUP REQUIRED ─────────────────────────────────────────────────────────
-//  1. Create frontend/.env and add:
-//       EXPO_PUBLIC_AI_API_KEY=your_key_here
-//  2. .env is already in .gitignore — do NOT commit it.
-//  3. For EAS builds, run:
-//       eas env:create --scope project --name EXPO_PUBLIC_AI_API_KEY --value your_key_here
-//  4. Set endpoint, model, and key in EAS preview environment (OpenRouter):
-//       eas env:create --scope project --name EXPO_PUBLIC_AI_ENDPOINT --value https://openrouter.ai/api/v1/chat/completions
-//       eas env:create --scope project --name EXPO_PUBLIC_AI_MODEL    --value openai/gpt-oss-120b:free
-//       eas env:create --scope project --name OPENROUTER_API_KEY      --value sk-or-v1-...
-// ─────────────────────────────────────────────────────────────────────────────
+// --- SETUP REQUIRED ---------------------------------------------------------
+//  OPENROUTER_API_KEY is a server-side secret � set it in frontend/.env.
+//  It is read only by the server-side route (app/api/ai-chat+api.ts).
+//  On web, client code calls /api/ai-chat and NEVER reads the key directly.
+//
+//  On native production (no Expo dev server), the route is unreachable.
+//  Set EXPO_PUBLIC_AI_API_KEY in .env to enable direct OpenRouter calls.
+//
+//  For EAS builds, create the secrets:
+//    eas env:create --scope project --name OPENROUTER_API_KEY --value sk-or-v1-...
+//    eas env:create --scope project --name EXPO_PUBLIC_AI_API_KEY --value sk-or-v1-...
+// -----------------------------------------------------------------------------
 
-import axios from 'axios';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// ── AI provider config — set via EAS env vars ───────────────────────────────
-const AI_ENDPOINT = process.env.EXPO_PUBLIC_AI_ENDPOINT ?? '';
-const AI_MODEL    = process.env.EXPO_PUBLIC_AI_MODEL    ?? 'openai/gpt-oss-120b:free';
-const AI_API_KEY  = process.env.OPENROUTER_API_KEY  ?? '';
-// ─────────────────────────────────────────────────────────────────────────────
+const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
+const AI_MODEL = 'openai/gpt-oss-120b:free';
+
+// -- Resolve the internal API route URL ---------------------------------------
+// Returns null in native production builds where no Expo server is reachable.
+function getServerRouteUrl(): string | null {
+  if (Platform.OS === 'web') return '/api/ai-chat';
+  const host =
+    Constants.expoConfig?.hostUri ??
+    (Constants as any).manifest2?.extra?.expoClient?.hostUri;
+  if (host) return `http://${host.split(':')[0]}:8081/api/ai-chat`;
+  return null; // production APK/IPA � Expo server route not available
+}
+
+// -- Direct OpenRouter fetch (native production fallback) ---------------------
+async function fetchFromOpenRouterDirect(
+  system: string,
+  prompt: string,
+): Promise<Response> {
+  const apiKey = process.env.EXPO_PUBLIC_AI_API_KEY;
+  if (!apiKey) return new Response(JSON.stringify({ error: 'no_key' }), { status: 503 });
+  return fetch(OPENROUTER_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://gaintrack.app',
+      'X-Title': 'GainTrack',
+    },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user',   content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 800,
+      provider: { data_collection: 'allow', allow_fallbacks: true },
+    }),
+  });
+}
+
+// --- Types --------------------------------------------------------------------
 
 export interface AISuggestion {
   id: string;
@@ -34,15 +74,15 @@ export interface AIContext {
   calories?: number;
 }
 
-// Mocked suggestions returned when no real API is configured.
-// TODO: remove once a real AI endpoint is wired up.
+// --- Mocked fallback ----------------------------------------------------------
+
 const MOCK_SUGGESTIONS: AISuggestion[] = [
   {
     id: '1',
     category: 'exercise',
     title: 'Next Muscle Group: Shoulders',
     description:
-      "You've trained chest and triceps the last two sessions. Hit shoulders today to maintain balanced push-pull frequency. Try Overhead Press 4×6 as your primary lift.",
+      "You've trained chest and triceps the last two sessions. Hit shoulders today to maintain balanced push-pull frequency. Try Overhead Press 4x6 as your primary lift.",
     isProOnly: false,
   },
   {
@@ -50,7 +90,7 @@ const MOCK_SUGGESTIONS: AISuggestion[] = [
     category: 'superset',
     title: 'Superset Idea: Bicep Curl + Hammer Curl',
     description:
-      'Pair barbell curls (3×10) with hammer curls (3×12) for maximum bicep volume in half the time. Rest 90 s between supersets.',
+      'Pair barbell curls (3x10) with hammer curls (3x12) for maximum bicep volume in half the time. Rest 90 s between supersets.',
     isProOnly: false,
   },
   {
@@ -58,7 +98,7 @@ const MOCK_SUGGESTIONS: AISuggestion[] = [
     category: 'nutrition',
     title: 'Lean Bulk Tip: Hit 160 g Protein Today',
     description:
-      "Based on your logged meals, you're ~40 g short of your protein target. Add a 200-cal chicken breast or a whey shake to close the gap without a significant calorie surplus.",
+      "Based on your logged meals, you're ~40 g short of your protein target. Add a 200-cal chicken breast or a whey shake to close the gap.",
     isProOnly: false,
   },
   {
@@ -66,65 +106,77 @@ const MOCK_SUGGESTIONS: AISuggestion[] = [
     category: 'program',
     title: 'Program Suggestion: GZCLP Linear Progression',
     description:
-      'Your strength is advancing steadily. GZCLP is a proven 3-day linear program that will keep your squat, bench, and deadlift climbing for the next 12–16 weeks.',
+      'Your strength is advancing steadily. GZCLP is a proven 3-day linear program that will keep your squat, bench, and deadlift climbing for the next 12-16 weeks.',
     isProOnly: true, // [PRO]
   },
 ];
 
+// --- Main export --------------------------------------------------------------
+
 /**
  * Fetch AI-generated coaching suggestions.
- * Returns mocked data when EXPO_PUBLIC_AI_API_KEY is not set.
+ * Strategy:
+ *   1. Try the Expo server route /api/ai-chat (works on web + native dev server).
+ *   2. If unreachable (production APK/IPA), fall back to direct OpenRouter
+ *      using EXPO_PUBLIC_AI_API_KEY.
+ *   3. If both fail, return static mocks so the UI is never broken.
  */
 export async function getAISuggestions(context: AIContext): Promise<AISuggestion[]> {
-  // If no key is configured, return mocks immediately.
-  if (!AI_API_KEY) {
-    console.warn('[aiService] EXPO_PUBLIC_AI_API_KEY not set — returning mocked suggestions.');
+  const system =
+    'You are a personal fitness coach. Respond ONLY with a valid JSON array of suggestion objects. ' +
+    'Each object must have: id (string), category ("exercise"|"superset"|"nutrition"|"program"), ' +
+    'title (string), description (string), isProOnly (boolean).';
+  const prompt = buildPrompt(context);
+
+  const serverUrl = getServerRouteUrl();
+  let res: Response | undefined;
+
+  // Attempt 1: Expo server route
+  if (serverUrl) {
+    try {
+      res = await fetch(serverUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ system, prompt }),
+      });
+    } catch {
+      res = undefined;
+    }
+  }
+
+  // Attempt 2: direct OpenRouter (native production fallback)
+  if (!res || !res.ok) {
+    try {
+      res = await fetchFromOpenRouterDirect(system, prompt);
+    } catch (e: any) {
+      console.warn('[aiService] Direct OpenRouter failed:', e?.message);
+      return MOCK_SUGGESTIONS;
+    }
+  }
+
+  if (!res || !res.ok) {
+    console.warn(`[aiService] All AI attempts failed (${res?.status}) � using mocked suggestions.`);
     return MOCK_SUGGESTIONS;
   }
 
-  // TODO: Adapt the request body to match your chosen provider's API contract.
-  const prompt = buildPrompt(context);
-
-  const response = await axios.post(
-    AI_ENDPOINT,
-    {
-      model: AI_MODEL,
-      // OpenAI-style messages array — adjust for Anthropic or other providers:
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are a personal fitness coach. Respond ONLY with a valid JSON array of suggestion objects matching the AISuggestion type.',
-        },
-        { role: 'user', content: prompt },
-      ],
-      // TODO: adjust max_tokens / temperature as needed
-      max_tokens: 512,
-      temperature: 0.7,
-    },
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${AI_API_KEY}`,
-        'HTTP-Referer': 'https://gaintrack.app',  // OpenRouter: identifies your app
-        'X-Title': 'GainTrack',                   // OpenRouter: shown in usage dashboard
-      },
-    },
-  );
-
-  // TODO: parse the response based on your provider's response shape.
-  // Below assumes OpenAI-style response:
-  const raw = response.data?.choices?.[0]?.message?.content ?? '[]';
-  return JSON.parse(raw) as AISuggestion[];
+  try {
+    const data = await res.json();
+    const raw: string = data?.choices?.[0]?.message?.content ?? '';
+    if (!raw) return MOCK_SUGGESTIONS;
+    const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    return JSON.parse(jsonStr) as AISuggestion[];
+  } catch (e: any) {
+    console.warn('[aiService] Failed to parse AI response:', e?.message);
+    return MOCK_SUGGESTIONS;
+  }
 }
 
 function buildPrompt(context: AIContext): string {
-  return `
-User goals: ${context.goals || 'general fitness'}.
-Recent workouts: ${JSON.stringify(context.recentWorkouts.slice(0, 3))}.
-Today's calorie intake: ${context.calories ?? 'unknown'} kcal.
-
-Return 4 suggestions: one exercise, one superset, one nutrition tip, one program suggestion.
-Each object must have: id, category, title, description, isProOnly.
-  `.trim();
+  return (
+    `User goals: ${context.goals || 'general fitness'}. ` +
+    `Recent workouts: ${JSON.stringify(context.recentWorkouts.slice(0, 3))}. ` +
+    `Today calorie intake: ${context.calories ?? 'unknown'} kcal. ` +
+    'Return 4 suggestions: one exercise, one superset, one nutrition tip, one program suggestion. ' +
+    'Each object must have: id, category, title, description, isProOnly.'
+  );
 }

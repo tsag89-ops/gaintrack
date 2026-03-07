@@ -7,8 +7,8 @@
   "scripts": {
     "start": "cd frontend && npm start",
     "build": "cd frontend && npm run build",
-    "android": "expo run:android",
-    "ios": "expo run:ios"
+    "android": "cd frontend && npx expo run:android",
+    "ios": "cd frontend && npx expo run:ios"
   },
   "version": "1.0.0",
   "dependencies": {

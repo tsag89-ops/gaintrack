@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import { storage } from '../utils/storage';
 
 const NOTIFICATION_SETTINGS_KEY = 'notification_settings';
@@ -91,7 +92,9 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
       }
 
       const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: process.env.EXPO_PROJECT_ID,
+        projectId:
+          Constants.expoConfig?.extra?.eas?.projectId ??
+          Constants.expoConfig?.extra?.projectId,
       });
       token = tokenData.data;
     } catch (e) {

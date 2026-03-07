@@ -27,16 +27,18 @@ export async function POST(request: Request): Promise<Response> {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://gaintrack.app',
         'X-Title': 'GainTrack',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-oss-120b:free',
+        model: process.env.AI_MODEL ?? 'openai/gpt-oss-120b:free',
         messages: [
           ...(system ? [{ role: 'system', content: system }] : []),
           { role: 'user', content: prompt },
         ],
         temperature: 0.7,
         max_tokens: 800,
+        provider: { data_collection: 'allow', allow_fallbacks: true },
       }),
     });
 
@@ -46,6 +48,14 @@ export async function POST(request: Request): Promise<Response> {
       data = JSON.parse(text);
     } catch {
       return json({ error: `OpenRouter returned non-JSON: ${text.slice(0, 200)}` }, 502);
+    }
+
+    // Surface a helpful error for OpenRouter data-policy rejection (free model opt-in required)
+    if (!res.ok) {
+      const errMsg = (data as any)?.error?.message ?? '';
+      if (errMsg.includes('data policy')) {
+        console.error('[ai-chat] OpenRouter data policy error — visit https://openrouter.ai/settings/privacy to enable free model usage.');
+      }
     }
 
     return json(data, res.status);

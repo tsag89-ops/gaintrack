@@ -16,14 +16,13 @@
         "NSCameraUsageDescription": "Take progress photos for your fitness journey",
         "NSPhotoLibraryUsageDescription": "Save and share your progress photos",
         "UIBackgroundModes": [
-          "remote-notification",
           "remote-notification"
         ]
       }
     },
     "android": {
       "package": "com.tsag89ops.gaintrack",
-      "googleServicesFile": "../android/app/google-services.json",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"

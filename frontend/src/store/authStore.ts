@@ -53,6 +53,7 @@ async function upsertUserProfile(userId: string, data: object) {
 }
 
 async function fetchIsPro(userId: string): Promise<boolean> {
+  // Attempt 1: web SDK (works on web platform)
   try {
     const snap = await getDoc(doc(db, 'users', userId));
     if (snap.exists()) {
@@ -61,10 +62,24 @@ async function fetchIsPro(userId: string): Promise<boolean> {
       return isPro;
     }
   } catch (e) {
-    console.warn('[authStore] Firestore isPro read failed:', e);
+    // Web SDK throws on native Android/iOS — fall back to rnFirebase compat API
+    try {
+      const snap2 = await (db as any).collection('users').doc(userId).get();
+      if (snap2.exists) {
+        const isPro = snap2.data()?.isPro ?? false;
+        console.log('[authStore] isPro from Firestore (native):', isPro);
+        return isPro;
+      }
+    } catch (e2) {
+      console.warn('[authStore] Firestore isPro read failed (both attempts):', e2);
+    }
   }
   return false;
 }
+
+// Prevent concurrent setSession calls for the same UID (e.g., race between
+// login.tsx's explicit call and useAuth.web.ts's onAuthStateChanged handler).
+const _sessionInProgress = new Set<string>();
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
@@ -75,6 +90,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   setUser: (user) => set({ user }),
 
   setSession: async (user, token) => {
+    if (_sessionInProgress.has(user.id)) return;
+    _sessionInProgress.add(user.id);
     let finalUser = user;
     try {
       const existing = await storage.getItem('user');
@@ -119,6 +136,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     identifyUser(finalUser.id).catch((e) =>
       console.warn('[authStore] RevenueCat identifyUser failed:', e),
     );
+
+    _sessionInProgress.delete(user.id);
   },
 
   logout: async () => {
@@ -129,6 +148,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (e) {
       console.warn('logout error:', e);
     }
+    _sessionInProgress.clear();
     set({ user: null, sessionToken: null, isAuthenticated: false, isLoading: false });
   },
 

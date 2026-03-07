@@ -69,8 +69,9 @@ export default function ProfileScreen() {
   const [distanceUnit, setDistanceUnit] = useState<'km' | 'mi'>(user?.units?.distance || 'km');
 
   // Workout settings
-  const AUTO_REST_KEY = 'gaintrack_auto_rest_timer';
+  const AUTO_REST_KEY    = 'gaintrack_auto_rest_timer';
   const REST_DURATION_KEY = 'gaintrack_rest_duration';
+  const AI_CONSENT_KEY    = 'gaintrack_ai_consent';
   const REST_PRESETS = [
     { label: '30s', value: 30 },
     { label: '60s', value: 60 },
@@ -81,6 +82,7 @@ export default function ProfileScreen() {
   ];
   const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
   const [restDuration, setRestDuration] = useState(90);
+  const [aiConsent, setAiConsent] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(AUTO_REST_KEY)
@@ -89,12 +91,41 @@ export default function ProfileScreen() {
     AsyncStorage.getItem(REST_DURATION_KEY)
       .then((v) => { if (v !== null) setRestDuration(Number(v)); })
       .catch(() => null);
+    AsyncStorage.getItem(AI_CONSENT_KEY)
+      .then((v) => setAiConsent(v === 'true'))
+      .catch(() => null);
   }, []);
 
   const toggleAutoRestTimer = async (value: boolean) => {
     setAutoStartRestTimer(value);
     await Haptics.selectionAsync();
     await AsyncStorage.setItem(AUTO_REST_KEY, JSON.stringify(value));
+  };
+
+  const toggleAiConsent = async (value: boolean) => {
+    if (!value) {
+      // Confirm before revoking — AI chat history is unaffected but AI is disabled
+      Alert.alert(
+        'Disable AI Coach?',
+        'Revoking consent will disable all AI features immediately. Your chat history is kept on this device. You can re-enable at any time.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Revoke',
+            style: 'destructive',
+            onPress: async () => {
+              setAiConsent(false);
+              await AsyncStorage.setItem(AI_CONSENT_KEY, 'false');
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            },
+          },
+        ],
+      );
+    } else {
+      setAiConsent(true);
+      await AsyncStorage.setItem(AI_CONSENT_KEY, 'true');
+      await Haptics.selectionAsync();
+    }
   };
 
   const selectRestDuration = async (seconds: number) => {
@@ -533,6 +564,33 @@ const handleLogout = async () => {
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
           </TouchableOpacity>
+        </View>
+
+        {/* Privacy Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Privacy</Text>
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="shield-checkmark-outline" size={22} color="#FF6200" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>AI Coach Data Sharing</Text>
+                <Text style={styles.settingValue}>
+                  {aiConsent
+                    ? 'Enabled — prompts shared with OpenRouter'
+                    : 'Disabled — AI features are off'}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={aiConsent}
+              onValueChange={toggleAiConsent}
+              trackColor={{ false: '#3A3A3A', true: '#FF6200' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+          <Text style={styles.hint}>
+            When enabled, your AI prompts and replies are shared with OpenRouter for processing. See the AI tab for the full data &amp; health notice.
+          </Text>
         </View>
 
         {/* Account Section */}

@@ -10,6 +10,8 @@ import AuthSplash from '../src/components/AuthSplash';
 import { initRevenueCat } from '../src/services/revenueCat'; // [PRO]
 import { useOfflineSync } from '../src/hooks/useOfflineSync';
 import { colors } from '../src/constants/theme';
+import { logCrash, flushCrashQueue } from '../src/services/crashReporter';
+import { useAuthStore } from '../src/store/authStore';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -18,6 +20,9 @@ class ErrorBoundary extends React.Component<
   state = { hasError: false, error: '' };
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error: error.message };
+  }
+  componentDidCatch(error: Error) {
+    logCrash(error, { screen: 'ErrorBoundary' });
   }
   render() {
     if (this.state.hasError) {
@@ -48,6 +53,7 @@ export default function RootLayout() {
   const { status } = useNativeAuthState();
   const segments = useSegments();
   const router = useRouter();
+  const { user } = useAuthStore();
   // Prevent hydration mismatch (#418): auth state is unknown during SSR;
   // defer conditional rendering until after client mount.
   const [hasMounted, setHasMounted] = useState(false);
@@ -55,6 +61,21 @@ export default function RootLayout() {
 
   // Flush any locally-queued workouts to Firestore when connectivity restores.
   useOfflineSync();
+
+  // Register global unhandled JS error handler (native only).
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const prev = (global as any).ErrorUtils?.getGlobalHandler?.();
+    (global as any).ErrorUtils?.setGlobalHandler?.((error: Error, isFatal?: boolean) => {
+      logCrash(error, { extras: { isFatal } });
+      prev?.(error, isFatal);
+    });
+  }, []);
+
+  // Flush locally-queued crash reports once the user is authenticated.
+  useEffect(() => {
+    if (user?.id) flushCrashQueue(user.id).catch(() => {});
+  }, [user?.id]);
 
   // [PRO] Initialise RevenueCat once on app start (anonymous session).
   // The API key is read from EXPO_PUBLIC_REVENUECAT_API_KEY in your .env file.
