@@ -17,7 +17,7 @@ config.cacheStores = [
 // ── Monorepo support ──────────────────────────────────────────────────────────
 // All packages are hoisted to the monorepo root node_modules (no frontend/node_modules).
 // Tell Metro to watch the monorepo root and resolve modules from both locations.
-config.watchFolders = [monorepoRoot];
+config.watchFolders = [...(config.watchFolders ?? []), monorepoRoot];
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(monorepoRoot, 'node_modules'),

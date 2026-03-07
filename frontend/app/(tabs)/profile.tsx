@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Platform,
@@ -9,7 +9,9 @@ import {
   Alert,
   TextInput,
   Modal,
+  Switch,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -63,6 +65,41 @@ export default function ProfileScreen() {
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>(user?.units?.weight || 'kg');
   const [heightUnit, setHeightUnit] = useState<'cm' | 'in'>(user?.units?.height || 'cm');
   const [distanceUnit, setDistanceUnit] = useState<'km' | 'mi'>(user?.units?.distance || 'km');
+
+  // Workout settings
+  const AUTO_REST_KEY = 'gaintrack_auto_rest_timer';
+  const REST_DURATION_KEY = 'gaintrack_rest_duration';
+  const REST_PRESETS = [
+    { label: '30s', value: 30 },
+    { label: '60s', value: 60 },
+    { label: '90s', value: 90 },
+    { label: '2m', value: 120 },
+    { label: '3m', value: 180 },
+    { label: '5m', value: 300 },
+  ];
+  const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
+  const [restDuration, setRestDuration] = useState(90);
+
+  useEffect(() => {
+    AsyncStorage.getItem(AUTO_REST_KEY)
+      .then((v) => { if (v !== null) setAutoStartRestTimer(JSON.parse(v)); })
+      .catch(() => null);
+    AsyncStorage.getItem(REST_DURATION_KEY)
+      .then((v) => { if (v !== null) setRestDuration(Number(v)); })
+      .catch(() => null);
+  }, []);
+
+  const toggleAutoRestTimer = async (value: boolean) => {
+    setAutoStartRestTimer(value);
+    await Haptics.selectionAsync();
+    await AsyncStorage.setItem(AUTO_REST_KEY, JSON.stringify(value));
+  };
+
+  const selectRestDuration = async (seconds: number) => {
+    setRestDuration(seconds);
+    await Haptics.selectionAsync();
+    await AsyncStorage.setItem(REST_DURATION_KEY, String(seconds));
+  };
 
   const saveUnits = async (w: 'kg' | 'lbs', h: 'cm' | 'in', d: 'km' | 'mi') => {
     try {
@@ -405,6 +442,46 @@ const handleLogout = async () => {
           <Text style={styles.hint}>
             Exercises will be filtered based on your available equipment
           </Text>
+        </View>
+
+        {/* Workout Settings Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Workout</Text>
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="timer-outline" size={22} color="#FF6200" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Auto-start Rest Timer</Text>
+                <Text style={styles.settingValue}>Starts automatically on every completed set</Text>
+              </View>
+            </View>
+            <Switch
+              value={autoStartRestTimer}
+              onValueChange={toggleAutoRestTimer}
+              trackColor={{ false: '#3A3A3A', true: '#FF6200' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+          <View style={[styles.settingItem, { flexDirection: 'column', alignItems: 'flex-start' }]}>
+            <View style={[styles.settingLeft, { marginBottom: 10 }]}>
+              <Ionicons name="hourglass-outline" size={22} color="#FF6200" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Default Rest Duration</Text>
+                <Text style={styles.settingValue}>Currently {restDuration >= 60 ? `${restDuration / 60}m` : `${restDuration}s`} — applies to every workout</Text>
+              </View>
+            </View>
+            <View style={styles.unitToggleRow}>
+              {REST_PRESETS.map((p) => (
+                <TouchableOpacity
+                  key={p.value}
+                  style={[styles.unitPill, restDuration === p.value && styles.unitPillActive]}
+                  onPress={() => selectRestDuration(p.value)}
+                >
+                  <Text style={[styles.unitPillText, restDuration === p.value && styles.unitPillTextActive]}>{p.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         </View>
 
         {/* Notifications Section */}

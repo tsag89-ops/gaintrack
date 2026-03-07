@@ -27,7 +27,8 @@ import { seedExercises } from '../../src/data/seedData';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 
-const REST_SECONDS = 90;
+const DEFAULT_REST_SECONDS = 90;
+const REST_DURATION_KEY = 'gaintrack_rest_duration';
 
 const ActiveWorkoutScreen: React.FC = () => {
   const router = useRouter();
@@ -61,7 +62,12 @@ const ActiveWorkoutScreen: React.FC = () => {
     };
   const [restTime, setRestTime] = useState(0);
   const [activeRest, setActiveRest] = useState(false);
+  const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
+  const [restSeconds, setRestSeconds] = useState(DEFAULT_REST_SECONDS);
   const [saving, setSaving] = useState(false);
+  // Per-exercise rest override modal
+  const [restOverrideModal, setRestOverrideModal] = useState<{ exerciseId: string; exerciseName: string } | null>(null);
+  const [restOverrideInput, setRestOverrideInput] = useState('');
   const [elapsedSecs, setElapsedSecs] = useState(0);
   const startedAtRef = useRef<number>(Date.now());
   const notifIdRef = useRef<string | null>(null);
@@ -98,29 +104,71 @@ const ActiveWorkoutScreen: React.FC = () => {
   };
 
   // Start rest timer + schedule bell notification [Feature 5]
-  const startRest = async () => {
-    setRestTime(REST_SECONDS);
+  const startRestForExercise = async (exerciseId: string) => {
+    const ex = exerciseList.find((e) => e.exercise_id === exerciseId);
+    const secs = ex?.restSeconds ?? restSeconds;
+    setRestTime(secs);
     setActiveRest(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       const id = await Notifications.scheduleNotificationAsync({
         content: {
-          title: '🔔 Rest over!',
-          body: 'Time for your next set 💪',
+          title: '\uD83D\uDD14 Rest over!',
+          body: 'Time for your next set \uD83D\uDCAA',
           sound: true,
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: REST_SECONDS,
+          seconds: secs,
         },
       });
       notifIdRef.current = id;
     } catch {}
   };
 
+  // Back-compat wrapper used by auto-start (no exercise context needed at that callsite)
+  const startRest = () => startRestForExercise('');
+
+  // Save per-exercise rest override
+  const saveRestOverride = () => {
+    if (!restOverrideModal) return;
+    const parsed = parseInt(restOverrideInput, 10);
+    if (!parsed || parsed < 5 || parsed > 3600) {
+      Alert.alert('Invalid duration', 'Enter a value between 5 and 3600 seconds.');
+      return;
+    }
+    setExerciseList((prev) =>
+      prev.map((ex) =>
+        ex.exercise_id === restOverrideModal.exerciseId
+          ? { ...ex, restSeconds: parsed }
+          : ex
+      )
+    );
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setRestOverrideModal(null);
+    setRestOverrideInput('');
+  };
+
+  const clearRestOverride = (exerciseId: string) => {
+    setExerciseList((prev) =>
+      prev.map((ex) =>
+        ex.exercise_id === exerciseId ? { ...ex, restSeconds: undefined } : ex
+      )
+    );
+    Haptics.selectionAsync();
+    setRestOverrideModal(null);
+    setRestOverrideInput('');
+  };
+
   // Auto-init; restore in-progress or start fresh; request notification permissions [Feature 1]
   useEffect(() => {
     Notifications.requestPermissionsAsync().catch(() => null);
+    AsyncStorage.getItem('gaintrack_auto_rest_timer').then((v) => {
+      if (v !== null) setAutoStartRestTimer(JSON.parse(v));
+    }).catch(() => null);
+    AsyncStorage.getItem(REST_DURATION_KEY).then((v) => {
+      if (v !== null) setRestSeconds(Number(v));
+    }).catch(() => null);
     const init = async () => {
       const restored = await restoreInProgress();
       if (restored !== null) {
@@ -202,7 +250,7 @@ const ActiveWorkoutScreen: React.FC = () => {
     setExerciseList(updated);
     if (!wasComplete) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      if (!activeRest) startRest();
+      if (!activeRest && autoStartRestTimer) startRestForExercise(exerciseId);
     } else {
       Haptics.selectionAsync();
     }
@@ -522,8 +570,29 @@ const ActiveWorkoutScreen: React.FC = () => {
                 </TouchableOpacity>
               }
             />
-            <TouchableOpacity style={styles.restBtn} onPress={startRest}>
-              <Text style={styles.restBtnText}>Start Rest Timer</Text>
+            <TouchableOpacity
+              style={styles.restBtn}
+              onPress={() => startRestForExercise(item.exercise_id)}
+              onLongPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setRestOverrideInput(String(item.restSeconds ?? restSeconds));
+                setRestOverrideModal({ exerciseId: item.exercise_id, exerciseName: item.exercise_name });
+              }}
+              delayLongPress={400}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.restBtnText}>⏱ Rest</Text>
+                {item.restSeconds != null && (
+                  <View style={styles.restOverrideBadge}>
+                    <Text style={styles.restOverrideBadgeText}>
+                      {item.restSeconds >= 60 ? `${item.restSeconds / 60}m` : `${item.restSeconds}s`}
+                    </Text>
+                  </View>
+                )}
+                {item.restSeconds == null && (
+                  <Text style={styles.restBtnSubtext}>{restSeconds}s</Text>
+                )}
+              </View>
             </TouchableOpacity>
             {activeRest && (
               <Text style={[styles.restTimer, restTime <= 5 && { color: '#F44336' }]}>
@@ -538,6 +607,64 @@ const ActiveWorkoutScreen: React.FC = () => {
       <TouchableOpacity style={styles.finishBtn} onPress={finishWorkout} disabled={saving}>
         <Text style={styles.finishBtnText}>{saving ? 'Saving...' : 'Finish Workout'}</Text>
       </TouchableOpacity>
+
+      {/* Per-exercise rest duration override modal */}
+      <Modal
+        visible={restOverrideModal !== null}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setRestOverrideModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { padding: 20 }]}>
+            <Text style={styles.modalTitle}>Rest Duration</Text>
+            <Text style={{ color: '#B0B0B0', textAlign: 'center', marginBottom: 16, fontSize: 13 }}>
+              {restOverrideModal?.exerciseName}
+            </Text>
+            <View style={styles.restPresetRow}>
+              {[30, 60, 90, 120, 180, 300].map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={[
+                    styles.restPresetPill,
+                    parseInt(restOverrideInput, 10) === s && styles.restPresetPillActive,
+                  ]}
+                  onPress={() => { Haptics.selectionAsync(); setRestOverrideInput(String(s)); }}
+                >
+                  <Text style={[
+                    styles.restPresetPillText,
+                    parseInt(restOverrideInput, 10) === s && styles.restPresetPillTextActive,
+                  ]}>
+                    {s >= 60 ? `${s / 60}m` : `${s}s`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TextInput
+              style={[styles.input, { width: '100%', marginHorizontal: 0, marginBottom: 16, fontSize: 18, textAlign: 'center' }]}
+              keyboardType="numeric"
+              value={restOverrideInput}
+              onChangeText={setRestOverrideInput}
+              placeholder="seconds"
+              placeholderTextColor="#B0B0B0"
+            />
+            <TouchableOpacity style={styles.restSaveBtn} onPress={saveRestOverride}>
+              <Text style={styles.restSaveBtnText}>Set Override</Text>
+            </TouchableOpacity>
+            {restOverrideModal && exerciseList.find((e) => e.exercise_id === restOverrideModal.exerciseId)?.restSeconds != null && (
+              <TouchableOpacity
+                style={styles.restClearBtn}
+                onPress={() => clearRestOverride(restOverrideModal.exerciseId)}
+              >
+                <Text style={styles.restClearBtnText}>Clear Override (use global {restSeconds}s)</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.closeModalBtn} onPress={() => setRestOverrideModal(null)}>
+              <Text style={styles.closeModalText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Exercise Video/Instructions Modal */}
       <Modal
@@ -855,5 +982,70 @@ const styles = StyleSheet.create({
   setRowComplete: {
     backgroundColor: 'rgba(76,175,80,0.08)',
     borderRadius: 6,
+  },
+  // Per-exercise rest override
+  restOverrideBadge: {
+    backgroundColor: '#FF6200',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  restOverrideBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  restBtnSubtext: {
+    color: '#AACFFF',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  restPresetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  restPresetPill: {
+    borderWidth: 1,
+    borderColor: '#444',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  restPresetPillActive: {
+    backgroundColor: '#FF6200',
+    borderColor: '#FF6200',
+  },
+  restPresetPillText: {
+    color: '#B0B0B0',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  restPresetPillTextActive: {
+    color: '#fff',
+  },
+  restSaveBtn: {
+    backgroundColor: '#FF6200',
+    borderRadius: 8,
+    alignItems: 'center',
+    padding: 12,
+    marginBottom: 8,
+  },
+  restSaveBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  restClearBtn: {
+    alignItems: 'center',
+    padding: 10,
+    marginBottom: 4,
+  },
+  restClearBtnText: {
+    color: '#B0B0B0',
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
 });
