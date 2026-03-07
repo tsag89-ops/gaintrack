@@ -2,7 +2,11 @@
 
 # IDE and editors
 .idea/
-.vscode/
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.vscode/*.code-workspace
+# .vscode/subagents/ is intentionally tracked (team-shared Copilot agent prompts)
 
 # Dependencies
 node_modules/
