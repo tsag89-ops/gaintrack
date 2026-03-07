@@ -16,18 +16,19 @@ WebBrowser.maybeCompleteAuthSession();
 
 // Read from EXPO_PUBLIC_ env vars first (explicit overrides), then fall back
 // to values extracted from credential files and injected via app.config.js extra.
-const ANDROID_CLIENT_ID: string =
+const extra = Constants.expoConfig?.extra ?? {};
+
+const ANDROID_CLIENT_ID: string | undefined =
   process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ??
-  (Constants.expoConfig?.extra?.googleAndroidClientId as string | undefined) ??
-  '';
-const IOS_CLIENT_ID: string =
+  (extra.googleAndroidClientId as string | undefined);
+
+const IOS_CLIENT_ID: string | undefined =
   process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ??
-  (Constants.expoConfig?.extra?.googleIosClientId as string | undefined) ??
-  '';
-const WEB_CLIENT_ID: string =
+  (extra.googleIosClientId as string | undefined);
+
+const WEB_CLIENT_ID: string | undefined =
   process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ??
-  (Constants.expoConfig?.extra?.googleWebClientId as string | undefined) ??
-  '';
+  (extra.googleWebClientId as string | undefined);
 
 /**
  * Returns the reason Google Sign-In cannot proceed, or null if credentials
