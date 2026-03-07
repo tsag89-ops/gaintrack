@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { storage } from '../utils/storage';
 import { auth, db } from '../config/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { identifyUser, resetRevenueCatUser } from '../services/revenueCat';
+import { identifyUser, resetRevenueCatUser, getCustomerInfo, hasProEntitlement } from '../services/revenueCat';
 
 interface User {
   id: string;
@@ -117,8 +117,24 @@ export const useAuthStore = create<AuthState>((set) => ({
       createdAt: new Date().toISOString(),
     });
 
-    // Read isPro from Firestore (only source of truth)
-    const isPro = await fetchIsPro(finalUser.id);
+    // Read isPro from Firestore
+    let isPro = await fetchIsPro(finalUser.id);
+
+    // Link RevenueCat identity and check entitlements.
+    // RC is a secondary source of truth: if the webhook hasn't written to
+    // Firestore yet (common on Android first-login), RC wins here.
+    try {
+      await identifyUser(finalUser.id);
+      const customerInfo = await getCustomerInfo();
+      const rcIsPro = hasProEntitlement(customerInfo);
+      if (rcIsPro) {
+        console.log('[authStore] isPro from RevenueCat entitlements: true');
+        isPro = true;
+      }
+    } catch (e) {
+      console.warn('[authStore] RevenueCat identifyUser/check failed:', e);
+    }
+
     finalUser = { ...finalUser, isPro };
 
     // Save full user (with isPro) to AsyncStorage
@@ -130,12 +146,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     set({ user: finalUser, sessionToken: token, isAuthenticated: true, isLoading: false });
-
-    // Link RevenueCat to the Firebase UID so purchases are tied to this account.
-    // Non-blocking — failure here doesn't affect auth state.
-    identifyUser(finalUser.id).catch((e) =>
-      console.warn('[authStore] RevenueCat identifyUser failed:', e),
-    );
 
     _sessionInProgress.delete(user.id);
   },
