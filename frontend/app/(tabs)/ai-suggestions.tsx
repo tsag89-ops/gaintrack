@@ -322,11 +322,17 @@ export default function AISuggestions() {
     const derivedPhase = weeklyGoal < -0.25 ? 'Cutting' : weeklyGoal > 0.1 ? 'Bulking' : 'Maintenance';
     const wUnit        = (user as any)?.units?.weight ?? 'kg';
 
+    // Truncate to prevent token overflow on free models (context limit ~4k tokens)
+    const truncate = (obj: unknown, maxLen = 600): string => {
+      const s = JSON.stringify(obj);
+      return s.length > maxLen ? s.slice(0, maxLen) + '...' : s;
+    };
+
     return `You are GainTrack AI, a personal fitness and nutrition coach.
 
 User profile:
 - Name: ${user?.name ?? 'User'}
-- Goals: ${JSON.stringify(user?.goals ?? {})}
+- Goals: ${truncate(user?.goals ?? {})}
 - Equipment: ${(user as any)?.equipment?.join(', ') || 'not set'}
 - Units: ${wUnit}
 
@@ -339,8 +345,8 @@ Body composition goals:
 - Phase: ${derivedPhase}
 - Projected goal date: ${bodyGoals?.targetDate ?? 'not set'}
 
-Recent workouts (last 3): ${JSON.stringify(recentWorkouts)}
-Recent nutrition (last 3 days): ${JSON.stringify(recentNutrition)}
+Recent workouts (last 3): ${truncate(recentWorkouts)}
+Recent nutrition (last 3 days): ${truncate(recentNutrition)}
 
 Always give specific, personalized advice referencing the user's actual data, current phase, and progress toward their body composition goal. Never give generic responses.`;
   }, [user, bodyGoals, latestBodyWt, recentWorkouts, recentNutrition]);
@@ -404,6 +410,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
       if (!res || !res.ok) {
         const apiKey = process.env.EXPO_PUBLIC_AI_API_KEY;
         if (!apiKey) throw Object.assign(new Error('no_api_key'), { errorType: 'no_api_key' as const });
+        const model = process.env.EXPO_PUBLIC_AI_MODEL ?? 'meta-llama/llama-3.1-8b-instruct:free';
         res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -413,7 +420,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
             'X-Title': 'GainTrack',
           },
           body: JSON.stringify({
-            model: 'openai/gpt-oss-120b:free',
+            model,
             messages: [
               { role: 'system', content: buildSystemPrompt() },
               ...context,
@@ -432,12 +439,17 @@ Always give specific, personalized advice referencing the user's actual data, cu
         throw Object.assign(new Error('no_api_key'), { errorType: 'no_api_key' as const });
       }
       if (!res.ok) {
+        const errBody = await res.text().catch(() => '');
+        console.error('[AI] direct fallback error', res.status, errBody.slice(0, 300));
         throw Object.assign(new Error('unknown'), { errorType: 'unknown' as const });
       }
 
       const data = await res.json();
       const content: string | undefined = data?.choices?.[0]?.message?.content;
-      if (!content) throw Object.assign(new Error('unknown'), { errorType: 'unknown' as const });
+      if (!content) {
+        console.error('[AI] empty content in response', JSON.stringify(data).slice(0, 300));
+        throw Object.assign(new Error('unknown'), { errorType: 'unknown' as const });
+      }
 
       const aiMsg: ChatMessage = {
         id: `${Date.now() + 1}`,
@@ -942,10 +954,11 @@ const styles = StyleSheet.create({
     maxWidth: '88%',
   },
   errorText: {
-    color: '#F44336',
-    fontSize: 14,
-    lineHeight: 20,
+    color: '#FF6B6B',
+    fontSize: 13,
+    lineHeight: 19,
     flex: 1,
+    flexShrink: 1,
   },
   typingBubble: {
     flexDirection: 'row',
