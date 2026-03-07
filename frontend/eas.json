@@ -33,6 +33,7 @@
     },
     "production-apk": {
       "channel": "production",
+      "environment": "production",
       "credentialsSource": "local",
       "distribution": "internal",
       "android": {
