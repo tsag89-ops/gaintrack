@@ -1,0 +1,894 @@
+// app/programs/builder.tsx
+// GainTrack — 4-step Program Builder wizard
+// Step 1: Name + frequency  Step 2: Per-day exercises  Step 3: Progression rules  Step 4: Review + Save
+
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import Animated, {
+  FadeInRight,
+  FadeOutLeft,
+  FadeInLeft,
+  FadeOutRight,
+  LinearTransition,
+} from 'react-native-reanimated';
+import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
+import { format } from 'date-fns';
+import { usePrograms } from '../../src/hooks/usePrograms';
+import { usePro } from '../../src/hooks/usePro';
+import { DayBlock } from '../../src/components/programs/DayBlock';
+import { ProgressionBadge } from '../../src/components/programs/ProgressionBadge';
+import { ExercisePicker } from '../../src/components/ExercisePicker';
+import {
+  WorkoutProgram,
+  ProgramDay,
+  ProgramExercise,
+  ProgressionRule,
+} from '../../src/types';
+import { colors, typography, radii, spacing, shadows } from '../../src/constants/theme';
+import { getPrograms } from '../../src/services/storage';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const FREE_PROGRAM_LIMIT = 1;
+const FREE_EXERCISE_LIMIT = 3; // [PRO]
+
+const PROGRESSION_OPTIONS: Array<{
+  label: string;
+  rule: ProgressionRule;
+  proOnly?: boolean;
+}> = [
+  { label: '+2.5 kg / session', rule: { type: 'weight', increment: 2.5, every: 'session' } },
+  { label: '+5 kg / session', rule: { type: 'weight', increment: 5, every: 'session' }, proOnly: true }, // [PRO]
+  { label: '+1 rep / session', rule: { type: 'reps', increment: 1, every: 'session' }, proOnly: true }, // [PRO]
+  { label: '+2.5 kg / cycle', rule: { type: 'weight', increment: 2.5, every: 'cycle' }, proOnly: true }, // [PRO]
+  { label: '+5 kg / cycle', rule: { type: 'weight', increment: 5, every: 'cycle' }, proOnly: true }, // [PRO]
+  { label: 'Custom', rule: { type: 'custom', increment: 0, every: 'session' }, proOnly: true }, // [PRO]
+];
+
+const DEFAULT_PROGRESSION: ProgressionRule = PROGRESSION_OPTIONS[0].rule;
+
+const DAY_LABELS = ['Push', 'Pull', 'Legs', 'Upper', 'Lower', 'Full Body', 'Cardio'];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+const makeDays = (count: number): ProgramDay[] =>
+  Array.from({ length: count }, (_, i) => ({
+    id: makeId(),
+    label: `Day ${String.fromCharCode(65 + i)} — ${DAY_LABELS[i % DAY_LABELS.length]}`,
+    exercises: [],
+  }));
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
+export default function ProgramBuilderScreen() {
+  const router = useRouter();
+  const { id: editId } = useLocalSearchParams<{ id?: string }>();
+  const { programs, saveOne } = usePrograms();
+  const { isPro } = usePro();
+
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState('');
+  const [daysPerWeek, setDaysPerWeek] = useState(3);
+  const [days, setDays] = useState<ProgramDay[]>(makeDays(3));
+  const [saving, setSaving] = useState(false);
+
+  // Exercise picker state
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [activeDayId, setActiveDayId] = useState<string | null>(null);
+
+  // Progression modal state
+  const [progressionModal, setProgressionModal] = useState<{
+    dayId: string;
+    exerciseName: string;
+    current: ProgressionRule;
+  } | null>(null);
+  const [customIncrement, setCustomIncrement] = useState('');
+
+  // Load existing program for edit mode
+  useEffect(() => {
+    if (!editId) return;
+    (async () => {
+      const all = await getPrograms();
+      const prog = all.find((p) => p.id === editId);
+      if (prog) {
+        setName(prog.name);
+        setDaysPerWeek(prog.daysPerWeek);
+        setDays(prog.days);
+      }
+    })();
+  }, [editId]);
+
+  // Sync day count when daysPerWeek changes
+  const handleFrequencyChange = useCallback(
+    (n: number) => {
+      Haptics.selectionAsync();
+      setDaysPerWeek(n);
+      setDays((prev) => {
+        if (n > prev.length) {
+          const extra = Array.from({ length: n - prev.length }, (_, i) => ({
+            id: makeId(),
+            label: `Day ${String.fromCharCode(65 + prev.length + i)} — ${DAY_LABELS[(prev.length + i) % DAY_LABELS.length]}`,
+            exercises: [],
+          }));
+          return [...prev, ...extra];
+        }
+        return prev.slice(0, n);
+      });
+    },
+    [],
+  );
+
+  // Step navigation
+  const goNext = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (step === 0 && !name.trim()) {
+      Alert.alert('Name required', 'Please enter a program name.');
+      return;
+    }
+    setStep((s) => Math.min(3, s + 1));
+  }, [step, name]);
+
+  const goBack = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (step === 0) {
+      router.back();
+    } else {
+      setStep((s) => Math.max(0, s - 1));
+    }
+  }, [step, router]);
+
+  // ─── Exercise picker ──────────────────────────────────────────────────────
+
+  const openPicker = useCallback((dayId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveDayId(dayId);
+    setPickerVisible(true);
+  }, []);
+
+  const handlePickerAdd = useCallback(
+    (exercise: any) => {
+      if (!activeDayId) return;
+      setDays((prev) =>
+        prev.map((d) => {
+          if (d.id !== activeDayId) return d;
+          if (!isPro && d.exercises.length >= FREE_EXERCISE_LIMIT) return d; // [PRO]
+          const alreadyAdded = d.exercises.some((e) => e.exerciseName === exercise.name);
+          if (alreadyAdded) return d;
+          const newEx: ProgramExercise = {
+            exerciseName: exercise.name,
+            sets: 3,
+            reps: 8,
+            weight: 20,
+            progression: DEFAULT_PROGRESSION,
+          };
+          return { ...d, exercises: [...d.exercises, newEx] };
+        }),
+      );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    },
+    [activeDayId, isPro],
+  );
+
+  const handleRemoveExercise = useCallback((dayId: string, exerciseName: string) => {
+    setDays((prev) =>
+      prev.map((d) =>
+        d.id === dayId
+          ? { ...d, exercises: d.exercises.filter((e) => e.exerciseName !== exerciseName) }
+          : d,
+      ),
+    );
+  }, []);
+
+  const handleDeleteDay = useCallback((dayId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setDays((prev) => prev.filter((d) => d.id !== dayId));
+    setDaysPerWeek((n) => Math.max(2, n - 1));
+  }, []);
+
+  // ─── Progression ─────────────────────────────────────────────────────────
+
+  const applyProgression = useCallback(
+    (rule: ProgressionRule) => {
+      if (!progressionModal) return;
+      const { dayId, exerciseName } = progressionModal;
+      const finalRule =
+        rule.type === 'custom' && customIncrement
+          ? { ...rule, increment: parseFloat(customIncrement) || 2.5 }
+          : rule;
+      setDays((prev) =>
+        prev.map((d) =>
+          d.id === dayId
+            ? {
+                ...d,
+                exercises: d.exercises.map((e) =>
+                  e.exerciseName === exerciseName ? { ...e, progression: finalRule } : e,
+                ),
+              }
+            : d,
+        ),
+      );
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setProgressionModal(null);
+    },
+    [progressionModal, customIncrement],
+  );
+
+  // ─── Save ─────────────────────────────────────────────────────────────────
+
+  const handleSave = useCallback(async () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setSaving(true);
+    try {
+      const program: WorkoutProgram = {
+        id: editId || makeId(),
+        name: name.trim(),
+        daysPerWeek,
+        days,
+        currentCycle: 1,
+        currentDayIndex: 0,
+        createdAt: format(new Date(), 'yyyy-MM-dd'),
+      };
+      await saveOne(program);
+      router.replace(`/programs/${program.id}` as any);
+    } catch (err) {
+      Alert.alert('Error', 'Could not save program. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }, [editId, name, daysPerWeek, days, saveOne, router]);
+
+  // ─── Render helpers ───────────────────────────────────────────────────────
+
+  const enterAnim = step > 0 ? FadeInRight.springify() : FadeInLeft.springify();
+  const exitAnim = step > 0 ? FadeOutLeft.springify() : FadeOutRight.springify();
+
+  const renderStep0 = () => (
+    <Animated.View entering={FadeInRight.springify()} exiting={FadeOutLeft.springify()} style={styles.stepContent}>
+      <Text style={styles.stepTitle}>Name Your Program</Text>
+      <Text style={styles.stepSubtitle}>Give your training plan a name and set your weekly frequency.</Text>
+
+      <TextInput
+        style={styles.nameInput}
+        placeholder="e.g. Push / Pull / Legs"
+        placeholderTextColor={colors.textDisabled}
+        value={name}
+        onChangeText={setName}
+        autoFocus
+        maxLength={40}
+      />
+
+      <Text style={styles.sectionLabel}>Days per week</Text>
+      <View style={styles.freqRow}>
+        {[2, 3, 4, 5, 6].map((n) => (
+          <TouchableOpacity
+            key={n}
+            style={[styles.freqChip, daysPerWeek === n && styles.freqChipActive]}
+            onPress={() => handleFrequencyChange(n)}
+          >
+            <Text style={[styles.freqChipText, daysPerWeek === n && styles.freqChipTextActive]}>
+              {n}×
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {!isPro && programs.filter((p) => !editId || p.id !== editId).length >= FREE_PROGRAM_LIMIT && (
+        <View style={styles.upsellCard}>
+          <Ionicons name="lock-closed" size={16} color={colors.accent} />
+          <Text style={styles.upsellText}>
+            Free tier: 1 program. Upgrade to Pro for unlimited. {/* [PRO] */}
+          </Text>
+          <TouchableOpacity onPress={() => router.push('/pro-paywall' as any)}>
+            <Text style={styles.upsellLink}>Upgrade →</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </Animated.View>
+  );
+
+  const renderStep1 = () => (
+    <Animated.View entering={FadeInRight.springify()} exiting={FadeOutLeft.springify()} style={styles.stepContent}>
+      <Text style={styles.stepTitle}>Build Your Days</Text>
+      <Text style={styles.stepSubtitle}>Add exercises to each training day. Drag to reorder.</Text>
+
+      <DraggableFlatList
+        data={days}
+        keyExtractor={(item) => item.id}
+        onDragEnd={({ data }) => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setDays(data);
+        }}
+        renderItem={({ item, drag, isActive }: RenderItemParams<ProgramDay>) => (
+          <DayBlock
+            day={item}
+            index={days.indexOf(item)}
+            isPro={isPro}
+            onAddExercise={openPicker}
+            onRemoveExercise={handleRemoveExercise}
+            onDelete={handleDeleteDay}
+            drag={drag}
+            isActive={isActive}
+          />
+        )}
+        scrollEnabled={false}
+        activationDistance={10}
+      />
+    </Animated.View>
+  );
+
+  const renderStep2 = () => (
+    <Animated.View entering={FadeInRight.springify()} exiting={FadeOutLeft.springify()} style={styles.stepContent}>
+      <Text style={styles.stepTitle}>Progression Rules</Text>
+      <Text style={styles.stepSubtitle}>
+        Set how weights or reps increase each session for each exercise.
+      </Text>
+
+      {days.map((day) =>
+        day.exercises.length > 0 ? (
+          <View key={day.id} style={styles.progDaySection}>
+            <Text style={styles.progDayLabel}>{day.label}</Text>
+            {day.exercises.map((ex) => {
+              const optionLabel =
+                PROGRESSION_OPTIONS.find(
+                  (o) =>
+                    o.rule.type === ex.progression.type &&
+                    o.rule.increment === ex.progression.increment &&
+                    o.rule.every === ex.progression.every,
+                )?.label ?? 'Custom';
+              return (
+                <TouchableOpacity
+                  key={ex.exerciseName}
+                  style={styles.progExRow}
+                  onPress={() => {
+                    if (!isPro && ex.progression.type !== 'weight') {
+                      router.push('/pro-paywall' as any);
+                      return;
+                    }
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setCustomIncrement(String(ex.progression.increment));
+                    setProgressionModal({
+                      dayId: day.id,
+                      exerciseName: ex.exerciseName,
+                      current: ex.progression,
+                    });
+                  }}
+                >
+                  <View style={styles.progExInfo}>
+                    <Text style={styles.progExName}>{ex.exerciseName}</Text>
+                    <ProgressionBadge rule={ex.progression} cycle={1} compact />
+                  </View>
+                  <View style={styles.progPill}>
+                    <Text style={styles.progPillText}>{optionLabel}</Text>
+                    <Ionicons name="chevron-down" size={14} color={colors.textSecondary} />
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : null,
+      )}
+
+      {days.every((d) => d.exercises.length === 0) && (
+        <Text style={styles.noExercisesHint}>
+          Go back and add exercises to your days first.
+        </Text>
+      )}
+    </Animated.View>
+  );
+
+  const renderStep3 = () => (
+    <Animated.View entering={FadeInRight.springify()} exiting={FadeOutLeft.springify()} style={styles.stepContent}>
+      <Text style={styles.stepTitle}>Review</Text>
+      <Text style={styles.stepSubtitle}>Confirm your program before saving.</Text>
+
+      <View style={styles.reviewCard}>
+        <Text style={styles.reviewName}>{name || '—'}</Text>
+        <Text style={styles.reviewMeta}>{daysPerWeek}× / week · {days.reduce((acc, d) => acc + d.exercises.length, 0)} exercises total</Text>
+      </View>
+
+      {days.map((day, i) => (
+        <View key={day.id} style={styles.reviewDayRow}>
+          <Text style={styles.reviewDayLabel}>
+            Day {i + 1}: {day.label}
+          </Text>
+          {day.exercises.length === 0 ? (
+            <Text style={styles.reviewExEmpty}>No exercises</Text>
+          ) : (
+            day.exercises.map((ex) => (
+              <View key={ex.exerciseName} style={styles.reviewExRow}>
+                <Text style={styles.reviewExName}>{ex.exerciseName}</Text>
+                <Text style={styles.reviewExMeta}>
+                  {ex.sets}×{ex.reps} @ {ex.weight} kg ·{' '}
+                  {PROGRESSION_OPTIONS.find(
+                    (o) =>
+                      o.rule.type === ex.progression.type &&
+                      o.rule.increment === ex.progression.increment,
+                  )?.label ?? 'Custom'}
+                </Text>
+              </View>
+            ))
+          )}
+        </View>
+      ))}
+    </Animated.View>
+  );
+
+  const steps = [renderStep0, renderStep1, renderStep2, renderStep3];
+
+  return (
+    <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={goBack} hitSlop={8}>
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {editId ? 'Edit Program' : 'New Program'}
+          </Text>
+          {/* Step dots */}
+          <View style={styles.stepDots}>
+            {[0, 1, 2, 3].map((i) => (
+              <View
+                key={i}
+                style={[styles.dot, step === i && styles.dotActive, step > i && styles.dotDone]}
+              />
+            ))}
+          </View>
+        </View>
+
+        {/* Step content */}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {steps[step]?.()}
+        </ScrollView>
+
+        {/* Footer buttons */}
+        <View style={styles.footer}>
+          {step > 0 && (
+            <TouchableOpacity style={styles.backBtn} onPress={goBack}>
+              <Text style={styles.backBtnText}>Back</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[styles.nextBtn, saving && styles.nextBtnDisabled]}
+            onPress={step === 3 ? handleSave : goNext}
+            disabled={saving}
+          >
+            <Text style={styles.nextBtnText}>
+              {step === 3 ? (saving ? 'Saving…' : 'Save Program') : 'Next'}
+            </Text>
+            {step < 3 && <Ionicons name="arrow-forward" size={16} color={colors.textPrimary} />}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+
+      {/* Exercise Picker Modal */}
+      <Modal visible={pickerVisible} animationType="slide" presentationStyle="pageSheet">
+        <ExercisePicker
+          onAdd={(exercise) => {
+            handlePickerAdd(exercise);
+            setPickerVisible(false);
+          }}
+          onClose={() => setPickerVisible(false)}
+          isPro={isPro}
+        />
+      </Modal>
+
+      {/* Progression Rule Modal */}
+      <Modal
+        visible={!!progressionModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setProgressionModal(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setProgressionModal(null)}
+        >
+          <TouchableOpacity style={styles.progressionSheet} activeOpacity={1}>
+            <Text style={styles.progressionTitle}>
+              {progressionModal?.exerciseName}
+            </Text>
+            <Text style={styles.progressionSubtitle}>Choose progression rule</Text>
+
+            {PROGRESSION_OPTIONS.map((opt) => {
+              const locked = opt.proOnly && !isPro; // [PRO]
+              const isSelected =
+                progressionModal?.current.type === opt.rule.type &&
+                progressionModal?.current.increment === opt.rule.increment &&
+                progressionModal?.current.every === opt.rule.every;
+              return (
+                <TouchableOpacity
+                  key={opt.label}
+                  style={[
+                    styles.progressionOption,
+                    isSelected && styles.progressionOptionSelected,
+                    locked && styles.progressionOptionLocked,
+                  ]}
+                  onPress={() => {
+                    if (locked) {
+                      router.push('/pro-paywall' as any);
+                      return;
+                    }
+                    if (opt.rule.type === 'custom') {
+                      // keep modal open for custom input
+                      return;
+                    }
+                    applyProgression(opt.rule);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.progressionOptionText,
+                      isSelected && styles.progressionOptionTextSelected,
+                      locked && styles.progressionOptionTextLocked,
+                    ]}
+                  >
+                    {opt.label}
+                  </Text>
+                  {locked && (
+                    <View style={styles.lockBadge}>
+                      <Ionicons name="lock-closed" size={12} color={colors.accent} />
+                      <Text style={styles.lockText}>Pro</Text>
+                    </View>
+                  )}
+                  {isSelected && !locked && (
+                    <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+
+            {/* Custom increment input (Pro only) */}
+            {progressionModal?.current.type === 'custom' && isPro && (
+              <View style={styles.customRow}>
+                <Text style={styles.customLabel}>Increment amount:</Text>
+                <TextInput
+                  style={styles.customInput}
+                  value={customIncrement}
+                  onChangeText={setCustomIncrement}
+                  keyboardType="decimal-pad"
+                  placeholder="e.g. 1.25"
+                  placeholderTextColor={colors.textDisabled}
+                />
+                <TouchableOpacity
+                  style={styles.customApplyBtn}
+                  onPress={() =>
+                    applyProgression({ type: 'custom', increment: parseFloat(customIncrement) || 2.5, every: 'session' })
+                  }
+                >
+                  <Text style={styles.customApplyText}>Apply</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    </SafeAreaView>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    gap: spacing[3],
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textPrimary,
+  },
+  stepDots: { flexDirection: 'row', gap: 6 },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: radii.full,
+    backgroundColor: colors.charcoal,
+  },
+  dotActive: { backgroundColor: colors.primary, width: 20 },
+  dotDone: { backgroundColor: colors.primaryDark },
+  scrollContent: { paddingHorizontal: spacing[4], paddingBottom: spacing[8] },
+  stepContent: { gap: spacing[4] },
+  stepTitle: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textPrimary,
+    marginTop: spacing[2],
+  },
+  stepSubtitle: {
+    fontSize: typography.fontSize.base,
+    color: colors.textSecondary,
+    lineHeight: 22,
+  },
+  nameInput: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: spacing[4],
+    fontSize: typography.fontSize.lg,
+    color: colors.textPrimary,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  sectionLabel: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginTop: spacing[2],
+  },
+  freqRow: { flexDirection: 'row', gap: spacing[2] },
+  freqChip: {
+    flex: 1,
+    paddingVertical: spacing[3],
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  freqChipActive: {
+    backgroundColor: colors.primaryMuted,
+    borderColor: colors.primary,
+  },
+  freqChipText: {
+    fontSize: typography.fontSize.md,
+    color: colors.textSecondary,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  freqChipTextActive: { color: colors.primary },
+  upsellCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    backgroundColor: 'rgba(255,212,179,0.08)',
+    borderRadius: radii.lg,
+    padding: spacing[3],
+    borderWidth: 1,
+    borderColor: `${colors.accent}40`,
+    flexWrap: 'wrap',
+  },
+  upsellText: { flex: 1, fontSize: typography.fontSize.sm, color: colors.textSecondary },
+  upsellLink: {
+    fontSize: typography.fontSize.sm,
+    color: colors.primary,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  progDaySection: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: spacing[3],
+    gap: spacing[2],
+  },
+  progDayLabel: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing[1],
+  },
+  progExRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing[2],
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  progExInfo: { flex: 1, gap: 2 },
+  progExName: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textPrimary,
+    fontWeight: typography.fontWeight.medium,
+  },
+  progPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.charcoal,
+    borderRadius: radii.full,
+    paddingHorizontal: spacing[2],
+    paddingVertical: 4,
+  },
+  progPillText: { fontSize: typography.fontSize.xs, color: colors.textSecondary },
+  noExercisesHint: {
+    textAlign: 'center',
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.base,
+    marginTop: spacing[8],
+  },
+  reviewCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    padding: spacing[4],
+    marginBottom: spacing[2],
+  },
+  reviewName: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textPrimary,
+  },
+  reviewMeta: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  reviewDayRow: {
+    backgroundColor: colors.charcoal,
+    borderRadius: radii.lg,
+    padding: spacing[3],
+    marginBottom: spacing[2],
+  },
+  reviewDayLabel: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.semibold,
+    color: colors.textPrimary,
+    marginBottom: spacing[2],
+  },
+  reviewExEmpty: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textDisabled,
+    fontStyle: 'italic',
+  },
+  reviewExRow: { marginBottom: spacing[1] },
+  reviewExName: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textPrimary,
+    fontWeight: typography.fontWeight.medium,
+  },
+  reviewExMeta: { fontSize: typography.fontSize.xs, color: colors.textSecondary },
+  footer: {
+    flexDirection: 'row',
+    gap: spacing[3],
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  backBtn: {
+    flex: 1,
+    paddingVertical: spacing[3],
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backBtnText: {
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  nextBtn: {
+    flex: 2,
+    paddingVertical: spacing[3],
+    borderRadius: radii.lg,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    ...shadows.sm,
+  },
+  nextBtnDisabled: { opacity: 0.6 },
+  nextBtnText: {
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
+    fontWeight: typography.fontWeight.bold,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: colors.overlay,
+    justifyContent: 'flex-end',
+  },
+  progressionSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radii['2xl'],
+    borderTopRightRadius: radii['2xl'],
+    padding: spacing[6],
+    gap: spacing[2],
+  },
+  progressionTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textPrimary,
+  },
+  progressionSubtitle: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing[2],
+  },
+  progressionOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[3],
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  progressionOptionSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryMuted,
+  },
+  progressionOptionLocked: { opacity: 0.5 },
+  progressionOptionText: {
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
+  },
+  progressionOptionTextSelected: { color: colors.primary, fontWeight: typography.fontWeight.semibold },
+  progressionOptionTextLocked: { color: colors.textDisabled },
+  lockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(255,212,179,0.12)',
+    borderRadius: radii.full,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  lockText: { fontSize: typography.fontSize.xs, color: colors.accent },
+  customRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginTop: spacing[2],
+  },
+  customLabel: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  customInput: {
+    backgroundColor: colors.charcoal,
+    borderRadius: radii.md,
+    padding: spacing[2],
+    color: colors.textPrimary,
+    width: 80,
+    textAlign: 'center',
+    fontSize: typography.fontSize.base,
+  },
+  customApplyBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+  },
+  customApplyText: {
+    color: colors.textPrimary,
+    fontWeight: typography.fontWeight.semibold,
+    fontSize: typography.fontSize.sm,
+  },
+});

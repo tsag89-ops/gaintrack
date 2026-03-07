@@ -8,14 +8,6 @@ export const formatDate = (dateString: string): string => {
   return format(date, 'MMM d, yyyy');
 };
 
-export const formatShortDate = (dateString: string): string => {
-  return format(parseISO(dateString), 'MMM d');
-};
-
-export const getTodayString = (): string => {
-  return format(new Date(), 'yyyy-MM-dd');
-};
-
 export const calculateWorkoutVolume = (exercises: WorkoutExercise[]): number => {
   let totalVolume = 0;
   for (const exercise of exercises) {
@@ -69,12 +61,3 @@ export const getCategoryColor = (category: string): string => {
   return colors[category] || '#6B7280';
 };
 
-export const getMacroColor = (macro: string): string => {
-  const colors: Record<string, string> = {
-    protein: '#EF4444',
-    carbs: '#3B82F6',
-    fat: '#F59E0B',
-    calories: '#10B981',
-  };
-  return colors[macro] || '#6B7280';
-};

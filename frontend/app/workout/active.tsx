@@ -33,7 +33,7 @@ const REST_DURATION_KEY = 'gaintrack_rest_duration';
 
 const ActiveWorkoutScreen: React.FC = () => {
   const router = useRouter();
-  const { name: nameParam } = useLocalSearchParams<{ name: string }>();
+  const { name: nameParam, programId } = useLocalSearchParams<{ name: string; programId?: string }>();
   const workoutTitle = nameParam || 'New Workout';
   const { currentWorkout, updateExerciseInWorkout, setCurrentWorkout, createWorkout, startWorkout,
     persistInProgress, restoreInProgress, clearInProgress } = useWorkoutStore();
@@ -492,6 +492,27 @@ const ActiveWorkoutScreen: React.FC = () => {
           ],
       );
       setCurrentWorkout(null);
+      // Advance program day if this session was started from a program
+      if (programId) {
+        try {
+          const { getPrograms, saveProgram } = await import('../../src/services/storage');
+          const { format } = await import('date-fns');
+          const all = await getPrograms();
+          const prog = all.find((p: any) => p.id === programId);
+          if (prog) {
+            const nextDayIndex = prog.currentDayIndex + 1;
+            const cycleComplete = nextDayIndex >= prog.daysPerWeek;
+            await saveProgram({
+              ...prog,
+              currentDayIndex: cycleComplete ? 0 : nextDayIndex,
+              currentCycle: cycleComplete ? prog.currentCycle + 1 : prog.currentCycle,
+              lastSessionDate: format(new Date(), 'yyyy-MM-dd'),
+            });
+          }
+        } catch (advErr) {
+          console.warn('[active] advanceProgramDay failed:', advErr);
+        }
+      }
       router.replace('/');
     } catch (e) {
       console.error('Save workout error:', e);

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Food, Exercise, Workout } from '../types';
+import { Food, Exercise, Workout, WorkoutProgram } from '../types';
 import { seedFoods } from '../data/seedData';
 import { EXERCISES } from '../constants/exercises';
 import {
@@ -215,5 +215,46 @@ export const saveProgress = async (entry: ProgressEntry): Promise<void> => {
 export const getProgressLocal = async (): Promise<ProgressEntry[]> => {
   const raw = await AsyncStorage.getItem('progress');
   return raw ? JSON.parse(raw) : [];
+};
+
+// ─── Programs ─────────────────────────────────────────────────────────────────
+
+const PROGRAMS_KEY = 'programs_v1';
+
+/** Returns all locally stored programs. */
+export const getPrograms = async (): Promise<WorkoutProgram[]> => {
+  const data = await AsyncStorage.getItem(PROGRAMS_KEY);
+  return data ? JSON.parse(data) : [];
+};
+
+/**
+ * Upserts a program by id. Creates if not found, replaces if found.
+ * [PRO] Firestore sync: users/{userId}/programs/{programId}
+ */
+export const saveProgram = async (program: WorkoutProgram): Promise<void> => {
+  const all = await getPrograms();
+  const idx = all.findIndex((p) => p.id === program.id);
+  const updated =
+    idx >= 0 ? all.map((p) => (p.id === program.id ? program : p)) : [...all, program];
+  await AsyncStorage.setItem(PROGRAMS_KEY, JSON.stringify(updated));
+
+  // [PRO] background Firestore sync
+  const [pro, userId] = await Promise.all([_isPro(), _getUserId()]);
+  if (pro && userId) {
+    try {
+      const { saveProgram: fsSaveProg } = await import('./firestore');
+      fsSaveProg(userId, program).catch((err) =>
+        console.warn('[Storage] Firestore saveProgram sync error:', err),
+      );
+    } catch {
+      // firestore not available — ok
+    }
+  }
+};
+
+/** Deletes a program by id from local storage. */
+export const deleteProgram = async (id: string): Promise<void> => {
+  const all = await getPrograms();
+  await AsyncStorage.setItem(PROGRAMS_KEY, JSON.stringify(all.filter((p) => p.id !== id)));
 };
 

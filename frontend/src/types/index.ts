@@ -100,3 +100,36 @@ export interface Workout {
   exercises: WorkoutExercise[];
   created_at: string;
 }
+
+// ─── Programs ─────────────────────────────────────────────────────────────────
+
+export interface ProgressionRule {
+  type: 'weight' | 'reps' | 'custom';
+  increment: number;      // e.g. 2.5 (kg) or 1 (rep)
+  every: 'session' | 'week' | 'cycle';
+}
+
+export interface ProgramExercise {
+  exerciseName: string;
+  sets: number;
+  reps: number;
+  weight: number;         // base weight
+  progression: ProgressionRule;
+}
+
+export interface ProgramDay {
+  id: string;
+  label: string;          // e.g. "Day A — Push"
+  exercises: ProgramExercise[];
+}
+
+export interface WorkoutProgram {
+  id: string;
+  name: string;
+  daysPerWeek: number;
+  days: ProgramDay[];
+  currentCycle: number;
+  currentDayIndex: number;
+  createdAt: string;      // format(date, 'yyyy-MM-dd')
+  lastSessionDate?: string; // format(date, 'yyyy-MM-dd')
+}

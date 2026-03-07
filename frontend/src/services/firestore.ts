@@ -16,7 +16,7 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Workout, Exercise, DailyNutrition } from '../types';
+import { Workout, Exercise, DailyNutrition, WorkoutProgram } from '../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,6 +71,27 @@ export const saveWorkout = async (
     throw err;
   }
 };
+
+/**
+ * Upserts a workout program to Firestore.
+ * Path: Users/{userId}/programs/{programId}
+ * [PRO]
+ */
+export const saveProgram = async (
+  userId: string,
+  program: WorkoutProgram,
+): Promise<void> => {
+  if (!db || !userId) return;
+  try {
+    const ref = doc(db, 'Users', userId, 'programs', program.id);
+    await setDoc(ref, { ...program, _updatedAt: serverTimestamp() }, { merge: true });
+  } catch (err) {
+    console.warn('[Firestore] saveProgram error:', err);
+    throw err;
+  }
+};
+
+
 
 /**
  * Batch-upserts up to N workouts atomically (chunked at 400 to stay under

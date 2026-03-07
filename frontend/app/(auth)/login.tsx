@@ -15,29 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
 import { auth } from '../../src/config/firebase';
-
-// Platform.OS is resolved at bundle time by Metro — safe for SSR + web.
-const IS_WEB = Platform.OS === 'web';
-function FormWrapper({
-  style,
-  onSubmit,
-  children,
-}: {
-  style?: any;
-  onSubmit?: () => void;
-  children: React.ReactNode;
-}) {
-  if (!IS_WEB) return <View style={style}>{children}</View>;
-  return (
-    // @ts-ignore
-    <form
-      onSubmit={(e: any) => { e.preventDefault(); onSubmit?.(); }}
-      style={StyleSheet.flatten(style) as any}
-    >
-      {children}
-    </form>
-  );
-}
+import FormWrapper from '../../src/components/FormWrapper';
 
 const GOOGLE_ERROR_MAP: Record<string, string> = {
   'auth/popup-closed-by-user': 'Sign-in cancelled.',

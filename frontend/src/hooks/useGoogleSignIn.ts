@@ -2,6 +2,7 @@
 // Google Sign-In via expo-auth-session + @react-native-firebase/auth
 // Flow: expo-auth-session → Google OAuth (id_token) → Firebase credential → signInWithCredential
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import * as Google from 'expo-auth-session/providers/google';
 import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
@@ -13,8 +14,45 @@ import { auth } from '../config/firebase';
 // Required so the browser can close after redirect
 WebBrowser.maybeCompleteAuthSession();
 
+// Read from EXPO_PUBLIC_ env vars first (explicit overrides), then fall back
+// to values extracted from credential files and injected via app.config.js extra.
+const ANDROID_CLIENT_ID: string =
+  process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ??
+  (Constants.expoConfig?.extra?.googleAndroidClientId as string | undefined) ??
+  '';
+const IOS_CLIENT_ID: string =
+  process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ??
+  (Constants.expoConfig?.extra?.googleIosClientId as string | undefined) ??
+  '';
 const WEB_CLIENT_ID: string =
-  (Constants.expoConfig?.extra?.googleWebClientId as string | undefined) ?? '';
+  process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ??
+  (Constants.expoConfig?.extra?.googleWebClientId as string | undefined) ??
+  '';
+
+/**
+ * Returns the reason Google Sign-In cannot proceed, or null if credentials
+ * look complete for the current platform.
+ */
+function getCredentialError(): string | null {
+  if (!WEB_CLIENT_ID) {
+    return 'Google Sign-In is not configured: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing.';
+  }
+  if (Platform.OS === 'android' && !ANDROID_CLIENT_ID) {
+    return (
+      'Google Sign-In is not configured for Android: ' +
+      'EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID is missing. ' +
+      'Add it to your .env file and re-run `eas build`.'
+    );
+  }
+  if (Platform.OS === 'ios' && !IOS_CLIENT_ID) {
+    return (
+      'Google Sign-In is not configured for iOS: ' +
+      'EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID is missing. ' +
+      'Add it to your .env file and re-run `eas build`.'
+    );
+  }
+  return null;
+}
 
 /**
  * Returns `{ signInWithGoogle, loading, error }`.
@@ -35,10 +73,14 @@ export function useGoogleSignIn() {
     );
   }, [nonce]);
 
+  // Pass all three client IDs so expo-auth-session can select the correct one
+  // per platform. Passing undefined is safe here — the crash only happens when
+  // promptAsync() is called without a valid platform-appropriate ID, which is
+  // guarded in signInWithGoogle() below.
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    webClientId: WEB_CLIENT_ID,
-    // On Android/iOS the webClientId is sufficient; add expoClientId for
-    // Expo Go testing if you have a separate "Web" client in Google Cloud.
+    webClientId: WEB_CLIENT_ID || undefined,
+    androidClientId: ANDROID_CLIENT_ID || undefined,
+    iosClientId: IOS_CLIENT_ID || undefined,
     extraParams: hashedNonce ? { nonce: hashedNonce } : {},
   });
 
@@ -92,8 +134,9 @@ export function useGoogleSignIn() {
   }, [response]);
 
   const signInWithGoogle = async () => {
-    if (!WEB_CLIENT_ID || WEB_CLIENT_ID.includes('YOUR_WEB')) {
-      setError('Google Web Client ID is not configured in app.json extra.googleWebClientId');
+    const credError = getCredentialError();
+    if (credError) {
+      setError(credError);
       return;
     }
     if (!request) return;

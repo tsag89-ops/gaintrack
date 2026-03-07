@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useRef,
   useCallback,
+  useMemo,
 } from 'react';
 import {
   View,
@@ -31,6 +32,7 @@ import { useAuthStore } from '../../src/store/authStore';
 import { usePro } from '../../src/hooks/usePro';
 import type { BodyCompositionGoals } from '../../src/types/bodyGoals';
 import { AISuggestionCard } from '../../src/components/AISuggestionCard';
+import { useAISuggestions } from '../../src/hooks/useAISuggestions'; // [PRO]
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const AI_HISTORY_KEY   = 'gaintrack_ai_history';
@@ -206,6 +208,18 @@ export default function AISuggestions() {
   const [latestBodyWt,    setLatestBodyWt]     = useState<number | null>(null);
   const [recentWorkouts,  setRecentWorkouts]   = useState<any[]>([]);
   const [recentNutrition, setRecentNutrition]  = useState<any[]>([]);
+
+  // [PRO] AI personalised picks — fetched once on mount, cached 24 h
+  const aiPicksContext = useMemo(() => ({
+    recentWorkouts,
+    goals: user?.goals ? `${user.goals.workouts_per_week ?? 4} workouts/week` : 'general fitness',
+    calories: user?.goals?.daily_calories,
+  }), [recentWorkouts, user?.goals]); // eslint-disable-line react-hooks/exhaustive-deps
+  const {
+    suggestions: aiSuggestions,
+    loading: aiPicksLoading,
+    refresh: refreshAIPicks,
+  } = useAISuggestions(aiPicksContext); // [PRO]
 
   const scrollRef    = useRef<ScrollView>(null);
   const today        = format(new Date(), 'yyyy-MM-dd');
@@ -490,6 +504,43 @@ Always give specific, personalized advice referencing the user's actual data, cu
           contentContainerStyle={[styles.messagesContent, { paddingBottom: 32 }]}
           showsVerticalScrollIndicator={false}
         >
+          {/* ── AI Picks (Pro only) ── [PRO] ─────────────────────────── */}
+          {isPro && (
+            <>
+              <View style={styles.aiPicksHeader}>
+                <Text style={styles.sectionLabel}>AI Picks</Text>
+                <TouchableOpacity
+                  onPress={refreshAIPicks}
+                  disabled={aiPicksLoading}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons
+                    name="refresh"
+                    size={16}
+                    color={aiPicksLoading ? '#444' : '#FF6200'}
+                  />
+                </TouchableOpacity>
+              </View>
+              {aiPicksLoading ? (
+                <View style={styles.aiPicksSkeleton}>
+                  <View style={styles.skeletonLine} />
+                  <View style={[styles.skeletonLine, { width: '60%' }]} />
+                </View>
+              ) : (
+                aiSuggestions.map((s) => (
+                  <AISuggestionCard
+                    key={s.id}
+                    id={s.id}
+                    category={s.category}
+                    title={s.title}
+                    description={s.description}
+                    isProLocked={false}
+                  />
+                ))
+              )}
+            </>
+          )}
+
           <Text style={styles.sectionLabel}>Coaching Tips</Text>
           {STATIC_SUGGESTIONS.map((s) => (
             <AISuggestionCard
@@ -705,6 +756,25 @@ const styles = StyleSheet.create({
   },
   clearBtn: {
     padding: 8,
+  },
+  aiPicksHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  aiPicksSkeleton: {
+    backgroundColor: '#252525',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    gap: 10,
+  },
+  skeletonLine: {
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: '#3a3a3a',
+    width: '100%',
   },
   messages: {
     flex: 1,

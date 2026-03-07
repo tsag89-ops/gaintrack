@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { storage } from '../utils/storage';
 import { auth, db } from '../config/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { identifyUser, resetRevenueCatUser } from '../services/revenueCat';
 
 interface User {
   id: string;
@@ -112,11 +113,18 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     set({ user: finalUser, sessionToken: token, isAuthenticated: true, isLoading: false });
+
+    // Link RevenueCat to the Firebase UID so purchases are tied to this account.
+    // Non-blocking — failure here doesn't affect auth state.
+    identifyUser(finalUser.id).catch((e) =>
+      console.warn('[authStore] RevenueCat identifyUser failed:', e),
+    );
   },
 
   logout: async () => {
     try {
       await storage.removeItem('sessionToken');
+      await resetRevenueCatUser(); // Reset to anonymous RC identity on logout
       await auth.signOut();
     } catch (e) {
       console.warn('logout error:', e);

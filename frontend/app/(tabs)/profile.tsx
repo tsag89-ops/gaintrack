@@ -22,6 +22,7 @@ import { getEquipmentLabel } from '../../src/utils/helpers';
 import { useAuth } from '../../src/hooks/useAuth';
 import { deleteAccount, signOut as nativeSignOut, REQUIRES_RECENT_LOGIN } from '../../src/services/authBridge';
 import { usePro } from '../../src/hooks/usePro'; // [PRO]
+import PlateCalculator from '../../src/components/PlateCalculator'; // [PRO]
 
 const EQUIPMENT_OPTIONS = [
   { id: 'dumbbells', icon: 'fitness-outline' },
@@ -42,6 +43,7 @@ export default function ProfileScreen() {
 
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [showEquipmentModal, setShowEquipmentModal] = useState(false);
+  const [showPlateCalc, setShowPlateCalc] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Goals state
@@ -484,6 +486,37 @@ const handleLogout = async () => {
           </View>
         </View>
 
+        {/* Tools Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Tools</Text>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => setShowPlateCalc(true)}
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons name="barbell-outline" size={22} color="#FF6200" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Plate Calculator</Text>
+                <Text style={styles.settingValue}>Visual barbell plate breakdown</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push('/progression' as any)}
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons name="trending-up-outline" size={22} color="#FF6200" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Progression Tracker</Text>
+                <Text style={styles.settingValue}>View strength gains over time</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+          </TouchableOpacity>
+        </View>
+
         {/* Notifications Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Reminders</Text>
@@ -624,6 +657,21 @@ const handleLogout = async () => {
             }}>
               <Text style={styles.resetButtonText}>Restore Defaults</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Plate Calculator Modal */}
+      <Modal visible={showPlateCalc} animationType="slide" transparent onRequestClose={() => setShowPlateCalc(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingBottom: 32 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Plate Calculator</Text>
+              <TouchableOpacity onPress={() => setShowPlateCalc(false)}>
+                <Ionicons name="close" size={24} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+            <PlateCalculator />
           </View>
         </View>
       </Modal>

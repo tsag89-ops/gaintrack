@@ -18,6 +18,7 @@ type AuthContextValue = {
   signInWithGoogle: () => Promise<void>;
   googleLoading: boolean;
   googleError: string | null;
+  googleReady: boolean;
   signOut: () => Promise<void>;
 };
 
@@ -26,7 +27,12 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const { signInWithGoogle, loading: googleLoading, error: googleError } = useGoogleSignIn();
+  const {
+    signInWithGoogle,
+    loading: googleLoading,
+    error: googleError,
+    ready: googleReady,
+  } = useGoogleSignIn();
 
   // Listen for Firebase auth state changes
   useEffect(() => {
@@ -50,6 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signInWithGoogle,
         googleLoading,
         googleError,
+        googleReady,
         signOut: signOutUser,
       }}
     >

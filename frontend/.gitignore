@@ -42,6 +42,11 @@ yarn-error.*
 credentials.json
 *.keystore.jks
 
+# Firebase credential files — real versions injected via EAS env var (file secret)
+# The committed GoogleService-Info.plist is a placeholder only
+google-services.json
+# GoogleService-Info.plist is intentionally committed as a placeholder
+
 # typescript
 *.tsbuildinfo
 

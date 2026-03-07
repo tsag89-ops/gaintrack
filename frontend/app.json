@@ -11,6 +11,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.gaintrack.fitness",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "NSCameraUsageDescription": "Take progress photos for your fitness journey",
         "NSPhotoLibraryUsageDescription": "Save and share your progress photos",
