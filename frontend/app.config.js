@@ -71,8 +71,24 @@ module.exports = ({ config }) => {
     ...googleSchemeEntry,
   ];
 
+  // Build the complete plugins list, injecting Google Sign-In with the real
+  // iosUrlScheme resolved from the EAS-injected GoogleService-Info.plist.
+  const existingPlugins = (config.plugins ?? []).filter(
+    (p) => {
+      const name = Array.isArray(p) ? p[0] : p;
+      return name !== '@react-native-google-signin/google-signin';
+    },
+  );
+  const googleSignInPlugin = [
+    '@react-native-google-signin/google-signin',
+    {
+      iosUrlScheme: reversedClientId ?? 'com.googleusercontent.apps.PLACEHOLDER',
+    },
+  ];
+
   return {
     ...config,
+    plugins: [...existingPlugins, googleSignInPlugin],
     android: {
       ...config.android,
       googleServicesFile:
