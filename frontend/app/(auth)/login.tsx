@@ -15,6 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
 import { auth } from '../../src/config/firebase';
+import rnFirebaseAuth from '@react-native-firebase/auth';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import FormWrapper from '../../src/components/FormWrapper';
 
 const GOOGLE_ERROR_MAP: Record<string, string> = {
@@ -81,21 +83,41 @@ export default function LoginScreen() {
   }, []);
 
   const signInWithGoogle = async () => {
-    console.log('[Google] button pressed, IS_WEB:', Platform.OS === 'web');
+    console.log('[Google] button pressed, platform:', Platform.OS);
+
+    // ── Native (Android / iOS) ────────────────────────────────────────────────
     if (Platform.OS !== 'web') {
-      // Native path: handled separately via expo-auth-session
-      Alert.alert('Coming Soon', 'Google sign-in on mobile will be available in the next build.');
+      try {
+        setGoogleLoading(true);
+        setGoogleError(null);
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+        const response = await GoogleSignin.signIn();
+        if (response.type !== 'success') return; // user cancelled
+        const { idToken } = response.data;
+        if (!idToken) throw new Error('No idToken returned from Google Sign-In.');
+        const credential = rnFirebaseAuth.GoogleAuthProvider.credential(idToken);
+        const userCredential = await auth.signInWithCredential(credential);
+        await applyGoogleUser(userCredential.user);
+      } catch (e: any) {
+        if (e?.code === statusCodes.SIGN_IN_CANCELLED) return;
+        console.error('[Google native] error:', e?.code, e?.message);
+        setGoogleError(e?.message ?? 'Google sign-in failed.');
+      } finally {
+        setGoogleLoading(false);
+      }
       return;
     }
+
+    // ── Web ───────────────────────────────────────────────────────────────────
     try {
       setGoogleLoading(true);
       setGoogleError(null);
       const result = await (auth as any).signInWithGoogle();
-      console.log('[Google] result:', result);
+      console.log('[Google web] result:', result);
       if (!result) return; // redirect flow — page will reload
       await applyGoogleUser(result.user);
     } catch (e: any) {
-      console.error('[Google] error:', e?.code, e?.message);
+      console.error('[Google web] error:', e?.code, e?.message);
       setGoogleError(GOOGLE_ERROR_MAP[e?.code] ?? e?.message ?? `Google sign-in failed (${e?.code ?? 'unknown'})`);
     } finally {
       setGoogleLoading(false);

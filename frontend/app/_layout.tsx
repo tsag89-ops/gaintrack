@@ -12,6 +12,8 @@ import { useOfflineSync } from '../src/hooks/useOfflineSync';
 import { colors } from '../src/constants/theme';
 import { logCrash, flushCrashQueue } from '../src/services/crashReporter';
 import { useAuthStore } from '../src/store/authStore';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import Constants from 'expo-constants';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -61,6 +63,15 @@ export default function RootLayout() {
 
   // Flush any locally-queued workouts to Firestore when connectivity restores.
   useOfflineSync();
+
+  // Configure Google Sign-In once on app start (native only).
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const webClientId =
+      Constants.expoConfig?.extra?.googleWebClientId ??
+      '735512337922-36kntbp5us1lemkagqq64i7n81cd54j9.apps.googleusercontent.com';
+    GoogleSignin.configure({ webClientId, offlineAccess: true });
+  }, []);
 
   // Register global unhandled JS error handler (native only).
   useEffect(() => {
