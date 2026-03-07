@@ -30,6 +30,7 @@ import Markdown from 'react-native-markdown-display';
 import { useAuthStore } from '../../src/store/authStore';
 import { usePro } from '../../src/hooks/usePro';
 import type { BodyCompositionGoals } from '../../src/types/bodyGoals';
+import { AISuggestionCard } from '../../src/components/AISuggestionCard';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const AI_HISTORY_KEY   = 'gaintrack_ai_history';
@@ -39,9 +40,76 @@ const BODYWEIGHT_KEY   = 'gaintrack_bodyweight';
 const MEASUREMENTS_KEY = 'gaintrack_measurements';
 const WORKOUTS_KEY     = 'gaintrack_workouts';
 const NUTRITION_KEY    = 'gaintrack_nutrition';
-const FREE_LIMIT       = 5;
 const MAX_CONTEXT      = 10;
 const MAX_HISTORY      = 20;
+
+// ── Static coaching suggestions (free = first 4, pro-locked = rest) ──────────
+const STATIC_SUGGESTIONS = [
+  {
+    id: 'tip1',
+    category: 'exercise',
+    title: 'Progressive Overload',
+    description:
+      'Gradually increase weight, reps, or sets each week. Even 2.5 kg more on bench press each week compounds to 130 kg extra per year.',
+    isProLocked: false,
+  },
+  {
+    id: 'tip2',
+    category: 'nutrition',
+    title: 'Protein Timing',
+    description:
+      'Aim for 20–40 g of protein within 2 hours of training. Distributing intake evenly across 3–5 meals maximises muscle protein synthesis.',
+    isProLocked: false,
+  },
+  {
+    id: 'tip3',
+    category: 'program',
+    title: 'Rest & Recovery',
+    description:
+      'Allow 48–72 hours between training the same muscle group. Sleep 7–9 hours per night — the majority of GH is released during deep sleep.',
+    isProLocked: false,
+  },
+  {
+    id: 'tip4',
+    category: 'exercise',
+    title: 'Compound Movements First',
+    description:
+      'Perform compound lifts (squat, deadlift, bench, rows) before isolation work. You\'re strongest at the start of a session — spend that strength where it matters most.',
+    isProLocked: false,
+  },
+  {
+    id: 'tip5',
+    category: 'superset',
+    title: 'Antagonist Supersets',
+    description:
+      'Pair opposing muscle groups (chest/back, biceps/triceps) to cut rest time and increase weekly volume without sacrificing strength output.',
+    isProLocked: true,
+  },
+  {
+    id: 'tip6',
+    category: 'nutrition',
+    title: 'Calorie Cycling',
+    description:
+      'Eat more on training days, less on rest days. This optimises muscle growth while minimising fat gain during a bulk — a simple form of nutrient timing.',
+    isProLocked: true,
+  },
+  {
+    id: 'tip7',
+    category: 'program',
+    title: 'Periodisation',
+    description:
+      'Rotate between hypertrophy (8–12 reps), strength (3–6 reps), and deload weeks every 4–6 weeks. Periodisation prevents adaptation and drives continued strength gains.',
+    isProLocked: true,
+  },
+  {
+    id: 'tip8',
+    category: 'exercise',
+    title: 'Time Under Tension',
+    description:
+      'Use a 3-1-2 tempo (3 s eccentric, 1 s pause, 2 s concentric) for hypertrophy work. Increased TUT maximises mechanical damage and metabolic stress.',
+    isProLocked: true,
+  },
+] as const;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface ChatMessage {
@@ -130,6 +198,9 @@ export default function AISuggestions() {
   const [isLoading,   setIsLoading]   = useState(false);
   const [dailyUsage,  setDailyUsage]  = useState<DailyUsage>({ date: '', count: 0 });
 
+  // Active tab: 'suggestions' | 'chat'
+  const [activeTab, setActiveTab] = useState<'suggestions' | 'chat'>('suggestions');
+
   // Context data for system prompt
   const [bodyGoals,       setBodyGoals]       = useState<BodyCompositionGoals | null>(null);
   const [latestBodyWt,    setLatestBodyWt]     = useState<number | null>(null);
@@ -138,7 +209,7 @@ export default function AISuggestions() {
 
   const scrollRef    = useRef<ScrollView>(null);
   const today        = format(new Date(), 'yyyy-MM-dd');
-  const canSend      = isPro || dailyUsage.count < FREE_LIMIT;
+  const canSend      = isPro;
   const chipsVisible = messages.length === 0 && !isLoading;
 
   // ── Load all data on mount ─────────────────────────────────────────────────
@@ -347,8 +418,6 @@ Always give specific, personalized advice referencing the user's actual data, cu
     }
   };
 
-  const showUpgradeCard = !isPro && dailyUsage.count >= FREE_LIMIT;
-
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -362,7 +431,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
             </View>
           )}
         </View>
-        {messages.length > 0 && (
+        {activeTab === 'chat' && messages.length > 0 && (
           <TouchableOpacity
             onPress={clearChat}
             style={styles.clearBtn}
@@ -373,138 +442,210 @@ Always give specific, personalized advice referencing the user's actual data, cu
         )}
       </View>
 
-      {/* Message list */}
-      <ScrollView
-        ref={scrollRef}
-        style={styles.messages}
-        contentContainerStyle={styles.messagesContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Quick chips (shown when chat is empty) */}
-        {chipsVisible && (
-          <View style={styles.chips}>
-            <Text style={styles.chipsLabel}>Quick prompts</Text>
-            <View style={styles.chipsRow}>
-              {CHIPS.map((chip) => (
-                <TouchableOpacity
-                  key={chip}
-                  style={styles.chip}
-                  onPress={() => sendMessage(chip)}
-                >
-                  <Text style={styles.chipText}>{chip}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Messages */}
-        {messages.map((msg) => {
-          if (msg.role === 'user') {
-            return (
-              <View key={msg.id} style={styles.userRow}>
-                <View style={styles.userBubble}>
-                  <Text style={styles.userText}>{msg.content}</Text>
-                </View>
-              </View>
-            );
-          }
-
-          if (msg.role === 'error') {
-            const canRetry = msg.errorType !== 'no_api_key';
-            return (
-              <View key={msg.id} style={styles.aiRow}>
-                <TouchableOpacity
-                  style={styles.errorBubble}
-                  onPress={() => canRetry && retryMessage(msg.content)}
-                  disabled={!canRetry}
-                  activeOpacity={canRetry ? 0.7 : 1}
-                >
-                  <Ionicons name="warning-outline" size={16} color="#F44336" />
-                  <Text style={styles.errorText}>
-                    {msg.errorType === 'rate_limit'
-                      ? 'Too many requests — try again in 30 seconds'
-                      : msg.errorType === 'no_api_key'
-                      ? 'AI not configured. Contact support.'
-                      : msg.errorType === 'network'
-                      ? "Couldn't reach AI. Tap to retry."
-                      : 'Something went wrong. Tap to retry.'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            );
-          }
-
-          // assistant — rendered as markdown
-          return (
-            <View key={msg.id} style={styles.aiRow}>
-              <View style={styles.aiBubble}>
-                <Markdown style={markdownStyles}>{msg.content}</Markdown>
-              </View>
-            </View>
-          );
-        })}
-
-        {/* Typing indicator */}
-        {isLoading && (
-          <View style={styles.aiRow}>
-            <TypingIndicator />
-          </View>
-        )}
-      </ScrollView>
-
-      {/* Free usage counter */}
-      {!isPro && !showUpgradeCard && (
-        <View style={styles.usageBar}>
-          <Text style={styles.usageText}>
-            {dailyUsage.count} / {FREE_LIMIT} AI messages used today
+      {/* Segment control: Tips | AI Chat */}
+      <View style={styles.segmentRow}>
+        <TouchableOpacity
+          style={[styles.segment, activeTab === 'suggestions' && styles.segmentActive]}
+          onPress={() => {
+            if (Platform.OS !== 'web') Haptics.selectionAsync();
+            setActiveTab('suggestions');
+          }}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="bulb-outline"
+            size={14}
+            color={activeTab === 'suggestions' ? '#FFFFFF' : '#B0B0B0'}
+          />
+          <Text style={[styles.segmentText, activeTab === 'suggestions' && styles.segmentTextActive]}>
+            Tips
           </Text>
-        </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.segment, activeTab === 'chat' && styles.segmentActive]}
+          onPress={() => {
+            if (Platform.OS !== 'web') Haptics.selectionAsync();
+            setActiveTab('chat');
+          }}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="chatbubble-ellipses-outline"
+            size={14}
+            color={activeTab === 'chat' ? '#FFFFFF' : '#B0B0B0'}
+          />
+          <Text style={[styles.segmentText, activeTab === 'chat' && styles.segmentTextActive]}>
+            AI Chat
+          </Text>
+          {!isPro && (
+            <Ionicons name="lock-closed" size={11} color="#FF6200" style={{ marginLeft: 2 }} />
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {/* ──── SUGGESTIONS TAB ──── */}
+      {activeTab === 'suggestions' && (
+        <ScrollView
+          style={styles.messages}
+          contentContainerStyle={[styles.messagesContent, { paddingBottom: 32 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sectionLabel}>Coaching Tips</Text>
+          {STATIC_SUGGESTIONS.map((s) => (
+            <AISuggestionCard
+              key={s.id}
+              id={s.id}
+              category={s.category}
+              title={s.title}
+              description={s.description}
+              isProLocked={s.isProLocked && !isPro}
+              onPressUpgrade={() => router.push('/pro-paywall')}
+            />
+          ))}
+          {!isPro && (
+            <View style={styles.upgradeCard}>
+              <Ionicons name="sparkles" size={24} color="#FF6200" />
+              <Text style={styles.upgradeTitle}>Unlock All Tips + AI Chat</Text>
+              <Text style={styles.upgradeSubtitle}>
+                {'Upgrade to Pro for personalised GPT-powered coaching, full coaching tip library, and unlimited AI chat.'}
+              </Text>
+              <TouchableOpacity
+                style={styles.goProBtn}
+                onPress={() => router.push('/pro-paywall')}
+              >
+                <Text style={styles.goProBtnText}>Go Pro — $4.99 / year</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
       )}
 
-      {/* Upgrade card (replaces input when limit reached) */}
-      {showUpgradeCard && (
-        <View style={styles.upgradeCard}>
-          <Ionicons name="lock-closed" size={24} color="#FF6200" />
-          <Text style={styles.upgradeTitle}>Daily limit reached</Text>
+      {/* ──── CHAT TAB — free users: paywall ──── */}
+      {activeTab === 'chat' && !isPro && (
+        <View style={styles.chatPaywall}>
+          <Ionicons name="chatbubble-ellipses-outline" size={48} color="#FF6200" />
+          <Text style={[styles.upgradeTitle, { marginTop: 16 }]}>AI Chat is a Pro feature</Text>
           <Text style={styles.upgradeSubtitle}>
-            {"You've used your 5 free AI messages today.\nUpgrade to Pro for unlimited AI coaching."}
+            {'Get unlimited, context-aware GPT coaching personalised to your workouts, nutrition, and body goals.'}
           </Text>
           <TouchableOpacity
-            style={styles.goProBtn}
+            style={[styles.goProBtn, { marginTop: 20 }]}
             onPress={() => router.push('/pro-paywall')}
           >
             <Text style={styles.goProBtnText}>Go Pro — $4.99 / year</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.backToTipsBtn}
+            onPress={() => setActiveTab('suggestions')}
+          >
+            <Text style={styles.backToTipsBtnText}>Back to free tips</Text>
+          </TouchableOpacity>
         </View>
       )}
 
-      {/* Input */}
-      {!showUpgradeCard && (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-        >
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.input}
-              value={input}
-              onChangeText={setInput}
-              placeholder="Ask your AI coach…"
-              placeholderTextColor="#555"
-              multiline
-              maxLength={600}
-              returnKeyType="default"
-            />
-            <TouchableOpacity
-              style={[styles.sendBtn, (!input.trim() || isLoading) && styles.sendBtnDisabled]}
-              onPress={() => sendMessage()}
-              disabled={!input.trim() || isLoading}
-            >
-              <Ionicons name="send" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
+      {/* ──── CHAT TAB — Pro users: full chat ──── */}
+      {activeTab === 'chat' && isPro && (
+        <>
+          <ScrollView
+            ref={scrollRef}
+            style={styles.messages}
+            contentContainerStyle={styles.messagesContent}
+            keyboardShouldPersistTaps="handled"
+          >
+            {chipsVisible && (
+              <View style={styles.chips}>
+                <Text style={styles.chipsLabel}>Quick prompts</Text>
+                <View style={styles.chipsRow}>
+                  {CHIPS.map((chip) => (
+                    <TouchableOpacity
+                      key={chip}
+                      style={styles.chip}
+                      onPress={() => sendMessage(chip)}
+                    >
+                      <Text style={styles.chipText}>{chip}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {messages.map((msg) => {
+              if (msg.role === 'user') {
+                return (
+                  <View key={msg.id} style={styles.userRow}>
+                    <View style={styles.userBubble}>
+                      <Text style={styles.userText}>{msg.content}</Text>
+                    </View>
+                  </View>
+                );
+              }
+
+              if (msg.role === 'error') {
+                const canRetry = msg.errorType !== 'no_api_key';
+                return (
+                  <View key={msg.id} style={styles.aiRow}>
+                    <TouchableOpacity
+                      style={styles.errorBubble}
+                      onPress={() => canRetry && retryMessage(msg.content)}
+                      disabled={!canRetry}
+                      activeOpacity={canRetry ? 0.7 : 1}
+                    >
+                      <Ionicons name="warning-outline" size={16} color="#F44336" />
+                      <Text style={styles.errorText}>
+                        {msg.errorType === 'rate_limit'
+                          ? 'Too many requests — try again in 30 seconds'
+                          : msg.errorType === 'no_api_key'
+                          ? 'AI not configured. Contact support.'
+                          : msg.errorType === 'network'
+                          ? "Couldn't reach AI. Tap to retry."
+                          : 'Something went wrong. Tap to retry.'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              }
+
+              return (
+                <View key={msg.id} style={styles.aiRow}>
+                  <View style={styles.aiBubble}>
+                    <Markdown style={markdownStyles}>{msg.content}</Markdown>
+                  </View>
+                </View>
+              );
+            })}
+
+            {isLoading && (
+              <View style={styles.aiRow}>
+                <TypingIndicator />
+              </View>
+            )}
+          </ScrollView>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+          >
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                value={input}
+                onChangeText={setInput}
+                placeholder="Ask your AI coach…"
+                placeholderTextColor="#555"
+                multiline
+                maxLength={600}
+                returnKeyType="default"
+              />
+              <TouchableOpacity
+                style={[styles.sendBtn, (!input.trim() || isLoading) && styles.sendBtnDisabled]}
+                onPress={() => sendMessage()}
+                disabled={!input.trim() || isLoading}
+              >
+                <Ionicons name="send" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </>
       )}
     </SafeAreaView>
   );
@@ -738,5 +879,60 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     backgroundColor: '#2D2D2D',
+  },
+  // ── Segment control ────────────────────────────────────────────────────────
+  segmentRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: '#252525',
+    borderRadius: 12,
+    padding: 3,
+    gap: 3,
+  },
+  segment: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  segmentActive: {
+    backgroundColor: '#FF6200',
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#B0B0B0',
+  },
+  segmentTextActive: {
+    color: '#FFFFFF',
+  },
+  // ── Suggestions tab extras ─────────────────────────────────────────────────
+  sectionLabel: {
+    color: '#B0B0B0',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 12,
+  },
+  // ── Chat paywall (full-screen centred card) ────────────────────────────────
+  chatPaywall: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  backToTipsBtn: {
+    marginTop: 12,
+    paddingVertical: 8,
+  },
+  backToTipsBtnText: {
+    color: '#B0B0B0',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

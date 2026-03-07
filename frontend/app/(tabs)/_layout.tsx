@@ -16,13 +16,13 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#1F2937',
+          backgroundColor: '#2D2D2D',
           borderTopWidth: 0,
           height: Platform.OS === 'ios' ? 88 : 64,
           paddingBottom: Platform.OS === 'ios' ? 28 : 8,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: '#10B981',
+        tabBarActiveTintColor: '#FF6200',
         tabBarInactiveTintColor: '#6B7280',
         tabBarLabelStyle: {
           fontSize: 11,
@@ -36,6 +36,15 @@ export default function TabLayout() {
           title: 'Workouts',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="barbell-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="exercises"
+        options={{
+          title: 'Exercises',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="list-outline" size={size} color={color} />
           ),
         }}
       />
@@ -84,11 +93,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      {/* exercises.tsx is accessed via Browse Exercises modal in the Workouts tab */}
-      <Tabs.Screen
-        name="exercises"
-        options={{ href: null }}
-      />
+      {/* exercises tab is now shown in the tab bar as the 2nd entry above */}
     </Tabs>
   );
 }

@@ -29,7 +29,7 @@ import * as Haptics from 'expo-haptics';
 
 import { Exercise } from '../types';
 import { theme } from '../constants/theme';
-import { EXERCISES, MUSCLE_GROUPS } from '../constants/exercises';
+import { EXERCISES, MUSCLE_GROUPS, EQUIPMENT_TYPES } from '../constants/exercises';
 import {
   getRecentlyUsedExercises,
   recordRecentlyUsedExercise,
@@ -51,6 +51,8 @@ export interface ExercisePickerProps {
   isPro: boolean;
   /** IDs already in the current workout (shows a checkmark) */
   addedExerciseIds?: string[];
+  /** Standalone browse mode — hides close button, shows "Exercises" title, hides superset toggle */
+  standalone?: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -60,7 +62,38 @@ const PREVIEW_HEIGHT = 200;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-/** Horizontal pill filter chips */
+/** Horizontal equipment filter chips */
+const EquipmentChips: React.FC<{
+  active: string;
+  onChange: (eq: string) => void;
+}> = ({ active, onChange }) => (
+  <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    contentContainerStyle={chipStyles.row}
+  >
+    {EQUIPMENT_TYPES.map((eq) => {
+      const isActive = active === eq;
+      return (
+        <TouchableOpacity
+          key={eq}
+          style={[chipStyles.chip, isActive && chipStyles.chipActive]}
+          onPress={async () => {
+            await Haptics.selectionAsync();
+            onChange(eq);
+          }}
+          activeOpacity={0.75}
+        >
+          <Text style={[chipStyles.label, isActive && chipStyles.labelActive]}>
+            {eq}
+          </Text>
+        </TouchableOpacity>
+      );
+    })}
+  </ScrollView>
+);
+
+/** Horizontal muscle-group filter chips */
 const MuscleChips: React.FC<{
   active: string;
   onChange: (group: string) => void;
@@ -365,9 +398,11 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
   onClose,
   isPro,
   addedExerciseIds = [],
+  standalone = false,
 }) => {
   const [query, setQuery]               = useState('');
   const [activeMuscle, setActiveMuscle] = useState<string>('All');
+  const [activeEquipment, setActiveEquipment] = useState<string>('All');
   const [supersetMode, setSupersetMode] = useState(false);
   const [expandedId, setExpandedId]     = useState<string | null>(null);
   const [favoriteIds, setFavoriteIds]   = useState<string[]>([]);
@@ -399,6 +434,13 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
           ),
       );
     }
+    if (activeEquipment !== 'All') {
+      list = list.filter((ex) =>
+        ex.equipment_required.some(
+          (eq) => eq.toLowerCase() === activeEquipment.toLowerCase(),
+        ),
+      );
+    }
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       list = list.filter(
@@ -409,30 +451,33 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
       );
     }
     return list;
-  }, [activeMuscle, query]);
+  }, [activeMuscle, activeEquipment, query]);
 
-  // ── SectionList data: always show Recently Used section when not searching ──
+  // ── SectionList data: Favorites → Recently Used → All ───────────────────
   const sections = useMemo(() => {
-    const showRecent =
-      recentlyUsed.length > 0 && !query.trim() && activeMuscle === 'All';
+    const isFiltered = query.trim() || activeMuscle !== 'All' || activeEquipment !== 'All';
 
-    if (showRecent) {
-      return [
-        { title: 'Recently Used', data: recentlyUsed },
-        { title: `All Exercises (${filteredExercises.length})`, data: filteredExercises },
-      ];
+    if (!isFiltered) {
+      const favoriteExercises = EXERCISES.filter((ex) => favoriteIds.includes(ex.id));
+      const recentFiltered    = recentlyUsed.filter((ex) => !favoriteIds.includes(ex.id));
+      const result: { title: string; data: Exercise[] }[] = [];
+      if (favoriteExercises.length > 0)
+        result.push({ title: `Favorites (${favoriteExercises.length})`, data: favoriteExercises });
+      if (recentFiltered.length > 0)
+        result.push({ title: 'Recently Used', data: recentFiltered });
+      result.push({ title: `All Exercises (${filteredExercises.length})`, data: filteredExercises });
+      return result;
     }
+
     return [
       {
         title: query.trim()
           ? `Results for "${query.trim()}"`
-          : activeMuscle === 'All'
-          ? `All Exercises (${filteredExercises.length})`
-          : `${activeMuscle} (${filteredExercises.length})`,
+          : `Filtered (${filteredExercises.length})`,
         data: filteredExercises,
       },
     ];
-  }, [recentlyUsed, filteredExercises, query, activeMuscle]);
+  }, [recentlyUsed, filteredExercises, query, activeMuscle, activeEquipment, favoriteIds]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleAdd = useCallback(
@@ -462,38 +507,44 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* ── Sticky Header ─────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="close" size={26} color={theme.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Exercise</Text>
+        {standalone ? (
+          <View style={{ width: 26 }} />
+        ) : (
+          <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close" size={26} color={theme.textPrimary} />
+          </TouchableOpacity>
+        )}
+        <Text style={styles.headerTitle}>{standalone ? 'Exercises' : 'Add Exercise'}</Text>
 
-        {/* Superset toggle — PRO */}
-        <TouchableOpacity
-          style={[
-            styles.supersetBtn,
-            supersetMode && styles.supersetBtnActive,
-            !isPro && styles.supersetBtnLocked,
-          ]}
-          onPress={handleSupersetToggle}
-          disabled={!isPro}
-        >
-          <Ionicons
-            name="git-merge-outline"
-            size={18}
-            color={supersetMode ? theme.textPrimary : theme.textSecondary}
-          />
-          <Text
+        {/* Superset toggle — PRO (hidden in standalone browse mode) */}
+        {!standalone && (
+          <TouchableOpacity
             style={[
-              styles.supersetLabel,
-              supersetMode && styles.supersetLabelActive,
+              styles.supersetBtn,
+              supersetMode && styles.supersetBtnActive,
+              !isPro && styles.supersetBtnLocked,
             ]}
+            onPress={handleSupersetToggle}
+            disabled={!isPro}
           >
-            Superset
-          </Text>
-          {!isPro && (
-            <Ionicons name="lock-closed" size={12} color={theme.primary} />
-          )}
-        </TouchableOpacity>
+            <Ionicons
+              name="git-merge-outline"
+              size={18}
+              color={supersetMode ? theme.textPrimary : theme.textSecondary}
+            />
+            <Text
+              style={[
+                styles.supersetLabel,
+                supersetMode && styles.supersetLabelActive,
+              ]}
+            >
+              Superset
+            </Text>
+            {!isPro && (
+              <Ionicons name="lock-closed" size={12} color={theme.primary} />
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
       {supersetMode && (
@@ -520,6 +571,9 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
 
       {/* ── Muscle group chips ───────────────────────────────────────────── */}
       <MuscleChips active={activeMuscle} onChange={setActiveMuscle} />
+
+      {/* ── Equipment filter chips ───────────────────────────────────────── */}
+      <EquipmentChips active={activeEquipment} onChange={setActiveEquipment} />
 
       {/* ── List ────────────────────────────────────────────────────────── */}
       {loading ? (

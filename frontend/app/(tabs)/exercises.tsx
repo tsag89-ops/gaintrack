@@ -42,6 +42,7 @@ export default function ExercisesScreen() {
         onClose={handleClose}
         isPro={isPro}
         addedExerciseIds={[]}
+        standalone
       />
 
       {/* ── "Added" toast ─────────────────────────────────────────────── */}
