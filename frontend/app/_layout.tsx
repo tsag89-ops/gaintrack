@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, TouchableOpacity, View, Text } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -9,6 +9,37 @@ import { ThemeProvider } from '../src/constants/ThemeProvider';
 import AuthSplash from '../src/components/AuthSplash';
 import { initRevenueCat } from '../src/services/revenueCat'; // [PRO]
 import { colors } from '../src/constants/theme';
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: string }
+> {
+  state = { hasError: false, error: '' };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center',
+                       alignItems: 'center', backgroundColor: '#000', padding: 20 }}>
+          <Text style={{ color: '#FF6200', fontSize: 18,
+                         fontWeight: 'bold', marginBottom: 12 }}>
+            Something went wrong
+          </Text>
+          <Text style={{ color: '#fff', fontSize: 13,
+                         textAlign: 'center', marginBottom: 24 }}>
+            {this.state.error}
+          </Text>
+          <TouchableOpacity onPress={() => this.setState({ hasError: false, error: '' })}>
+            <Text style={{ color: '#FF6200' }}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
 
@@ -56,6 +87,7 @@ export default function RootLayout() {
             and dismiss the native splash screen automatically.
             backgroundColor on screenOptions prevents the SSR default
             rgba(242,242,242) from causing a React #418 hydration mismatch. */}
+        <ErrorBoundary>
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
@@ -70,6 +102,7 @@ export default function RootLayout() {
           <Stack.Screen name="body-goals" options={{ presentation: 'card' }} />
           <Stack.Screen name="pro-paywall" options={{ presentation: 'modal', headerShown: false }} />
         </Stack>
+        </ErrorBoundary>
         {/* AuthSplash overlays on top while auth is still resolving, preventing
             any auth-gated screen from flashing before the redirect fires.
             `hasMounted` guard ensures the SSR HTML (no overlay) matches the

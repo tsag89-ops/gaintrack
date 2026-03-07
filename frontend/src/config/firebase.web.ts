@@ -28,8 +28,17 @@ const firebaseConfig = {
   appId:             process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const _auth = getAuth(app);
+console.log('[Firebase] init start');
+let app: ReturnType<typeof initializeApp>;
+let _auth: ReturnType<typeof getAuth>;
+try {
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  _auth = getAuth(app);
+  console.log('[Firebase] init complete');
+} catch (e) {
+  console.error('[Firebase] init error', e);
+  throw e;
+}
 
 // ── Compat-style wrapper matching @react-native-firebase API used in the codebase ──
 function wrapUser(user: import('firebase/auth').User) {
