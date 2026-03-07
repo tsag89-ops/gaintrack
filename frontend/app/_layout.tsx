@@ -8,6 +8,7 @@ import { AuthProvider } from '../src/context/AuthContext';
 import { ThemeProvider } from '../src/constants/ThemeProvider';
 import AuthSplash from '../src/components/AuthSplash';
 import { initRevenueCat } from '../src/services/revenueCat'; // [PRO]
+import { useOfflineSync } from '../src/hooks/useOfflineSync';
 import { colors } from '../src/constants/theme';
 
 class ErrorBoundary extends React.Component<
@@ -51,6 +52,9 @@ export default function RootLayout() {
   // defer conditional rendering until after client mount.
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => { setHasMounted(true); }, []);
+
+  // Flush any locally-queued workouts to Firestore when connectivity restores.
+  useOfflineSync();
 
   // [PRO] Initialise RevenueCat once on app start (anonymous session).
   // The API key is read from EXPO_PUBLIC_REVENUECAT_API_KEY in your .env file.

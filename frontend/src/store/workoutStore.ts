@@ -7,6 +7,7 @@ import {
   updateWorkout    as fsUpdateWorkout,
   deleteWorkout    as fsDeleteWorkout,
 } from '../services/workoutFirestore';
+import { enqueueWorkout } from '../services/offlineQueue';
 
 const ACTIVE_WORKOUT_KEY = 'gaintrack_active_workout';
 
@@ -185,13 +186,31 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   createWorkout: async (uid, data) => {
-    const saved = await fsCreateWorkout(uid, data);
-    set((state) => {
-      const updated = [saved, ...state.workouts];
-      AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
-      return { workouts: updated };
-    });
-    return saved;
+    try {
+      const saved = await fsCreateWorkout(uid, data);
+      set((state) => {
+        const updated = [saved, ...state.workouts];
+        AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
+        return { workouts: updated };
+      });
+      return saved;
+    } catch (err) {
+      // Network/Firestore unavailable — save locally with a temp ID and queue
+      // for background sync when connectivity is restored.
+      console.warn('[workoutStore] Firestore unavailable, queuing workout offline:', err);
+      await enqueueWorkout(uid, data);
+      const local: Workout = {
+        ...data,
+        workout_id: `offline_${Date.now()}`,
+        created_at: new Date().toISOString(),
+      };
+      set((state) => {
+        const updated = [local, ...state.workouts];
+        AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
+        return { workouts: updated };
+      });
+      return local;
+    }
   },
 
   updateWorkout: async (uid, workoutId, updates) => {

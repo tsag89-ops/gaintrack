@@ -412,37 +412,45 @@ const ActiveWorkoutScreen: React.FC = () => {
     try {
       const durationSeconds = Math.floor((Date.now() - startedAtRef.current) / 1000);
       const updatedWorkout = { ...currentWorkout, exercises: validExercises, duration: durationSeconds };
-      await createWorkout(uid, updatedWorkout);
-      const newPRs = await detectAndSavePRs(validExercises);
+      const savedWorkout = await createWorkout(uid, updatedWorkout);
+      const isOffline = savedWorkout.workout_id.startsWith('offline_');
+      const newPRs = isOffline ? [] : await detectAndSavePRs(validExercises);
       await clearInProgress();
-      const title = newPRs.length > 0
-        ? `🏆 ${newPRs.length} new PR${newPRs.length > 1 ? 's' : ''}!`
-        : 'Workout saved!';
-      const body = newPRs.length > 0
-        ? `Records broken: ${newPRs.join(', ')}\n\nSave as template?`
-        : 'Save as a template for next time?';
-      Alert.alert(title, body, [
-        {
-          text: 'Save Template',
-          onPress: async () => {
-            const tmplRaw = await AsyncStorage.getItem('gaintrack_templates');
-            const templates = tmplRaw ? JSON.parse(tmplRaw) : [];
-            templates.unshift({
-              id: Date.now().toString(),
-              name: currentWorkout.name,
-              exercises: validExercises.map((ex) => ({
-                exercise_id: ex.exercise_id,
-                exercise_name: ex.exercise_name,
-                exercise: ex.exercise,
-              })),
-              createdAt: new Date().toISOString(),
-            });
-            // [PRO] unlimited templates; free tier capped at 3
-            await AsyncStorage.setItem('gaintrack_templates', JSON.stringify(templates.slice(0, 10)));
-          },
-        },
-        { text: 'Skip', style: 'cancel' },
-      ]);
+      const title = isOffline
+        ? '📥 Saved offline'
+        : newPRs.length > 0
+          ? `🏆 ${newPRs.length} new PR${newPRs.length > 1 ? 's' : ''}!`
+          : 'Workout saved!';
+      const body = isOffline
+        ? "No connection — your workout is stored locally and will sync to the cloud automatically when you're back online."
+        : newPRs.length > 0
+          ? `Records broken: ${newPRs.join(', ')}\n\nSave as template?`
+          : 'Save as a template for next time?';
+      Alert.alert(title, body, isOffline
+        ? [{ text: 'OK', style: 'cancel' }]
+        : [
+            {
+              text: 'Save Template',
+              onPress: async () => {
+                const tmplRaw = await AsyncStorage.getItem('gaintrack_templates');
+                const templates = tmplRaw ? JSON.parse(tmplRaw) : [];
+                templates.unshift({
+                  id: Date.now().toString(),
+                  name: currentWorkout.name,
+                  exercises: validExercises.map((ex) => ({
+                    exercise_id: ex.exercise_id,
+                    exercise_name: ex.exercise_name,
+                    exercise: ex.exercise,
+                  })),
+                  createdAt: new Date().toISOString(),
+                });
+                // [PRO] unlimited templates; free tier capped at 3
+                await AsyncStorage.setItem('gaintrack_templates', JSON.stringify(templates.slice(0, 10)));
+              },
+            },
+            { text: 'Skip', style: 'cancel' },
+          ],
+      );
       setCurrentWorkout(null);
       router.replace('/');
     } catch (e) {
