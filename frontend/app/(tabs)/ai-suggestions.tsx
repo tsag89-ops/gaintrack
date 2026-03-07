@@ -121,6 +121,7 @@ interface ChatMessage {
   role: 'user' | 'assistant' | 'error';
   content: string;   // error role: stores original prompt for retry
   errorType?: 'network' | 'rate_limit' | 'no_api_key' | 'unknown';
+  errorDetail?: string; // [DEBUG] raw error detail shown on-screen
   timestamp: number;
 }
 
@@ -441,14 +442,14 @@ Always give specific, personalized advice referencing the user's actual data, cu
       if (!res.ok) {
         const errBody = await res.text().catch(() => '');
         console.error('[AI] direct fallback error', res.status, errBody.slice(0, 300));
-        throw Object.assign(new Error('unknown'), { errorType: 'unknown' as const });
+        throw Object.assign(new Error('unknown'), { errorType: 'unknown' as const, detail: `${res.status}: ${errBody.slice(0, 120)}` });
       }
 
       const data = await res.json();
       const content: string | undefined = data?.choices?.[0]?.message?.content;
       if (!content) {
         console.error('[AI] empty content in response', JSON.stringify(data).slice(0, 300));
-        throw Object.assign(new Error('unknown'), { errorType: 'unknown' as const });
+        throw Object.assign(new Error('unknown'), { errorType: 'unknown' as const, detail: `empty content: ${JSON.stringify(data).slice(0, 120)}` });
       }
 
       const aiMsg: ChatMessage = {
@@ -465,11 +466,13 @@ Always give specific, personalized advice referencing the user's actual data, cu
       ).catch(() => {});
     } catch (e: any) {
       const errorType: ChatMessage['errorType'] = e?.errorType ?? 'network';
+      const errorDetail = e?.detail ?? e?.message ?? String(e);
       const errMsg: ChatMessage = {
         id: `${Date.now() + 1}`,
         role: 'error',
         content: text,   // store prompt for retry
         errorType,
+        errorDetail,
         timestamp: Date.now(),
       };
       setMessages([...newMessages, errMsg]);
@@ -750,6 +753,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
                           : msg.errorType === 'network'
                           ? "Couldn't reach AI. Tap to retry."
                           : 'Something went wrong. Tap to retry.'}
+                        {__DEV__ || msg.errorDetail ? `\n[debug] ${msg.errorType} — ${msg.errorDetail}` : ''}
                       </Text>
                     </TouchableOpacity>
                   </View>
