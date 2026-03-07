@@ -4,11 +4,7 @@ import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { getAuth, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import {
-  addAuthStateListener,
-  getAuthState,
-  NativeAuthState,
-} from '../services/authBridge';
+import { NativeAuthState } from '../services/authBridge';
 
 export function useAuth() {
   const signOut = async () => {
@@ -62,8 +58,8 @@ export function useNativeAuthState(): NativeAuthStateWithStatus {
   });
 
   useEffect(() => {
-    // On web (and iOS without native bridge): use Firebase JS SDK directly.
-    if (Platform.OS !== 'android') {
+    // On web: use Firebase JS SDK directly.
+    if (Platform.OS === 'web') {
       // Ensure Firebase app is initialized (firebase.ts never calls initializeApp on native)
       if (getApps().length === 0) {
         initializeApp({
@@ -106,31 +102,27 @@ export function useNativeAuthState(): NativeAuthStateWithStatus {
       return () => { clearTimeout(timer); unsubscribe?.(); };
     }
 
-    // Android: use native AuthBridgeModule (with 4 s safety timeout).
-    let resolved = false;
-    const safetyTimer = setTimeout(() => {
-      if (!resolved) setState({ uid: null, isAuthenticated: false, status: 'unauthenticated' });
-    }, 4000);
-
-    Promise.race([getAuthState(), new Promise<NativeAuthState>((res) => setTimeout(() => res({ uid: null, isAuthenticated: false }), 4000))])
-      .then((s) => {
-        resolved = true;
-        clearTimeout(safetyTimer);
-        setState({ ...s, status: s.isAuthenticated ? 'authenticated' : 'unauthenticated' });
-      })
-      .catch(() => {
-        resolved = true;
-        clearTimeout(safetyTimer);
-        setState({ uid: null, isAuthenticated: false, status: 'unauthenticated' });
+    // Native (Android + iOS): subscribe directly to @react-native-firebase/auth.
+    // AuthBridgeModule.kt lives in the root android/ folder and is NOT compiled
+    // into EAS builds of frontend/. Using rnFirebase directly is the correct
+    // approach for Expo managed workflow — the plugin is already registered via
+    // @react-native-firebase/auth in app.json.
+    try {
+      // Dynamic require keeps this import out of the web bundle.
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const rnFirebaseAuth = require('@react-native-firebase/auth').default;
+      const unsubscribe = rnFirebaseAuth().onAuthStateChanged((firebaseUser: any) => {
+        setState(
+          firebaseUser
+            ? { uid: firebaseUser.uid, isAuthenticated: true, status: 'authenticated' }
+            : { uid: null, isAuthenticated: false, status: 'unauthenticated' },
+        );
       });
-
-    const subscription = addAuthStateListener((s) =>
-      setState({
-        ...s,
-        status: s.isAuthenticated ? 'authenticated' : 'unauthenticated',
-      })
-    );
-    return () => { clearTimeout(safetyTimer); subscription.remove(); };
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn('[useAuth] rnFirebase auth listener error:', e);
+      setState({ uid: null, isAuthenticated: false, status: 'unauthenticated' });
+    }
   }, []);
 
   return state;
