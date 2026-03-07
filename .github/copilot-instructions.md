@@ -146,5 +146,16 @@ Do not commit google-services.json, .env, API keys, or any credential files.
 
 Always add them to .gitignore and store them as EAS env vars (eas env:create --type file) or GitHub Actions secrets instead.
 
+consult gaintrack/security.md for further guidelines on handling secrets and sensitive data.
+
 
 If a secret ever gets committed or pushed, immediately revoke/rotate it in the provider console and update the new value only in secrets storage.
+
+After EACH fix, run:
+  git add .
+  git commit -m "fix: [description]"
+  git push origin main
+
+  use subagents when possible to be more efficient. For example, use a "Firestore Agent" to handle all Firestore-related tasks, a "UI Agent" for all UI changes, etc. This allows you to focus on specific areas of the codebase and avoid unnecessary context switching.
+
+  copilot-instructions.md is the always-on global base. Subagent prompts in .vscode/subagents/ must NOT repeat stack/security context — only add task-specific parameters and instructions. Always refer back to copilot-instructions.md for the full context.
