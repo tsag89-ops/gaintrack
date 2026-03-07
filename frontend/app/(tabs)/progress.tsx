@@ -494,7 +494,14 @@ export default function ProgressScreen() {
           <Text style={styles.proGateBody}>
             Unlock 1RM tracking, weekly volume charts, personal records, bodyweight trends, and CSV export with GainTrack Pro.
           </Text>
-          <TouchableOpacity style={styles.proGateBtn} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.proGateBtn}
+            activeOpacity={0.85}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              router.push('/pro-paywall' as any);
+            }}
+          >
             <Ionicons name="flash" size={16} color={colors.background} />
             <Text style={styles.proGateBtnText}>Upgrade to Pro - $4.99 / yr</Text>
           </TouchableOpacity>

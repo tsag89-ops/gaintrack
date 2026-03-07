@@ -87,6 +87,7 @@ export interface WorkoutExercise {
   sets: WorkoutSet[];
   notes?: string;
   restSeconds?: number;
+  superset_group?: string; // [PRO] shared UUID ties exercises into a superset pair
 }
 
 

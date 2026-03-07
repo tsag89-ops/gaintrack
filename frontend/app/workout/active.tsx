@@ -23,6 +23,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { WorkoutExercise, WorkoutSet } from '../../src/types';
 import { ExerciseVideo } from '../../src/components/ExerciseVideo';
 import { useNativeAuthState } from '../../src/hooks/useAuth';
+import { usePro } from '../../src/hooks/usePro';
 import { seedExercises } from '../../src/data/seedData';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
@@ -37,6 +38,7 @@ const ActiveWorkoutScreen: React.FC = () => {
   const { currentWorkout, updateExerciseInWorkout, setCurrentWorkout, createWorkout, startWorkout,
     persistInProgress, restoreInProgress, clearInProgress } = useWorkoutStore();
   const { uid } = useNativeAuthState();
+  const { isPro } = usePro();
   const [exerciseList, setExerciseList] = useState(currentWorkout?.exercises || []);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [search, setSearch] = useState('');
@@ -158,6 +160,44 @@ const ActiveWorkoutScreen: React.FC = () => {
     Haptics.selectionAsync();
     setRestOverrideModal(null);
     setRestOverrideInput('');
+  };
+
+  // [PRO] Toggle superset grouping between this exercise and the one below it.
+  // Exercises sharing the same superset_group UUID are rendered as visually grouped.
+  const toggleSuperset = (exerciseId: string) => {
+    if (!isPro) {
+      Alert.alert('Pro Feature', 'Supersets are available with GainTrack Pro ($4.99/yr).');
+      return;
+    }
+    const idx = exerciseList.findIndex((ex) => ex.exercise_id === exerciseId);
+    if (idx === -1 || idx === exerciseList.length - 1) {
+      Alert.alert('Add another exercise', 'Add a second exercise below this one to create a superset.');
+      return;
+    }
+    const current = exerciseList[idx];
+    const next    = exerciseList[idx + 1];
+    // Both already share the same group → unlink
+    if (current.superset_group && current.superset_group === next.superset_group) {
+      setExerciseList((prev) =>
+        prev.map((ex) =>
+          ex.exercise_id === current.exercise_id || ex.exercise_id === next.exercise_id
+            ? { ...ex, superset_group: undefined }
+            : ex
+        )
+      );
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      return;
+    }
+    // Link them with a shared group ID
+    const groupId = 'ss_' + Date.now();
+    setExerciseList((prev) =>
+      prev.map((ex, i) =>
+        i === idx || i === idx + 1
+          ? { ...ex, superset_group: groupId }
+          : ex
+      )
+    );
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
   // Auto-init; restore in-progress or start fresh; request notification permissions [Feature 1]
@@ -524,7 +564,14 @@ const ActiveWorkoutScreen: React.FC = () => {
             rightThreshold={40}
             overshootRight={false}
           >
-          <View style={[styles.exerciseCard, isActive && { opacity: 0.8 }]}> 
+          <View style={[styles.exerciseCard, isActive && { opacity: 0.8 }, item.superset_group && styles.exerciseCardSuperset]}> 
+            {/* Superset badge — shown when this exercise is part of a group */}
+            {item.superset_group && (
+              <View style={styles.supersetBadge}>
+                <Ionicons name="flash" size={11} color="#1A1A1A" />
+                <Text style={styles.supersetBadgeText}>SUPERSET</Text>
+              </View>
+            )}
             <TouchableOpacity onLongPress={drag} onPress={() => { setModalExercise(item); setModalVisible(true); }}>
               <Text style={styles.exerciseName}>{item.exercise_name}</Text>
             </TouchableOpacity>
@@ -607,6 +654,21 @@ const ActiveWorkoutScreen: React.FC = () => {
                 {restTime <= 5 ? '⚠️' : '⏱'} {restTime}s {restTime <= 5 ? '— go!' : 'rest…'}
               </Text>
             )}
+            {/* [PRO] Superset toggle button */}
+            <TouchableOpacity
+              style={[styles.supersetBtn, item.superset_group && styles.supersetBtnActive]}
+              onPress={() => toggleSuperset(item.exercise_id)}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name={isPro ? 'flash' : 'lock-closed'}
+                size={13}
+                color={item.superset_group ? '#1A1A1A' : '#B0B0B0'}
+              />
+              <Text style={[styles.supersetBtnText, item.superset_group && styles.supersetBtnTextActive]}>
+                {item.superset_group ? 'Superset ✓' : 'Superset'}
+              </Text>
+            </TouchableOpacity>
           </View>
           </Swipeable>
         )}
@@ -1055,5 +1117,51 @@ const styles = StyleSheet.create({
     color: '#B0B0B0',
     fontSize: 13,
     textDecorationLine: 'underline',
+  },
+  // ── Superset styles [PRO] ─────────────────────────────────────────────────
+  exerciseCardSuperset: {
+    borderLeftWidth:  3,
+    borderLeftColor:  '#FF6200',
+  },
+  supersetBadge: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    alignSelf:         'flex-start',
+    backgroundColor:   '#FF6200',
+    borderRadius:      20,
+    paddingHorizontal: 8,
+    paddingVertical:   3,
+    marginBottom:      6,
+    gap:               3,
+  },
+  supersetBadgeText: {
+    color:      '#1A1A1A',
+    fontSize:   10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  supersetBtn: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    alignSelf:         'flex-start',
+    marginTop:         8,
+    borderWidth:       1,
+    borderColor:       '#444',
+    borderRadius:      20,
+    paddingHorizontal: 12,
+    paddingVertical:   5,
+    gap:               4,
+  },
+  supersetBtnActive: {
+    backgroundColor: '#FF6200',
+    borderColor:     '#FF6200',
+  },
+  supersetBtnText: {
+    color:      '#B0B0B0',
+    fontSize:   12,
+    fontWeight: '600',
+  },
+  supersetBtnTextActive: {
+    color: '#1A1A1A',
   },
 });
