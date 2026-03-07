@@ -59,7 +59,7 @@ export default function LoginScreen() {
 
   // Handle redirect result on web (after signInWithRedirect returns)
   useEffect(() => {
-    if (!IS_WEB) return;
+    if (Platform.OS !== 'web') return;
     let cancelled = false;
     (async () => {
       try {
@@ -81,8 +81,8 @@ export default function LoginScreen() {
   }, []);
 
   const signInWithGoogle = async () => {
-    console.log('[Google] button pressed, IS_WEB:', IS_WEB);
-    if (!IS_WEB) {
+    console.log('[Google] button pressed, IS_WEB:', Platform.OS === 'web');
+    if (Platform.OS !== 'web') {
       // Native path: handled separately via expo-auth-session
       Alert.alert('Coming Soon', 'Google sign-in on mobile will be available in the next build.');
       return;
