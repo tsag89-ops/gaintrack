@@ -18,6 +18,7 @@
 import React, { useEffect } from 'react';
 import { Dimensions, Image, Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, {
+  cancelAnimation,
   Easing,
   useAnimatedStyle,
   useSharedValue,
@@ -40,7 +41,13 @@ const TAG_DURATION   = 350;
 const BAR_FILL_MS    = 2200; // time to reach 85 %
 const BAR_PULSE_MS   = 900;  // subtle shimmer repeat
 
-export default function AuthSplash() {
+interface AuthSplashProps {
+  /** When provided (e.g. 'Installing update...'), the tagline is replaced
+   *  with this message in orange, the shimmer stops, and the bar fills to 100 %. */
+  message?: string;
+}
+
+export default function AuthSplash({ message }: AuthSplashProps) {
   // ── Logo ──────────────────────────────────────────────────────────────────
   const logoOpacity = useSharedValue(0);
   const logoScale   = useSharedValue(0.72);
@@ -56,6 +63,17 @@ export default function AuthSplash() {
   const barProgress = useSharedValue(0);
   const shimmer     = useSharedValue(0);
 
+  // ── OTA-update mode ───────────────────────────────────────────────────────
+  // When a `message` prop is supplied (e.g. from _layout.tsx during an OTA
+  // download), cancel the shimmer and fill the bar to 100 % to signal activity.
+  useEffect(() => {
+    if (!message) return;
+    cancelAnimation(shimmer);
+    shimmer.value = withTiming(0, { duration: 200 });
+    barProgress.value = withTiming(1.0, { duration: 1600, easing: Easing.inOut(Easing.quad) });
+  }, [message]);
+
+  // ── Initial animations (run once on mount) ────────────────────────────────
   useEffect(() => {
     // Logo entry
     logoOpacity.value = withTiming(1, { duration: LOGO_DURATION, easing: Easing.out(Easing.cubic) });
@@ -122,9 +140,9 @@ export default function AuthSplash() {
         GAINTRACK
       </Animated.Text>
 
-      {/* Tagline */}
-      <Animated.Text style={[styles.tagline, tagStyle]}>
-        Track every rep. Own every PR.
+      {/* Tagline — replaced by update message when OTA is active */}
+      <Animated.Text style={[styles.tagline, tagStyle, message ? styles.updateText : undefined]}>
+        {message ?? 'Track every rep. Own every PR.'}
       </Animated.Text>
 
       {/* Progress bar */}
@@ -168,6 +186,12 @@ const styles = StyleSheet.create({
     color:      colors.textSecondary,
     letterSpacing: typography.letterSpacing.wide,
     marginBottom: 48,
+  },
+  updateText: {
+    color:      colors.primary,
+    fontWeight: '700',
+    fontSize:   14,
+    letterSpacing: 1.5,
   },
   barTrack: {
     width:           BAR_WIDTH,

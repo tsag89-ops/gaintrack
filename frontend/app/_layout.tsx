@@ -14,6 +14,7 @@ import { logCrash, flushCrashQueue } from '../src/services/crashReporter';
 import { useAuthStore } from '../src/store/authStore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -60,6 +61,28 @@ export default function RootLayout() {
   // defer conditional rendering until after client mount.
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => { setHasMounted(true); }, []);
+
+  // OTA update: check on cold start (native + production only).
+  // If an update is available, download it and reload. The splash stays up
+  // during the download so the user never sees a half-loaded UI.
+  const [otaMessage, setOtaMessage] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    if (Platform.OS === 'web' || __DEV__) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await Updates.checkForUpdateAsync();
+        if (!result.isAvailable || cancelled) return;
+        setOtaMessage('Installing update...');
+        await Updates.fetchUpdateAsync();
+        if (!cancelled) await Updates.reloadAsync();
+      } catch (e) {
+        // Silent — never block the app for a failed update check
+        console.warn('[OTA] update check skipped:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Step 1: Restore user + isPro from AsyncStorage immediately on cold start.
   useEffect(() => { loadStoredAuth(); }, []);
@@ -130,8 +153,9 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    // While the bridge is resolving or AsyncStorage hasn't loaded, hold.
-    if (status === 'loading' || !authReady) return;
+    // While the bridge is resolving, AsyncStorage hasn't loaded, or an OTA
+    // update is being installed, hold — never redirect during these windows.
+    if (status === 'loading' || !authReady || otaMessage !== undefined) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
@@ -171,9 +195,9 @@ export default function RootLayout() {
             any auth-gated screen from flashing before the redirect fires.
             `hasMounted` guard ensures the SSR HTML (no overlay) matches the
             first client render, preventing React hydration mismatch #418. */}
-        {hasMounted && (status === 'loading' || !authReady) && (
+        {hasMounted && (status === 'loading' || !authReady || otaMessage !== undefined) && (
           <View style={StyleSheet.absoluteFill}>
-            <AuthSplash />
+            <AuthSplash message={otaMessage} />
           </View>
         )}
       </AuthProvider>
