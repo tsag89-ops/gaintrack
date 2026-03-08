@@ -32,6 +32,7 @@ interface AuthState {
   sessionToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  authReady: boolean;
   setUser: (user: User) => void;
   setSession: (user: User, token: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -86,6 +87,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   sessionToken: null,
   isAuthenticated: false,
   isLoading: true,
+  authReady: false,
 
   setUser: (user) => set({ user }),
 
@@ -178,7 +180,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (userStr && token) {
         const user = JSON.parse(userStr) as User;
         // Restore immediately from cache so the UI is not blocked
-        set({ user, sessionToken: token, isAuthenticated: true, isLoading: false });
+        set({ user, sessionToken: token, isAuthenticated: true, isLoading: false, authReady: true });
         // Then refresh isPro from Firestore in the background
         fetchIsPro(user.id).then((isPro) => {
           set((state) => ({
@@ -188,11 +190,11 @@ export const useAuthStore = create<AuthState>((set) => ({
           storage.setItem('user', JSON.stringify({ ...user, isPro })).catch(() => {});
         });
       } else {
-        set({ isLoading: false });
+        set({ isLoading: false, authReady: true });
       }
     } catch (error) {
       console.error('Error loading stored auth:', error);
-      set({ isLoading: false });
+      set({ isLoading: false, authReady: true });
     }
   },
 }));

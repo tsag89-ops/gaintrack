@@ -55,7 +55,7 @@ export default function RootLayout() {
   const { status } = useNativeAuthState();
   const segments = useSegments();
   const router = useRouter();
-  const { user, loadStoredAuth, setSession } = useAuthStore();
+  const { user, loadStoredAuth, setSession, authReady } = useAuthStore();
   // Prevent hydration mismatch (#418): auth state is unknown during SSR;
   // defer conditional rendering until after client mount.
   const [hasMounted, setHasMounted] = useState(false);
@@ -130,8 +130,8 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    // While the bridge is resolving, hold — never redirect on 'loading'.
-    if (status === 'loading') return;
+    // While the bridge is resolving or AsyncStorage hasn't loaded, hold.
+    if (status === 'loading' || !authReady) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
@@ -171,7 +171,7 @@ export default function RootLayout() {
             any auth-gated screen from flashing before the redirect fires.
             `hasMounted` guard ensures the SSR HTML (no overlay) matches the
             first client render, preventing React hydration mismatch #418. */}
-        {hasMounted && status === 'loading' && (
+        {hasMounted && (status === 'loading' || !authReady) && (
           <View style={StyleSheet.absoluteFill}>
             <AuthSplash />
           </View>

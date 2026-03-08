@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import { getAuth, signOut as firebaseSignOut, onAuthStateChanged } from 'firebase/auth';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { NativeAuthState } from '../services/authBridge';
+import { useAuthStore } from '../store/authStore';
 
 export function useAuth() {
   const signOut = async () => {
@@ -107,37 +108,68 @@ export function useNativeAuthState(): NativeAuthStateWithStatus {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const rnFirebaseAuth = require('@react-native-firebase/auth').default;
 
-      // ✅ Safety net: give AsyncStorage (loadStoredAuth) time to restore
-      // the cached session before we declare the user unauthenticated.
-      // If Firebase resolves as authenticated within this window, the timer
-      // is cancelled immediately and we never show the login screen.
       let resolved = false;
+      let storeUnsubscribe: (() => void) | null = null;
+
+      // Absolute fallback: if neither Firebase nor authReady resolves within 4s,
+      // default to unauthenticated to prevent the app from hanging forever.
       const timer = setTimeout(() => {
         if (!resolved) {
           console.warn('[useAuth] Native auth state timeout — defaulting to unauthenticated');
           resolved = true;
+          storeUnsubscribe?.();
+          storeUnsubscribe = null;
           setState({ uid: null, isAuthenticated: false, status: 'unauthenticated' });
         }
-      }, 3000); // 3 seconds is enough for rnFirebase to restore a persisted session
+      }, 4000);
 
       const unsubscribe = rnFirebaseAuth().onAuthStateChanged((firebaseUser: any) => {
-        // Only act on the FIRST non-null result or after timer expires.
-        // Subsequent null fires (e.g. token refresh) must not redirect to login.
         if (firebaseUser) {
+          // Real authenticated user — resolve immediately.
           clearTimeout(timer);
           resolved = true;
+          storeUnsubscribe?.();
+          storeUnsubscribe = null;
           setState({ uid: firebaseUser.uid, isAuthenticated: true, status: 'authenticated' });
         } else if (resolved) {
-          // Already resolved (authenticated or timed out) — a null here means
-          // a real sign-out happened, so update state correctly.
+          // Already resolved — a null here means a real sign-out happened.
+          storeUnsubscribe?.();
+          storeUnsubscribe = null;
           setState({ uid: null, isAuthenticated: false, status: 'unauthenticated' });
+        } else {
+          // Firebase fired null before the persisted session is restored.
+          // Check if loadStoredAuth() has already finished reading AsyncStorage.
+          const { authReady, user: storedUser } = useAuthStore.getState();
+          if (authReady) {
+            // loadStoredAuth() is done — trust the store.
+            clearTimeout(timer);
+            resolved = true;
+            if (storedUser) {
+              setState({ uid: storedUser.id, isAuthenticated: true, status: 'authenticated' });
+            } else {
+              setState({ uid: null, isAuthenticated: false, status: 'unauthenticated' });
+            }
+          } else {
+            // loadStoredAuth() is still in-flight — subscribe and wait for authReady.
+            storeUnsubscribe = useAuthStore.subscribe((state) => {
+              if (!state.authReady) return;
+              clearTimeout(timer);
+              resolved = true;
+              storeUnsubscribe?.();
+              storeUnsubscribe = null;
+              if (state.user) {
+                setState({ uid: state.user.id, isAuthenticated: true, status: 'authenticated' });
+              } else {
+                setState({ uid: null, isAuthenticated: false, status: 'unauthenticated' });
+              }
+            });
+          }
         }
-        // If not yet resolved + firebaseUser is null: wait for the timer —
-        // this is the cold-start window where AsyncStorage may still be loading.
       });
 
       return () => {
         clearTimeout(timer);
+        storeUnsubscribe?.();
         unsubscribe();
       };
     } catch (e) {
