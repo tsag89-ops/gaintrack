@@ -127,21 +127,37 @@ const MuscleChips: React.FC<{
 );
 
 const chipStyles = StyleSheet.create({
-  scrollView: { paddingVertical: 10 },
-  row: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
+  scrollView: {
+    minHeight: 48,
+    overflow: 'visible',
+  },
+  row: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    gap: 8,
+    alignItems: 'center',
+  },
   chip: {
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 8,
+    minHeight: 36,
     borderRadius: 20,
     backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.border,
+    justifyContent: 'center',
   },
   chipActive: {
     backgroundColor: theme.primary,
     borderColor: theme.primary,
   },
-  label: { fontSize: 13, fontWeight: '600', color: theme.textSecondary },
+  label: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+    color: theme.textSecondary,
+    includeFontPadding: false,
+  },
   labelActive: { color: theme.textPrimary },
 });
 
