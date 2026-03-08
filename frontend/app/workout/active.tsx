@@ -499,6 +499,23 @@ const ActiveWorkoutScreen: React.FC = () => {
     );
   };
 
+  // Remove a single set from an exercise
+  const removeSet = (exerciseId: string, setIdx: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setExerciseList((prev) =>
+      prev.map((ex) =>
+        ex.exercise_id === exerciseId
+          ? {
+              ...ex,
+              sets: ex.sets
+                .filter((_, i) => i !== setIdx)
+                .map((s, i) => ({ ...s, set_number: i + 1 })),
+            }
+          : ex
+      )
+    );
+  };
+
   // Update a set's values
   const updateSet = (exerciseId: string, setIdx: number, field: keyof WorkoutSet, value: number) => {
     const exercise = exerciseList.find((ex) => ex.exercise_id === exerciseId);
@@ -603,6 +620,15 @@ const ActiveWorkoutScreen: React.FC = () => {
                     exercise_id: ex.exercise_id,
                     exercise_name: ex.exercise_name,
                     exercise: ex.exercise,
+                    sets: ex.sets.map((s) => ({
+                      set_id: s.set_id,
+                      set_number: s.set_number,
+                      reps: s.reps ?? 0,
+                      weight: s.weight ?? 0,
+                      rpe: s.rpe ?? null,
+                      completed: false,
+                      is_warmup: s.is_warmup ?? false,
+                    })),
                   })),
                   createdAt: new Date().toISOString(),
                 });
@@ -716,6 +742,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                     <Text style={styles.setColumnsLabel}>Weight</Text>
                     <Text style={styles.setColumnsLabel}>Reps</Text>
                     <Text style={styles.setColumnsLabel}>RPE</Text>
+                    <View style={{ width: 28 }} />
                   </View>
                 </View>
               }
@@ -758,6 +785,13 @@ const ActiveWorkoutScreen: React.FC = () => {
                     placeholder="RPE"
                     placeholderTextColor="#B0B0B0"
                   />
+                  <TouchableOpacity
+                    style={styles.setDeleteBtn}
+                    onPress={() => removeSet(item.exercise_id, index)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#666" />
+                  </TouchableOpacity>
                 </View>
               )}
               ListFooterComponent={
@@ -1050,6 +1084,10 @@ const styles = StyleSheet.create({
   setColumnsCheckSpacer: {
     width: 28,
     marginRight: 6,
+  },
+  setDeleteBtn: {
+    marginLeft: 4,
+    padding: 4,
   },
   setColumnsSet: {
     color: '#B0B0B0',

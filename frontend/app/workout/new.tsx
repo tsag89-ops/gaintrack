@@ -150,7 +150,12 @@ export default function NewWorkoutScreen() {
         exercise_id: ex.exercise_id,
         exercise_name: ex.exercise_name,
         exercise: ex.exercise,
-        sets: [],
+        sets: (ex.sets ?? []).map((s: any, idx: number) => ({
+          ...s,
+          set_id: `tmpl-${ex.exercise_id}-${Date.now()}-${idx}`,
+          set_number: idx + 1,
+          completed: false,
+        })),
         notes: undefined,
       }))
     );
