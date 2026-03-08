@@ -116,11 +116,16 @@ export default function RootLayout() {
   useOfflineSync();
 
   // Configure Google Sign-In once on app start (native only).
+  // Use typeof guard: in new arch (JSI), Constants.expoConfig?.extra values can
+  // be returned as JSI HostObject proxies (truthy non-strings) rather than plain
+  // strings. The ?? operator doesn't catch them, but typeof === 'string' does.
   useEffect(() => {
     if (Platform.OS === 'web') return;
+    const raw = Constants.expoConfig?.extra?.googleWebClientId;
     const webClientId =
-      Constants.expoConfig?.extra?.googleWebClientId ??
-      '735512337922-36kntbp5us1lemkagqq64i7n81cd54j9.apps.googleusercontent.com';
+      typeof raw === 'string' && raw.length > 0
+        ? raw
+        : '735512337922-36kntbp5us1lemkagqq64i7n81cd54j9.apps.googleusercontent.com';
     GoogleSignin.configure({ webClientId, offlineAccess: true });
   }, []);
 

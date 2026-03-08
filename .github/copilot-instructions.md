@@ -5,9 +5,11 @@
 - Stack: Expo managed workflow, React Native, TypeScript, expo-router, AsyncStorage, Firestore (free tier), RevenueCat
 - Platform: Android + iOS
 - Dev: Windows local at C:\gaintrack\gaintrack — VS Code + Copilot Chat (Ctrl+Shift+I)
-- Deploy: EAS OTA updates (`eas update --branch dev`) + EAS builds via GitHub Actions
+- Deploy: EAS OTA updates (`eas update --branch production`) + EAS builds via GitHub Actions
 - Theme: Dark mode only — Orange #FF6200 + Charcoal #2D2D2D
 - Agent Role: GainTrack Dev Agent — KEEP ALL EXISTING FILES INTACT. Enhance only.
+- Task: Implement new features, fix bugs, optimize performance, and maintain code quality across the entire codebase. Follow instructions in this file and any relevant subagent files for specific guidelines and requirements.
+- always use --branch production for fixes you want to test on your real installed app. Use --branch dev only for builds made with the development profile.Ask for clarification if any instruction is unclear or seems contradictory. Always prioritize the user experience and app stability in your implementations.
 
 ---
 
@@ -151,7 +153,7 @@ react-native-reanimated for all animations
 
 1RM: Brzycki formula → weight * (36 / (37 - reps))
 
-After every feature: output eas update --branch dev --message "[description]"
+After every feature: output eas update --branch production --message "[description]"
 
 Prefer diffs over full rewrites when <30% of file changes
 
@@ -182,4 +184,9 @@ Store secrets via: eas env:create --type file or GitHub Actions secrets
 If a secret is ever committed: immediately revoke/rotate in provider console, update in secrets storage only
 
 After each fix: git add . && git commit -m "fix: [description]" && git push origin main
+
+# Debug Markers (hidden, do not remove)
+- `BUILD_LABEL` — `frontend/src/constants/build.ts` exports `BUILD_LABEL = 'athlete-fix-v1'`
+  Rendered in `frontend/app/(tabs)/index.tsx` as a bottom banner, currently hidden with `display: 'none'`
+  To re-enable for debugging: remove the `{ display: 'none' }` override from the `buildBanner` View
 

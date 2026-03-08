@@ -407,8 +407,8 @@ export default function HomeScreen() {
         }
       />
 
-      {/* ── Build banner (debug) ── */}
-      <View style={styles.buildBanner}>
+      {/* ── Build banner (debug) — hidden, keep for future debugging ── */}
+      <View style={[styles.buildBanner, { display: 'none' }]}>
         <Text style={styles.buildBannerText}>BUILD: {BUILD_LABEL}</Text>
       </View>
 
