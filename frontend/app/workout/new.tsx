@@ -3,29 +3,27 @@ import {
   View,
   Text,
   StyleSheet,
+  Modal,
   ScrollView,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { exerciseApiExtended as exerciseApi } from '../../src/services/api';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import { Exercise, WorkoutExercise, WorkoutSet } from '../../src/types';
-import { getCategoryColor } from '../../src/utils/helpers';
 import { SetLoggerSheet } from '../../src/components/SetLoggerSheet';
-import { seedExercises as localSeedExercises } from '../../src/data/seedData';
-
-
-const CATEGORIES = ['all', 'chest', 'back', 'shoulders', 'legs', 'arms', 'core'];
+import { ExercisePicker } from '../../src/components/ExercisePicker';
+import { usePro } from '../../src/hooks/usePro';
 
 export default function NewWorkoutScreen() {
   const router = useRouter();
   const { preloadExercise } = useLocalSearchParams<{ preloadExercise?: string }>();
-  const { startWorkout } = useWorkoutStore();
+  const { startWorkout, addExerciseToWorkout } = useWorkoutStore();
+  const { isPro } = usePro();
   const [workoutName, setWorkoutName] = useState('Workout');
 
   // Pre-populate exercise from browse mode if provided
@@ -48,62 +46,22 @@ export default function NewWorkoutScreen() {
   const [exercises, setExercises] = useState<WorkoutExercise[]>(() =>
     preloaded ? [preloaded] : []
   );
-  const [availableExercises, setAvailableExercises] = useState<Exercise[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState('all');
   const [showExercisePicker, setShowExercisePicker] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<WorkoutExercise | null>(
     preloaded ?? null
   );
   const [showSetLogger, setShowSetLogger] = useState(preloaded !== null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [templates, setTemplates] = useState<any[]>([]);
-
-  useEffect(() => {
-    fetchExercises();
-  }, []);
-
-  const fetchExercises = async () => {
-  try {
-    setIsLoading(true);
-    const data = await exerciseApi.getForUser();
-    setAvailableExercises(data);
-  } catch (error) {
-    console.error('Error fetching exercises:', error);
-    try {
-      const allExercises = await exerciseApi.getAll();
-      setAvailableExercises(allExercises);
-    } catch (e) {
-      console.error('Error fetching all exercises:', e);
-
-      // Fallback: use local seeded exercises from app/data/seedData
-      const mapped = (localSeedExercises as any[]).map((ex: any, index: number) => ({
-        exercise_id: ex.id ?? String(index + 1),
-        name: ex.name,
-        category: (ex.muscleGroup || 'other').toLowerCase(),
-        is_compound: ['chest', 'back', 'legs', 'shoulders'].includes(
-          (ex.muscleGroup || '').toLowerCase()
-        ),
-      }));
-
-      setAvailableExercises(mapped as any);
+  const addExercise = (exercise: Exercise, _superset?: boolean) => {
+    const exerciseId = exercise.exercise_id || exercise.id;
+    if (exercises.some((ex) => ex.exercise_id === exerciseId)) {
+      setShowExercisePicker(false);
+      return;
     }
-  } finally {
-    setIsLoading(false);
-  }
-};
 
-
-  const filteredExercises = availableExercises.filter((ex) => {
-    const matchesCategory = selectedCategory === 'all' || ex.category === selectedCategory;
-    const matchesSearch = !searchQuery || ex.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
-
-  const addExercise = (exercise: Exercise) => {
     const newExercise: WorkoutExercise = {
-      exercise_id: exercise.exercise_id,
+      exercise_id: exerciseId,
       exercise_name: exercise.name,
       exercise: exercise,
       sets: [],
@@ -111,7 +69,6 @@ export default function NewWorkoutScreen() {
     };
     setExercises([...exercises, newExercise]);
     setShowExercisePicker(false);
-    setSearchQuery('');
   };
 
   const removeExercise = (exerciseId: string) => {
@@ -160,7 +117,16 @@ export default function NewWorkoutScreen() {
   };
 
   const handleStartWorkout = () => {
+    if (exercises.length === 0) {
+      Alert.alert(
+        'No Exercises Selected',
+        'Please select one exercise to start workout.'
+      );
+      return;
+    }
+
     startWorkout(workoutName);
+    exercises.forEach((exercise) => addExerciseToWorkout(exercise));
     router.push({ pathname: '/workout/active', params: { name: workoutName } });
   };
 
@@ -262,97 +228,19 @@ export default function NewWorkoutScreen() {
       </ScrollView>
 
       {/* Exercise Picker Modal */}
-      {showExercisePicker && (
-        <View style={styles.pickerOverlay}>
-          <View style={styles.pickerContent}>
-            <View style={styles.pickerHeader}>
-              <Text style={styles.pickerTitle}>Add Exercise</Text>
-              <TouchableOpacity onPress={() => setShowExercisePicker(false)}>
-                <Ionicons name="close" size={24} color="#B0B0B0" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#B0B0B0" />
-              <TextInput
-                style={styles.searchInput}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Search exercises..."
-                placeholderTextColor="#B0B0B0"
-              />
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.categoryScroll}
-              contentContainerStyle={styles.categoryScrollContent}
-            >
-              {CATEGORIES.map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[
-                    styles.categoryChip,
-                    selectedCategory === cat && styles.categoryChipActive,
-                  ]}
-                  onPress={() => setSelectedCategory(cat)}
-                >
-                  <Text
-                    style={[
-                      styles.categoryChipText,
-                      selectedCategory === cat && styles.categoryChipTextActive,
-                    ]}
-                  >
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {isLoading ? (
-              <ActivityIndicator size="large" color="#4CAF50" style={{ marginTop: 40 }} />
-            ) : (
-              <ScrollView style={styles.exerciseList}>
-                {filteredExercises.map((ex) => (
-                  <TouchableOpacity
-                    key={ex.exercise_id}
-                    style={styles.exerciseListItem}
-                    onPress={() => addExercise(ex)}
-                  >
-                    <View>
-                      <Text style={styles.exerciseListName}>{ex.name}</Text>
-                      <View style={styles.exerciseMeta}>
-                        <View
-                          style={[
-                            styles.categoryBadge,
-                            { backgroundColor: getCategoryColor(ex.category) + '30' },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.categoryBadgeText,
-                              { color: getCategoryColor(ex.category) },
-                            ]}
-                          >
-                            {ex.category}
-                          </Text>
-                        </View>
-                        {ex.is_compound && (
-                          <View style={styles.compoundBadge}>
-                            <Text style={styles.compoundBadgeText}>Compound</Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                    <Ionicons name="add-circle" size={24} color="#4CAF50" />
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
-          </View>
-        </View>
-      )}
+      <Modal
+        visible={showExercisePicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowExercisePicker(false)}
+      >
+        <ExercisePicker
+          onAdd={addExercise}
+          onClose={() => setShowExercisePicker(false)}
+          isPro={isPro}
+          addedExerciseIds={exercises.map((ex) => ex.exercise_id)}
+        />
+      </Modal>
 
       {/* Template Picker [Feature 4] */}
       {showTemplatePicker && (
@@ -538,51 +426,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    marginHorizontal: 20,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 12,
-  },
-  searchInput: {
-    flex: 1,
-    color: '#FFFFFF',
-    fontSize: 16,
-    paddingVertical: 12,
-    marginLeft: 8,
-  },
-  categoryScroll: {
-    maxHeight: 44,
-  },
-  categoryScrollContent: {
-    paddingHorizontal: 20,
-    gap: 8,
-  },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#303030',
-    borderRadius: 20,
-  },
-  categoryChipActive: {
-    backgroundColor: '#4CAF50',
-  },
-  categoryChipText: {
-    color: '#B0B0B0',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  categoryChipTextActive: {
-    color: '#FFFFFF',
-  },
-  exerciseList: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 40,
-  },
   exerciseListItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -595,31 +438,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     marginBottom: 4,
-  },
-  exerciseMeta: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  categoryBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  categoryBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  compoundBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: '#2196F320',
-    borderRadius: 4,
-  },
-  compoundBadgeText: {
-    color: '#2196F3',
-    fontSize: 11,
-    fontWeight: '600',
   },
   // ── Feature 4: Template button ──
   fromTemplateBtn: {
