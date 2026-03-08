@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,14 +13,13 @@ import {
   FlatList,
   Animated,
   ActivityIndicator,
-  BackHandler,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { WorkoutExercise, WorkoutSet } from '../../src/types';
 import { ExerciseVideo } from '../../src/components/ExerciseVideo';
 import { ExercisePicker } from '../../src/components/ExercisePicker';
@@ -43,19 +42,60 @@ const ActiveWorkoutScreen: React.FC = () => {
   const { uid } = useNativeAuthState();
   const { isPro } = usePro();
   const [exerciseList, setExerciseList] = useState(currentWorkout?.exercises || []);
+  const [prefilledFromLastSession, setPrefilledFromLastSession] = useState<Set<string>>(new Set());
   const [addModalVisible, setAddModalVisible] = useState(false);
 
   // Add exercise to workout from ExercisePicker
-  const handleAddExercise = (ex: any) => {
-    setExerciseList([
-      ...exerciseList,
-       {
-        exercise_id: ex.id || ex.exercise_id,
+  const loadLastSessionSets = async (exerciseId: string): Promise<WorkoutSet[]> => {
+    try {
+      const raw = await AsyncStorage.getItem('gaintrack_workouts');
+      if (!raw) return [];
+      const workouts = JSON.parse(raw) as any[];
+      const sorted = [...workouts].sort((a, b) => {
+        const ad = new Date(a?.date ?? a?.created_at ?? 0).getTime();
+        const bd = new Date(b?.date ?? b?.created_at ?? 0).getTime();
+        return bd - ad;
+      });
+
+      for (const workout of sorted) {
+        const previousExercise = (workout?.exercises ?? []).find(
+          (item: any) => (item?.exercise_id ?? item?.id) === exerciseId,
+        );
+        const previousSets = previousExercise?.sets ?? [];
+        if (previousSets.length > 0) {
+          return previousSets.map((set: WorkoutSet, idx: number) => ({
+            ...set,
+            set_id: `prefill-${exerciseId}-${Date.now()}-${idx}`,
+            set_number: idx + 1,
+            completed: false,
+          }));
+        }
+      }
+      return [];
+    } catch (err) {
+      console.warn('[active] loadLastSessionSets failed:', err);
+      return [];
+    }
+  };
+
+  const handleAddExercise = async (ex: any) => {
+    const exerciseId = ex.id || ex.exercise_id;
+    const previousSets = await loadLastSessionSets(exerciseId);
+
+    setExerciseList((prev) => [
+      ...prev,
+      {
+        exercise_id: exerciseId,
         exercise_name: ex.name,
         exercise: ex,
-        sets: [],
+        sets: previousSets,
       },
     ]);
+
+    if (previousSets.length > 0) {
+      setPrefilledFromLastSession((prev) => new Set(prev).add(exerciseId));
+    }
+
     setAddModalVisible(false);
   };
   const [restTime, setRestTime] = useState(0);
@@ -275,18 +315,6 @@ const ActiveWorkoutScreen: React.FC = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, [timerPaused]);
-
-  // Force Android hardware back to return to main tabs instead of exiting app.
-  useFocusEffect(
-    useCallback(() => {
-      if (Platform.OS !== 'android') return () => {};
-      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-        router.replace('/(tabs)');
-        return true;
-      });
-      return () => sub.remove();
-    }, [router])
-  );
 
   // Countdown — vibrate each tick in last 5 s; cancel notif when done in-app [Feature 5]
   useEffect(() => {
@@ -672,6 +700,20 @@ const ActiveWorkoutScreen: React.FC = () => {
             <FlatList
               data={item.sets}
               keyExtractor={(_, idx) => idx.toString()}
+              ListHeaderComponent={
+                <View>
+                  {prefilledFromLastSession.has(item.exercise_id) && (
+                    <Text style={styles.lastSessionHeader}>Last session</Text>
+                  )}
+                  <View style={styles.setColumnsHeaderRow}>
+                    <View style={styles.setColumnsCheckSpacer} />
+                    <Text style={styles.setColumnsSet}>Set</Text>
+                    <Text style={styles.setColumnsLabel}>Weight</Text>
+                    <Text style={styles.setColumnsLabel}>Reps</Text>
+                    <Text style={styles.setColumnsLabel}>RPE</Text>
+                  </View>
+                </View>
+              }
               renderItem={({ item: set, index }) => (
                 <View style={[styles.setRow, set.completed && styles.setRowComplete]}>
                   {/* Tap-to-complete checkmark [Feature 3] */}
@@ -987,6 +1029,36 @@ const styles = StyleSheet.create({
   setNum: {
     color: '#fff',
     width: 50,
+  },
+  lastSessionHeader: {
+    color: '#FFD4B3',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  setColumnsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    opacity: 0.9,
+  },
+  setColumnsCheckSpacer: {
+    width: 28,
+    marginRight: 6,
+  },
+  setColumnsSet: {
+    color: '#B0B0B0',
+    width: 50,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  setColumnsLabel: {
+    color: '#B0B0B0',
+    width: 60,
+    marginHorizontal: 4,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
   },
   input: {
     backgroundColor: '#1A1A1A',
