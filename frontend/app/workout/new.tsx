@@ -120,7 +120,8 @@ export default function NewWorkoutScreen() {
     if (exercises.length === 0) {
       Alert.alert(
         'No Exercises Selected',
-        'Please select one exercise to start workout.'
+        'Please select one exercise to start workout.',
+        [{ text: 'Select Exercise' }]
       );
       return;
     }

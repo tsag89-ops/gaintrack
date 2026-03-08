@@ -255,19 +255,27 @@ const ActiveWorkoutScreen: React.FC = () => {
   const addSet = (exerciseId: string) => {
     const exercise = exerciseList.find((ex) => ex.exercise_id === exerciseId);
     if (!exercise) return;
+    const lastSet = exercise.sets[exercise.sets.length - 1];
     const newSet: WorkoutSet = {
       set_id: "set_" + Date.now(),
       set_number: exercise.sets.length + 1,
       completed: false,
-      weight: 0,
-      reps: 0,
-      rpe: undefined,
+      weight: lastSet?.weight ?? 0,
+      reps: lastSet?.reps ?? 0,
+      rpe: lastSet?.rpe,
       is_warmup: false,
     };
     const updated = exerciseList.map((ex) =>
       ex.exercise_id === exerciseId ? { ...ex, sets: [...ex.sets, newSet] } : ex
     );
     setExerciseList(updated);
+  };
+
+  const skipRestTimer = async () => {
+    cancelRestNotif();
+    setActiveRest(false);
+    setRestTime(0);
+    await Haptics.selectionAsync();
   };
 
   // Tap checkmark to complete a set; auto-start rest on first completion [Feature 3]
@@ -645,9 +653,14 @@ const ActiveWorkoutScreen: React.FC = () => {
               </View>
             </TouchableOpacity>
             {activeRest && (
-              <Text style={[styles.restTimer, restTime <= 5 && { color: '#F44336' }]}>
-                {restTime <= 5 ? '⚠️' : '⏱'} {restTime}s {restTime <= 5 ? '— go!' : 'rest…'}
-              </Text>
+              <View style={styles.restTimerRow}>
+                <Text style={[styles.restTimer, restTime <= 5 && { color: '#F44336' }]}>
+                  {restTime <= 5 ? '⚠️' : '⏱'} {restTime}s {restTime <= 5 ? '— go!' : 'rest…'}
+                </Text>
+                <TouchableOpacity style={styles.skipRestBtn} onPress={skipRestTimer}>
+                  <Text style={styles.skipRestText}>Skip</Text>
+                </TouchableOpacity>
+              </View>
             )}
             {/* [PRO] Superset toggle button */}
             <TouchableOpacity
@@ -873,6 +886,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 6,
     textAlign: 'center',
+  },
+  restTimerRow: {
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  skipRestBtn: {
+    backgroundColor: '#2D2D2D',
+    borderWidth: 1,
+    borderColor: '#555',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  skipRestText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
   },
   finishBtn: {
     backgroundColor: '#FF6200',
