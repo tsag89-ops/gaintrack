@@ -160,14 +160,23 @@ export default function HomeScreen() {
     () => chartData.reduce((s, v) => s + v, 0),
     [chartData],
   );
+  const hasActiveWorkout = Boolean(resumeWorkoutName);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleNewWorkout = async () => {
+    if (hasActiveWorkout) {
+      await Haptics.selectionAsync();
+      return;
+    }
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/workout/new');
   };
 
   const handleQuickLog = async () => {
+    if (hasActiveWorkout) {
+      await Haptics.selectionAsync();
+      return;
+    }
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     router.push('/workout/new');
   };
@@ -260,8 +269,9 @@ export default function HomeScreen() {
 
       {/* ── Start Workout CTA ── */}
       <TouchableOpacity
-        style={styles.ctaButton}
+        style={[styles.ctaButton, hasActiveWorkout && styles.ctaButtonDisabled]}
         onPress={handleNewWorkout}
+        disabled={hasActiveWorkout}
         activeOpacity={0.82}
       >
         <View style={styles.ctaInner}>
@@ -270,6 +280,11 @@ export default function HomeScreen() {
         </View>
         <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
       </TouchableOpacity>
+      {hasActiveWorkout && (
+        <Text style={styles.ctaDisabledNote}>
+          Not possible while another workout session is in progress.
+        </Text>
+      )}
 
       {/* ── Weekly volume chart ── */}
       <Card style={styles.chartCard} noPadding>
@@ -382,8 +397,9 @@ export default function HomeScreen() {
 
       {/* ── Quick Log FAB ── */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, hasActiveWorkout && styles.fabDisabled]}
         onPress={handleQuickLog}
+        disabled={hasActiveWorkout}
         activeOpacity={0.85}
       >
         <Ionicons name="add" size={30} color={theme.textPrimary} />
@@ -471,6 +487,16 @@ const styles = StyleSheet.create({
       },
       android: { elevation: 8 },
     }),
+  },
+  ctaButtonDisabled: {
+    opacity: 0.45,
+  },
+  ctaDisabledNote: {
+    color: theme.textSecondary,
+    fontSize: 12,
+    marginTop: -6,
+    marginBottom: 14,
+    paddingHorizontal: 4,
   },
   ctaInner: {
     flexDirection: 'row',
@@ -637,5 +663,8 @@ const styles = StyleSheet.create({
       },
       android: { elevation: 10 },
     }),
+  },
+  fabDisabled: {
+    opacity: 0.45,
   },
 });

@@ -22,9 +22,10 @@ import { usePro } from '../../src/hooks/usePro';
 export default function NewWorkoutScreen() {
   const router = useRouter();
   const { preloadExercise } = useLocalSearchParams<{ preloadExercise?: string }>();
-  const { startWorkout, addExerciseToWorkout } = useWorkoutStore();
+  const { startWorkout, addExerciseToWorkout, currentWorkout } = useWorkoutStore();
   const { isPro } = usePro();
   const [workoutName, setWorkoutName] = useState('Workout');
+  const hasActiveWorkout = Boolean(currentWorkout);
 
   // Pre-populate exercise from browse mode if provided
   const preloaded = React.useMemo<WorkoutExercise | null>(() => {
@@ -117,6 +118,11 @@ export default function NewWorkoutScreen() {
   };
 
   const handleStartWorkout = () => {
+    if (hasActiveWorkout) {
+      Alert.alert('Workout In Progress', 'Not possible while another workout session is in progress.');
+      return;
+    }
+
     if (exercises.length === 0) {
       Alert.alert(
         'No Exercises Selected',
@@ -166,12 +172,18 @@ export default function NewWorkoutScreen() {
           placeholderTextColor="#B0B0B0"
         />
         <TouchableOpacity
-          style={styles.saveButton}
+          style={[styles.saveButton, hasActiveWorkout && styles.saveButtonDisabled]}
           onPress={handleStartWorkout}
+          disabled={hasActiveWorkout}
         >
           <Text style={styles.saveButtonText}>Start</Text>
         </TouchableOpacity>
       </View>
+      {hasActiveWorkout && (
+        <Text style={styles.startBlockedNote}>
+          Not possible while another workout session is in progress.
+        </Text>
+      )}
 
       {/* From Template row [Feature 4] */}
       <TouchableOpacity style={styles.fromTemplateBtn} onPress={handleOpenTemplates}>
@@ -324,12 +336,19 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   saveButtonDisabled: {
-    opacity: 0.7,
+    opacity: 0.45,
+    backgroundColor: '#2D2D2D',
   },
   saveButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  startBlockedNote: {
+    color: '#B0B0B0',
+    fontSize: 12,
+    paddingHorizontal: 20,
+    marginBottom: 10,
   },
   content: {
     flex: 1,
