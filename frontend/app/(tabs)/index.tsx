@@ -31,6 +31,7 @@ import { ExercisePicker } from '../../src/components/ExercisePicker';
 import { usePro } from '../../src/hooks/usePro';
 import { Workout, Exercise } from '../../src/types';
 import { theme } from '../../src/constants/theme';
+import { BUILD_LABEL } from '../../src/constants/build';
 import {
   calculateWorkoutVolume,
   formatVolume,
@@ -406,6 +407,9 @@ export default function HomeScreen() {
         }
       />
 
+      {/* ── Build label (debug) ── */}
+      <Text style={styles.buildLabel}>Build: {BUILD_LABEL}</Text>
+
       {/* ── Quick Log FAB ── */}
       <TouchableOpacity
         style={styles.fab}
@@ -656,6 +660,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: theme.textPrimary,
+  },
+
+  // ── Build label ──
+  buildLabel: {
+    position: 'absolute',
+    bottom: 8,
+    alignSelf: 'center',
+    fontSize: 10,
+    color: theme.textSecondary,
+    opacity: 0.5,
   },
 
   // ── FAB ──
