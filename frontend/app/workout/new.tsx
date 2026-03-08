@@ -134,7 +134,7 @@ export default function NewWorkoutScreen() {
 
     startWorkout(workoutName);
     exercises.forEach((exercise) => addExerciseToWorkout(exercise));
-    router.replace({ pathname: '/workout/active', params: { name: workoutName } });
+    router.push({ pathname: '/workout/active', params: { name: workoutName } });
   };
 
   // ── Templates [Feature 4] ───────────────────────────────────────────────
