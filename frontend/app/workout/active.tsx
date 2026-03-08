@@ -65,7 +65,10 @@ const ActiveWorkoutScreen: React.FC = () => {
   const [restOverrideModal, setRestOverrideModal] = useState<{ exerciseId: string; exerciseName: string } | null>(null);
   const [restOverrideInput, setRestOverrideInput] = useState('');
   const [elapsedSecs, setElapsedSecs] = useState(0);
+  const [timerPaused, setTimerPaused] = useState(false);
   const startedAtRef = useRef<number>(Date.now());
+  const pausedTimeRef = useRef<number>(0); // Accumulated paused time in ms
+  const pauseStartRef = useRef<number>(0); // When current pause started
   const notifIdRef = useRef<string | null>(null);
 
   // Undo-delete state
@@ -227,10 +230,12 @@ const ActiveWorkoutScreen: React.FC = () => {
   // Duration ticker — updates once per second [Feature 1]
   useEffect(() => {
     const interval = setInterval(() => {
-      setElapsedSecs(Math.floor((Date.now() - startedAtRef.current) / 1000));
+      if (!timerPaused) {
+        setElapsedSecs(Math.floor((Date.now() - startedAtRef.current - pausedTimeRef.current) / 1000));
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [timerPaused]);
 
   // Countdown — vibrate each tick in last 5 s; cancel notif when done in-app [Feature 5]
   useEffect(() => {
@@ -277,6 +282,20 @@ const ActiveWorkoutScreen: React.FC = () => {
     setActiveRest(false);
     setRestTime(0);
     await Haptics.selectionAsync();
+  };
+
+  // Toggle timer pause/play
+  const toggleTimer = () => {
+    if (timerPaused) {
+      // Resuming: add the time paused to accumulated paused time
+      pausedTimeRef.current += Date.now() - pauseStartRef.current;
+      setTimerPaused(false);
+    } else {
+      // Pausing: record when we paused
+      pauseStartRef.current = Date.now();
+      setTimerPaused(true);
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   // Tap checkmark to complete a set; auto-start rest on first completion [Feature 3]
@@ -453,7 +472,9 @@ const ActiveWorkoutScreen: React.FC = () => {
     setSaving(true);
     cancelRestNotif();
     try {
-      const durationSeconds = Math.floor((Date.now() - startedAtRef.current) / 1000);
+      // Calculate duration excluding paused time
+      const totalPausedTime = timerPaused ? pausedTimeRef.current + (Date.now() - pauseStartRef.current) : pausedTimeRef.current;
+      const durationSeconds = Math.floor((Date.now() - startedAtRef.current - totalPausedTime) / 1000);
       const updatedWorkout = { ...currentWorkout, exercises: validExercises, duration: durationSeconds };
       const savedWorkout = await createWorkout(uid, updatedWorkout);
       const isOffline = savedWorkout.workout_id.startsWith('offline_');
@@ -538,7 +559,12 @@ const ActiveWorkoutScreen: React.FC = () => {
       {/* Duration timer header [Feature 1] */}
       <View style={styles.headerRow}>
         <Text style={styles.title}>{currentWorkout.name || workoutTitle}</Text>
-        <Text style={styles.durationText}>{formatDuration(elapsedSecs)}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={styles.durationText}>{formatDuration(elapsedSecs)}</Text>
+          <TouchableOpacity onPress={toggleTimer} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name={timerPaused ? 'play-circle' : 'pause-circle'} size={28} color="#FF6200" />
+          </TouchableOpacity>
+        </View>
       </View>
       <TouchableOpacity style={styles.addExerciseBtn} onPress={() => setAddModalVisible(true)}>
         <Text style={styles.addExerciseText}>+ Add Exercise</Text>

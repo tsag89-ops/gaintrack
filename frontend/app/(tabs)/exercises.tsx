@@ -10,19 +10,30 @@ import { Exercise } from '../../src/types';
 import { theme } from '../../src/constants/theme';
 import { ExercisePicker } from '../../src/components/ExercisePicker';
 import { usePro } from '../../src/hooks/usePro';
+import { useWorkoutStore } from '../../src/store/workoutStore';
 
 // Exercise library tab — tapping + on an exercise starts a new workout with it pre-loaded
 
 export default function ExercisesScreen() {
   const router = useRouter();
   const { isPro } = usePro();
+  const { startWorkout, addExerciseToWorkout } = useWorkoutStore();
 
   const handleAdd = async (exercise: Exercise, _superset?: boolean) => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // Start a new workout with this exercise pre-loaded
+    // Start workout and go directly to active screen
+    const workoutName = 'Quick Workout';
+    startWorkout(workoutName);
+    addExerciseToWorkout({
+      exercise_id: exercise.exercise_id || exercise.id,
+      exercise_name: exercise.name,
+      exercise: exercise,
+      sets: [],
+      notes: undefined,
+    });
     router.push({
-      pathname: '/workout/new',
-      params: { preloadExercise: JSON.stringify(exercise) },
+      pathname: '/workout/active',
+      params: { name: workoutName },
     });
   };
 
