@@ -70,6 +70,7 @@ const EquipmentChips: React.FC<{
   <ScrollView
     horizontal
     showsHorizontalScrollIndicator={false}
+    style={chipStyles.scrollView}
     contentContainerStyle={chipStyles.row}
   >
     {EQUIPMENT_TYPES.map((eq) => {
@@ -101,6 +102,7 @@ const MuscleChips: React.FC<{
   <ScrollView
     horizontal
     showsHorizontalScrollIndicator={false}
+    style={chipStyles.scrollView}
     contentContainerStyle={chipStyles.row}
   >
     {MUSCLE_GROUPS.map((group) => {
@@ -125,7 +127,8 @@ const MuscleChips: React.FC<{
 );
 
 const chipStyles = StyleSheet.create({
-  row: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  scrollView: { paddingVertical: 10 },
+  row: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 6,

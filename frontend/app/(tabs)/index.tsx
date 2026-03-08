@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
   Dimensions,
   Platform,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,9 +26,8 @@ import { useAuthStore } from '../../src/store/authStore';
 import { WorkoutCard } from '../../src/components/WorkoutCard';
 import { Badge } from '../../src/components/ui/Badge';
 import { Card } from '../../src/components/ui/Card';
-import { ExercisePicker } from '../../src/components/ExercisePicker';
 import { usePro } from '../../src/hooks/usePro';
-import { Workout, Exercise } from '../../src/types';
+import { Workout } from '../../src/types';
 import { theme } from '../../src/constants/theme';
 import { BUILD_LABEL } from '../../src/constants/build';
 import {
@@ -101,7 +99,6 @@ export default function HomeScreen() {
   const { uid } = useNativeAuthState();
   const { isPro } = usePro();
   const [refreshing, setRefreshing] = useState(false);
-  const [exercisePickerVisible, setExercisePickerVisible] = useState(false);
   const [resumeWorkoutName, setResumeWorkoutName] = useState<string | null>(null);
 
   // ── Check for persisted in-progress workout on every focus ────────────────
@@ -184,25 +181,6 @@ export default function HomeScreen() {
     await Haptics.selectionAsync();
     await AsyncStorage.removeItem('gaintrack_active_workout');
     setResumeWorkoutName(null);
-  };
-
-  const handleBrowseExercises = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setExercisePickerVisible(true);
-  };
-
-  const handleExercisePickerClose = () => {
-    setExercisePickerVisible(false);
-  };
-
-  // In browse mode: close picker and start a new workout pre-populated with the exercise
-  const handleExerciseAdd = async (exercise: Exercise) => {
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setExercisePickerVisible(false);
-    router.push({
-      pathname: '/workout/new',
-      params: { preloadExercise: JSON.stringify(exercise) },
-    });
   };
 
   const handleDeleteWorkout = async (workout: Workout) => {
@@ -291,17 +269,6 @@ export default function HomeScreen() {
           <Text style={styles.ctaText}>Start Workout</Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
-      </TouchableOpacity>
-
-      {/* ── Browse Exercises button ── */}
-      <TouchableOpacity
-        style={styles.browseBtn}
-        onPress={handleBrowseExercises}
-        activeOpacity={0.75}
-      >
-        <Ionicons name="search-outline" size={18} color={theme.primary} />
-        <Text style={styles.browseBtnText}>Browse Exercises</Text>
-        <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
       </TouchableOpacity>
 
       {/* ── Weekly volume chart ── */}
@@ -421,20 +388,6 @@ export default function HomeScreen() {
         <Ionicons name="add" size={30} color={theme.textPrimary} />
       </TouchableOpacity>
 
-      {/* ── Exercise Picker Modal ── */}
-      <Modal
-        visible={exercisePickerVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={handleExercisePickerClose}
-      >
-        <ExercisePicker
-          onAdd={handleExerciseAdd}
-          onClose={handleExercisePickerClose}
-          isPro={isPro}
-          addedExerciseIds={[]}
-        />
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -642,26 +595,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: theme.primary,
-  },
-
-  // ── Browse Exercises button ──
-  browseBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: theme.surface,
-    borderRadius: 12,
-    paddingVertical: 13,
-    paddingHorizontal: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  browseBtnText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: theme.textPrimary,
   },
 
   // ── Build banner ──
