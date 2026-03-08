@@ -687,10 +687,13 @@ const ActiveWorkoutScreen: React.FC = () => {
           </Swipeable>
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>No exercises added.</Text>}
+        ListFooterComponent={
+          <TouchableOpacity style={styles.finishBtn} onPress={finishWorkout} disabled={saving}>
+            <Text style={styles.finishBtnText}>{saving ? 'Saving...' : 'Finish Workout'}</Text>
+          </TouchableOpacity>
+        }
+        contentContainerStyle={{ paddingBottom: 100 }}
       />
-      <TouchableOpacity style={styles.finishBtn} onPress={finishWorkout} disabled={saving}>
-        <Text style={styles.finishBtnText}>{saving ? 'Saving...' : 'Finish Workout'}</Text>
-      </TouchableOpacity>
 
       {/* Per-exercise rest duration override modal */}
       <Modal
