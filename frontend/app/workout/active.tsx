@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,10 +19,10 @@ import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { WorkoutExercise, WorkoutSet } from '../../src/types';
 import { ExerciseVideo } from '../../src/components/ExerciseVideo';
-import { ExercisePicker } from '../../src/components/ExercisePicker';
+import { takePendingExercise } from '../../src/utils/exerciseMailbox';
 import { useNativeAuthState } from '../../src/hooks/useAuth';
 import { usePro } from '../../src/hooks/usePro';
 import { seedExercises } from '../../src/data/seedData';
@@ -43,21 +43,36 @@ const ActiveWorkoutScreen: React.FC = () => {
   const { isPro } = usePro();
   const [exerciseList, setExerciseList] = useState(currentWorkout?.exercises || []);
   const [prefilledFromLastSession, setPrefilledFromLastSession] = useState<Set<string>>(new Set());
-  const [addModalVisible, setAddModalVisible] = useState(false);
 
-  // Add exercise to workout from ExercisePicker
+  // Fetch sets from the most recent workout containing this exercise, used for prefill.
   const loadLastSessionSets = async (exerciseId: string): Promise<WorkoutSet[]> => {
     try {
-      const raw = await AsyncStorage.getItem('gaintrack_workouts');
-      if (!raw) return [];
-      const workouts = JSON.parse(raw) as any[];
-      const sorted = [...workouts].sort((a, b) => {
+      // Merge in-memory store workouts with persisted AsyncStorage workouts for best coverage
+      const storeWorkouts: any[] = useWorkoutStore.getState().workouts ?? [];
+      let persisted: any[] = [];
+      try {
+        const raw = await AsyncStorage.getItem('gaintrack_workouts');
+        if (raw) persisted = JSON.parse(raw);
+      } catch {}
+
+      // Deduplicate by workout_id, prefer storeWorkouts entries
+      const seen = new Set<string>();
+      const all: any[] = [];
+      for (const w of [...storeWorkouts, ...persisted]) {
+        const wid: string = w?.workout_id ?? '';
+        if (!seen.has(wid)) {
+          if (wid) seen.add(wid);
+          all.push(w);
+        }
+      }
+
+      all.sort((a, b) => {
         const ad = new Date(a?.date ?? a?.created_at ?? 0).getTime();
         const bd = new Date(b?.date ?? b?.created_at ?? 0).getTime();
         return bd - ad;
       });
 
-      for (const workout of sorted) {
+      for (const workout of all) {
         const previousExercise = (workout?.exercises ?? []).find(
           (item: any) => (item?.exercise_id ?? item?.id) === exerciseId,
         );
@@ -78,10 +93,9 @@ const ActiveWorkoutScreen: React.FC = () => {
     }
   };
 
-  const handleAddExercise = async (ex: any) => {
+  const handleAddExercise = useCallback(async (ex: any) => {
     const exerciseId = ex.id || ex.exercise_id;
     const previousSets = await loadLastSessionSets(exerciseId);
-
     setExerciseList((prev) => [
       ...prev,
       {
@@ -91,13 +105,10 @@ const ActiveWorkoutScreen: React.FC = () => {
         sets: previousSets,
       },
     ]);
-
     if (previousSets.length > 0) {
       setPrefilledFromLastSession((prev) => new Set(prev).add(exerciseId));
     }
-
-    setAddModalVisible(false);
-  };
+  }, []);
   const [restTime, setRestTime] = useState(0);
   const [activeRest, setActiveRest] = useState(false);
   const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
@@ -276,6 +287,14 @@ const ActiveWorkoutScreen: React.FC = () => {
       buttons
     );
   };
+
+  // When the screen regains focus (e.g. returning from Exercises tab), check mailbox.
+  useFocusEffect(
+    useCallback(() => {
+      const pending = takePendingExercise();
+      if (pending) handleAddExercise(pending);
+    }, [handleAddExercise]),
+  );
 
   // Auto-init; restore in-progress or start fresh; request notification permissions [Feature 1]
   useEffect(() => {
@@ -645,23 +664,9 @@ const ActiveWorkoutScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </View>
-      <TouchableOpacity style={styles.addExerciseBtn} onPress={() => setAddModalVisible(true)}>
+      <TouchableOpacity style={styles.addExerciseBtn} onPress={() => router.push('/(tabs)/exercises')}>
         <Text style={styles.addExerciseText}>+ Add Exercise</Text>
       </TouchableOpacity>
-            {/* Add Exercise Modal */}
-            <Modal
-              visible={addModalVisible}
-              animationType="slide"
-              presentationStyle="pageSheet"
-              onRequestClose={() => setAddModalVisible(false)}
-            >
-              <ExercisePicker
-                onAdd={handleAddExercise}
-                onClose={() => setAddModalVisible(false)}
-                isPro={isPro}
-                addedExerciseIds={exerciseList.map(e => e.exercise_id)}
-              />
-            </Modal>
       <DraggableFlatList
         data={exerciseList}
         onDragEnd={({ data }) => setExerciseList(data)}

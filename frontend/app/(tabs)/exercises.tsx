@@ -11,17 +11,27 @@ import { theme } from '../../src/constants/theme';
 import { ExercisePicker } from '../../src/components/ExercisePicker';
 import { usePro } from '../../src/hooks/usePro';
 import { useWorkoutStore } from '../../src/store/workoutStore';
+import { setPendingExercise } from '../../src/utils/exerciseMailbox';
 
-// Exercise library tab — tapping + on an exercise starts a new workout with it pre-loaded
+// Exercise library tab — tapping + on an exercise either adds to an active workout
+// or starts a brand-new Quick Workout.
 
 export default function ExercisesScreen() {
   const router = useRouter();
   const { isPro } = usePro();
-  const { startWorkout, addExerciseToWorkout } = useWorkoutStore();
+  const { currentWorkout, startWorkout, addExerciseToWorkout } = useWorkoutStore();
 
   const handleAdd = async (exercise: Exercise, _superset?: boolean) => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    // Start workout and go directly to active screen
+
+    if (currentWorkout) {
+      // Active workout in progress — pass exercise back via mailbox and return
+      setPendingExercise(exercise);
+      router.back();
+      return;
+    }
+
+    // No active workout — start a new Quick Workout
     const workoutName = 'Quick Workout';
     startWorkout(workoutName);
     addExerciseToWorkout({
