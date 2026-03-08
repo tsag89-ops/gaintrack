@@ -42,19 +42,60 @@ const ActiveWorkoutScreen: React.FC = () => {
   const { uid } = useNativeAuthState();
   const { isPro } = usePro();
   const [exerciseList, setExerciseList] = useState(currentWorkout?.exercises || []);
+  const [prefilledFromLastSession, setPrefilledFromLastSession] = useState<Set<string>>(new Set());
   const [addModalVisible, setAddModalVisible] = useState(false);
 
   // Add exercise to workout from ExercisePicker
-  const handleAddExercise = (ex: any) => {
-    setExerciseList([
-      ...exerciseList,
-       {
-        exercise_id: ex.id || ex.exercise_id,
+  const loadLastSessionSets = async (exerciseId: string): Promise<WorkoutSet[]> => {
+    try {
+      const raw = await AsyncStorage.getItem('gaintrack_workouts');
+      if (!raw) return [];
+      const workouts = JSON.parse(raw) as any[];
+      const sorted = [...workouts].sort((a, b) => {
+        const ad = new Date(a?.date ?? a?.created_at ?? 0).getTime();
+        const bd = new Date(b?.date ?? b?.created_at ?? 0).getTime();
+        return bd - ad;
+      });
+
+      for (const workout of sorted) {
+        const previousExercise = (workout?.exercises ?? []).find(
+          (item: any) => item?.exercise_id === exerciseId,
+        );
+        const previousSets = previousExercise?.sets ?? [];
+        if (previousSets.length > 0) {
+          return previousSets.map((set: WorkoutSet, idx: number) => ({
+            ...set,
+            set_id: `prefill-${exerciseId}-${Date.now()}-${idx}`,
+            set_number: idx + 1,
+            completed: false,
+          }));
+        }
+      }
+      return [];
+    } catch (err) {
+      console.warn('[active] loadLastSessionSets failed:', err);
+      return [];
+    }
+  };
+
+  const handleAddExercise = async (ex: any) => {
+    const exerciseId = ex.id || ex.exercise_id;
+    const previousSets = await loadLastSessionSets(exerciseId);
+
+    setExerciseList((prev) => [
+      ...prev,
+      {
+        exercise_id: exerciseId,
         exercise_name: ex.name,
         exercise: ex,
-        sets: [],
+        sets: previousSets,
       },
     ]);
+
+    if (previousSets.length > 0) {
+      setPrefilledFromLastSession((prev) => new Set(prev).add(exerciseId));
+    }
+
     setAddModalVisible(false);
   };
   const [restTime, setRestTime] = useState(0);
@@ -659,6 +700,20 @@ const ActiveWorkoutScreen: React.FC = () => {
             <FlatList
               data={item.sets}
               keyExtractor={(_, idx) => idx.toString()}
+              ListHeaderComponent={
+                <View>
+                  {prefilledFromLastSession.has(item.exercise_id) && (
+                    <Text style={styles.lastSessionHeader}>Last session</Text>
+                  )}
+                  <View style={styles.setColumnsHeaderRow}>
+                    <View style={styles.setColumnsCheckSpacer} />
+                    <Text style={styles.setColumnsSet}>Set</Text>
+                    <Text style={styles.setColumnsLabel}>Weight</Text>
+                    <Text style={styles.setColumnsLabel}>Reps</Text>
+                    <Text style={styles.setColumnsLabel}>RPE</Text>
+                  </View>
+                </View>
+              }
               renderItem={({ item: set, index }) => (
                 <View style={[styles.setRow, set.completed && styles.setRowComplete]}>
                   {/* Tap-to-complete checkmark [Feature 3] */}
@@ -974,6 +1029,37 @@ const styles = StyleSheet.create({
   setNum: {
     color: '#fff',
     width: 50,
+  },
+  lastSessionHeader: {
+    color: '#B0B0B0',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  setColumnsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  setColumnsCheckSpacer: {
+    width: 28,
+    marginRight: 6,
+  },
+  setColumnsSet: {
+    color: '#B0B0B0',
+    width: 50,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  setColumnsLabel: {
+    color: '#B0B0B0',
+    width: 60,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
+    marginHorizontal: 4,
   },
   input: {
     backgroundColor: '#1A1A1A',
