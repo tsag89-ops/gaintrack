@@ -308,6 +308,7 @@ export default function HomeScreen() {
               barRadius: 4,
               decimalPlaces: 0,
               propsForBackgroundLines: { stroke: 'transparent' },
+              propsForLabels: { fontSize: 12, fontWeight: '600' },
             }}
             style={styles.chart}
           />
