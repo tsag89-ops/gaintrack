@@ -573,7 +573,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
             size={14}
             color={activeTab === 'suggestions' ? '#FFFFFF' : '#B0B0B0'}
           />
-          <Text style={[styles.segmentText, activeTab === 'suggestions' && styles.segmentTextActive]}>
+          <Text style={[styles.segmentText, activeTab === 'suggestions' && styles.segmentTextActive]} numberOfLines={1}>
             Tips
           </Text>
         </TouchableOpacity>
@@ -591,11 +591,11 @@ Always give specific, personalized advice referencing the user's actual data, cu
             size={14}
             color={activeTab === 'chat' ? '#FFFFFF' : '#B0B0B0'}
           />
-          <Text style={[styles.segmentText, activeTab === 'chat' && styles.segmentTextActive]}>
+          <Text style={[styles.segmentText, activeTab === 'chat' && styles.segmentTextActive]} numberOfLines={1}>
             AI Chat
           </Text>
           {!isPro && (
-            <Ionicons name="lock-closed" size={11} color="#FF6200" style={{ marginLeft: 2 }} />
+            <Ionicons name="lock-closed" size={11} color={activeTab === 'chat' ? '#FFFFFF' : '#FF6200'} style={{ marginLeft: 2 }} />
           )}
         </TouchableOpacity>
       </View>
@@ -713,10 +713,12 @@ Always give specific, personalized advice referencing the user's actual data, cu
                   {CHIPS.map((chip) => (
                     <TouchableOpacity
                       key={chip}
-                      style={styles.chip}
                       onPress={() => sendMessage(chip)}
+                      activeOpacity={0.7}
                     >
-                      <Text style={styles.chipText}>{chip}</Text>
+                      <View style={styles.chip}>
+                        <Text style={styles.chipText}>{chip}</Text>
+                      </View>
                     </TouchableOpacity>
                   ))}
                 </View>
