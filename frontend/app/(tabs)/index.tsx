@@ -292,7 +292,7 @@ export default function HomeScreen() {
               datasets: [{ data: chartData }],
             }}
             width={SCREEN_WIDTH - 32 - 2} // card margins + border
-            height={140}
+            height={180}
             yAxisLabel=""
             yAxisSuffix=""
             withInnerLines={false}
@@ -509,6 +509,7 @@ const styles = StyleSheet.create({
   },
   chart: {
     paddingRight: 0,
+    paddingBottom: 8,
     marginHorizontal: -4,
   },
   chartEmpty: {

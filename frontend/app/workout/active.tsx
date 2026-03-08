@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { WorkoutExercise, WorkoutSet } from '../../src/types';
 import { ExerciseVideo } from '../../src/components/ExerciseVideo';
+import { ExercisePicker } from '../../src/components/ExercisePicker';
 import { useNativeAuthState } from '../../src/hooks/useAuth';
 import { usePro } from '../../src/hooks/usePro';
 import { seedExercises } from '../../src/data/seedData';
@@ -41,27 +42,20 @@ const ActiveWorkoutScreen: React.FC = () => {
   const { isPro } = usePro();
   const [exerciseList, setExerciseList] = useState(currentWorkout?.exercises || []);
   const [addModalVisible, setAddModalVisible] = useState(false);
-  const [search, setSearch] = useState('');
-    // Filter exercises not already in workout
-    const availableExercises = seedExercises.filter(
-      (ex) => !exerciseList.some((w) => w.exercise_id === ex.id) &&
-        (ex.name.toLowerCase().includes(search.toLowerCase()) || ex.muscleGroup?.toLowerCase().includes(search.toLowerCase()))
-    );
 
-    // Add exercise to workout
-    const handleAddExercise = (ex: any) => {
-      setExerciseList([
-        ...exerciseList,
-         {
-          exercise_id: ex.id || ex.exercise_id,
-          exercise_name: ex.name,
-          exercise: ex,
-          sets: [],
-        },
-      ]);
-      setAddModalVisible(false);
-      setSearch('');
-    };
+  // Add exercise to workout from ExercisePicker
+  const handleAddExercise = (ex: any) => {
+    setExerciseList([
+      ...exerciseList,
+       {
+        exercise_id: ex.id || ex.exercise_id,
+        exercise_name: ex.name,
+        exercise: ex,
+        sets: [],
+      },
+    ]);
+    setAddModalVisible(false);
+  };
   const [restTime, setRestTime] = useState(0);
   const [activeRest, setActiveRest] = useState(false);
   const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
@@ -544,35 +538,15 @@ const ActiveWorkoutScreen: React.FC = () => {
             <Modal
               visible={addModalVisible}
               animationType="slide"
-              transparent
+              presentationStyle="pageSheet"
               onRequestClose={() => setAddModalVisible(false)}
             >
-              <View style={styles.modalOverlay}>
-                <View style={[styles.modalContent, { maxHeight: '80%' }]}> 
-                  <Text style={styles.modalTitle}>Add Exercise</Text>
-                  <TextInput value={search} onChangeText={setSearch} placeholder="Search exercises..." placeholderTextColor="#B0B0B0" style={{ backgroundColor: "#252525", color: "#fff", borderRadius: 8, padding: 10, marginBottom: 10 }} />
-                  <ScrollView>
-                    {availableExercises.length === 0 ? (
-                      <Text style={{ color: '#fff', textAlign: 'center', marginTop: 20 }}>No exercises found.</Text>
-                    ) : (
-                      availableExercises.map((ex) => (
-                        <TouchableOpacity
-                          key={ex.id || ex.exercise_id}
-                          style={styles.addExerciseRow}
-                          onPress={() => handleAddExercise(ex)}
-                        >
-                          <Text style={styles.addExerciseName}>{ex.name}</Text>
-                          <Text style={styles.addExerciseGroup}>{ex.muscleGroup || ex.muscle_groups?.[0]}</Text>
-                
-                        </TouchableOpacity>
-                      ))
-                    )}
-                  </ScrollView>
-                  <TouchableOpacity style={styles.closeModalBtn} onPress={() => setAddModalVisible(false)}>
-                    <Text style={styles.closeModalText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+              <ExercisePicker
+                onAdd={handleAddExercise}
+                onClose={() => setAddModalVisible(false)}
+                isPro={isPro}
+                addedExerciseIds={exerciseList.map(e => e.exercise_id)}
+              />
             </Modal>
       <DraggableFlatList
         data={exerciseList}
@@ -993,25 +967,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
-  },
-  addExerciseRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 6,
-    padding: 12,
-    marginBottom: 8,
-  },
-  addExerciseName: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  addExerciseGroup: {
-    color: '#FFC107',
-    fontSize: 14,
-    marginLeft: 12,
   },
   // Modal styles
   modalOverlay: {
