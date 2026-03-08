@@ -103,22 +103,43 @@ export function useNativeAuthState(): NativeAuthStateWithStatus {
     }
 
     // Native (Android + iOS): subscribe directly to @react-native-firebase/auth.
-    // AuthBridgeModule.kt lives in the root android/ folder and is NOT compiled
-    // into EAS builds of frontend/. Using rnFirebase directly is the correct
-    // approach for Expo managed workflow — the plugin is already registered via
-    // @react-native-firebase/auth in app.json.
     try {
-      // Dynamic require keeps this import out of the web bundle.
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const rnFirebaseAuth = require('@react-native-firebase/auth').default;
+
+      // ✅ Safety net: give AsyncStorage (loadStoredAuth) time to restore
+      // the cached session before we declare the user unauthenticated.
+      // If Firebase resolves as authenticated within this window, the timer
+      // is cancelled immediately and we never show the login screen.
+      let resolved = false;
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          console.warn('[useAuth] Native auth state timeout — defaulting to unauthenticated');
+          resolved = true;
+          setState({ uid: null, isAuthenticated: false, status: 'unauthenticated' });
+        }
+      }, 3000); // 3 seconds is enough for rnFirebase to restore a persisted session
+
       const unsubscribe = rnFirebaseAuth().onAuthStateChanged((firebaseUser: any) => {
-        setState(
-          firebaseUser
-            ? { uid: firebaseUser.uid, isAuthenticated: true, status: 'authenticated' }
-            : { uid: null, isAuthenticated: false, status: 'unauthenticated' },
-        );
+        // Only act on the FIRST non-null result or after timer expires.
+        // Subsequent null fires (e.g. token refresh) must not redirect to login.
+        if (firebaseUser) {
+          clearTimeout(timer);
+          resolved = true;
+          setState({ uid: firebaseUser.uid, isAuthenticated: true, status: 'authenticated' });
+        } else if (resolved) {
+          // Already resolved (authenticated or timed out) — a null here means
+          // a real sign-out happened, so update state correctly.
+          setState({ uid: null, isAuthenticated: false, status: 'unauthenticated' });
+        }
+        // If not yet resolved + firebaseUser is null: wait for the timer —
+        // this is the cold-start window where AsyncStorage may still be loading.
       });
-      return () => unsubscribe();
+
+      return () => {
+        clearTimeout(timer);
+        unsubscribe();
+      };
     } catch (e) {
       console.warn('[useAuth] rnFirebase auth listener error:', e);
       setState({ uid: null, isAuthenticated: false, status: 'unauthenticated' });
