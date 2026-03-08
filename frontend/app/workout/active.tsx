@@ -219,13 +219,11 @@ const ActiveWorkoutScreen: React.FC = () => {
       })),
     ];
 
-          <View style={styles.finishBtnFooter}>
-            <TouchableOpacity style={styles.finishBtn} onPress={finishWorkout} disabled={saving}>
-              <Text style={styles.finishBtnText}>{saving ? 'Saving...' : 'Finish Workout'}</Text>
-            </TouchableOpacity>
-          </View>
+    if (exercise.superset_group) {
+      buttons.push({
+        text: `Remove from ${getSupersetGroupMeta(exercise.superset_group).label}`,
         style: 'destructive',
-        contentContainerStyle={{ paddingBottom: 120 }}
+        onPress: () => removeExerciseFromSupersetGroup(exerciseId),
       });
     }
 
@@ -763,11 +761,13 @@ const ActiveWorkoutScreen: React.FC = () => {
       }}
         ListEmptyComponent={<Text style={styles.emptyText}>No exercises added.</Text>}
         ListFooterComponent={
-          <TouchableOpacity style={styles.finishBtn} onPress={finishWorkout} disabled={saving}>
-            <Text style={styles.finishBtnText}>{saving ? 'Saving...' : 'Finish Workout'}</Text>
-          </TouchableOpacity>
+          <View style={styles.finishBtnFooter}>
+            <TouchableOpacity style={styles.finishBtn} onPress={finishWorkout} disabled={saving}>
+              <Text style={styles.finishBtnText}>{saving ? 'Saving...' : 'Finish Workout'}</Text>
+            </TouchableOpacity>
+          </View>
         }
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
       />
 
       {/* Per-exercise rest duration override modal */}
