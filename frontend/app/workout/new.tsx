@@ -22,7 +22,7 @@ import { usePro } from '../../src/hooks/usePro';
 export default function NewWorkoutScreen() {
   const router = useRouter();
   const { preloadExercise } = useLocalSearchParams<{ preloadExercise?: string }>();
-  const { startWorkout, addExerciseToWorkout, currentWorkout } = useWorkoutStore();
+  const { startWorkout, addExerciseToWorkout, clearInProgress, currentWorkout } = useWorkoutStore();
   const { isPro } = usePro();
   const [workoutName, setWorkoutName] = useState('Workout');
   const hasActiveWorkout = Boolean(currentWorkout);
@@ -117,7 +117,7 @@ export default function NewWorkoutScreen() {
     }
   };
 
-  const handleStartWorkout = () => {
+  const handleStartWorkout = async () => {
     if (hasActiveWorkout) {
       Alert.alert('Workout In Progress', 'Not possible while another workout session is in progress.');
       return;
@@ -132,6 +132,8 @@ export default function NewWorkoutScreen() {
       return;
     }
 
+    // Clear any stale in-progress workout so active.tsx doesn't restore old data
+    await clearInProgress();
     startWorkout(workoutName);
     exercises.forEach((exercise) => addExerciseToWorkout(exercise));
     router.push({ pathname: '/workout/active', params: { name: workoutName } });

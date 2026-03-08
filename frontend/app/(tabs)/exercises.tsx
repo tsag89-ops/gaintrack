@@ -19,7 +19,7 @@ import { setPendingExercise } from '../../src/utils/exerciseMailbox';
 export default function ExercisesScreen() {
   const router = useRouter();
   const { isPro } = usePro();
-  const { currentWorkout, startWorkout, addExerciseToWorkout } = useWorkoutStore();
+  const { currentWorkout, startWorkout, addExerciseToWorkout, clearInProgress } = useWorkoutStore();
 
   const handleAdd = async (exercise: Exercise, _superset?: boolean) => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -33,6 +33,7 @@ export default function ExercisesScreen() {
 
     // No active workout — start a new Quick Workout
     const workoutName = 'Quick Workout';
+    await clearInProgress();
     startWorkout(workoutName);
     addExerciseToWorkout({
       exercise_id: exercise.exercise_id || exercise.id,
