@@ -55,15 +55,39 @@ export default function RootLayout() {
   const { status } = useNativeAuthState();
   const segments = useSegments();
   const router = useRouter();
-  const { user, loadStoredAuth } = useAuthStore();
+  const { user, loadStoredAuth, setSession } = useAuthStore();
   // Prevent hydration mismatch (#418): auth state is unknown during SSR;
   // defer conditional rendering until after client mount.
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => { setHasMounted(true); }, []);
 
-  // Restore user + isPro from AsyncStorage on every cold start.
-  // Without this, authStore.user is always null after an app restart.
+  // Step 1: Restore user + isPro from AsyncStorage immediately on cold start.
   useEffect(() => { loadStoredAuth(); }, []);
+
+  // Step 2: If Firebase has a live persisted session but authStore has no user
+  // (AsyncStorage was empty or cleared), re-hydrate authStore from the Firebase
+  // user. This covers the case where the user never explicitly pressed Sign In
+  // during this app session (Google session persisted across restarts).
+  useEffect(() => {
+    if (status !== 'authenticated' || user || Platform.OS === 'web') return;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const rnAuth = require('@react-native-firebase/auth').default;
+      const firebaseUser = rnAuth().currentUser;
+      if (!firebaseUser) return;
+      firebaseUser.getIdToken().then((token: string) => {
+        setSession({
+          id: firebaseUser.uid,
+          email: firebaseUser.email ?? '',
+          name: firebaseUser.displayName ?? '',
+          picture: firebaseUser.photoURL ?? null,
+          created_at: new Date().toISOString(),
+        }, token);
+      }).catch((e: any) => console.warn('[layout] re-hydrate getIdToken failed:', e));
+    } catch (e) {
+      console.warn('[layout] re-hydrate from Firebase failed:', e);
+    }
+  }, [status, user]);
 
   // Flush any locally-queued workouts to Firestore when connectivity restores.
   useOfflineSync();
