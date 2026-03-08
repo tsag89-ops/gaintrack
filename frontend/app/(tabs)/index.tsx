@@ -183,7 +183,7 @@ export default function HomeScreen() {
 
   const handleResumeWorkout = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    router.replace({ pathname: '/workout/active', params: { name: resumeWorkoutName ?? '' } });
+    router.push({ pathname: '/workout/active', params: { name: resumeWorkoutName ?? '' } });
   };
 
   const handleDismissResume = async () => {

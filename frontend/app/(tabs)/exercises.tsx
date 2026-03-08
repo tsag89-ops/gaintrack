@@ -31,7 +31,7 @@ export default function ExercisesScreen() {
       sets: [],
       notes: undefined,
     });
-    router.replace({
+    router.push({
       pathname: '/workout/active',
       params: { name: workoutName },
     });

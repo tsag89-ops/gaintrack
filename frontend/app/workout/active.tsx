@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,13 +13,14 @@ import {
   FlatList,
   Animated,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flatlist';
 import { Swipeable } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { WorkoutExercise, WorkoutSet } from '../../src/types';
 import { ExerciseVideo } from '../../src/components/ExerciseVideo';
 import { ExercisePicker } from '../../src/components/ExercisePicker';
@@ -274,6 +275,18 @@ const ActiveWorkoutScreen: React.FC = () => {
     }, 1000);
     return () => clearInterval(interval);
   }, [timerPaused]);
+
+  // Force Android hardware back to return to main tabs instead of exiting app.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return () => {};
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        router.replace('/(tabs)');
+        return true;
+      });
+      return () => sub.remove();
+    }, [router])
+  );
 
   // Countdown — vibrate each tick in last 5 s; cancel notif when done in-app [Feature 5]
   useEffect(() => {
