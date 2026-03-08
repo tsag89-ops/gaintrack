@@ -575,9 +575,14 @@ const ActiveWorkoutScreen: React.FC = () => {
                 <Text style={styles.supersetBadgeText}>SUPERSET</Text>
               </View>
             )}
-            <TouchableOpacity onLongPress={drag} onPress={() => { setModalExercise(item); setModalVisible(true); }}>
-              <Text style={styles.exerciseName}>{item.exercise_name}</Text>
-            </TouchableOpacity>
+            <View style={styles.exerciseHeaderRow}>
+              <TouchableOpacity style={{ flex: 1 }} onLongPress={drag} onPress={() => { setModalExercise(item); setModalVisible(true); }}>
+                <Text style={styles.exerciseName}>{item.exercise_name}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setShowRpeInfo(true); Haptics.selectionAsync(); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="help-circle-outline" size={20} color="#FF6200" />
+              </TouchableOpacity>
+            </View>
             <FlatList
               data={item.sets}
               keyExtractor={(_, idx) => idx.toString()}
@@ -768,6 +773,44 @@ const ActiveWorkoutScreen: React.FC = () => {
         </View>
       </Modal>
 
+      {/* RPE Info Modal */}
+      <Modal visible={showRpeInfo} transparent animationType="fade" onRequestClose={() => setShowRpeInfo(false)}>
+        <TouchableOpacity style={styles.rpeInfoOverlay} activeOpacity={1} onPress={() => setShowRpeInfo(false)}>
+          <View style={styles.rpeInfoContent}>
+            <View style={styles.rpeInfoHeader}>
+              <Text style={styles.rpeInfoTitle}>RPE Scale</Text>
+              <Text style={styles.rpeInfoSubtitle}>Rate of Perceived Exertion</Text>
+            </View>
+            <ScrollView style={styles.rpeTableScroll}>
+              <View style={styles.rpeTable}>
+                <View style={[styles.rpeTableRow, styles.rpeTableHeader]}>
+                  <Text style={[styles.rpeTableHeaderText, { width: 50 }]}>RPE</Text>
+                  <Text style={[styles.rpeTableHeaderText, { flex: 1 }]}>Description</Text>
+                  <Text style={[styles.rpeTableHeaderText, { width: 80 }]}>RIR Guide</Text>
+                </View>
+                {[
+                  { rpe: 5, desc: 'Easy, sustainable', rir: '5+ reps left' },
+                  { rpe: 6, desc: 'Moderate, controlled', rir: '4 reps left' },
+                  { rpe: 7, desc: 'Challenging', rir: '3 reps left' },
+                  { rpe: 8, desc: 'Hard, 2–3 more reps', rir: '2 reps left' },
+                  { rpe: 9, desc: 'Very hard, 1 more rep', rir: '1 rep left' },
+                  { rpe: 10, desc: 'Maximal, failure', rir: '0 reps left' },
+                ].map((row) => (
+                  <View key={row.rpe} style={styles.rpeTableRow}>
+                    <Text style={[styles.rpeTableCell, { width: 50, fontWeight: '600' }]}>{row.rpe}</Text>
+                    <Text style={[styles.rpeTableCell, { flex: 1 }]}>{row.desc}</Text>
+                    <Text style={[styles.rpeTableCell, { width: 80, fontSize: 11 }]}>{row.rir}</Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+            <TouchableOpacity style={styles.rpeInfoCloseBtn} onPress={() => setShowRpeInfo(false)}>
+              <Text style={styles.rpeInfoCloseBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Undo-delete toast */}
       {pendingDelete && (
         <Animated.View
@@ -831,6 +874,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 16,
     marginBottom: 20,
+  },
+  exerciseHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
   },
   exerciseName: {
     color: '#FFC107',
@@ -1172,5 +1221,72 @@ const styles = StyleSheet.create({
   },
   supersetBtnTextActive: {
     color: '#1A1A1A',
+  },
+  // ── RPE Info Modal ─────────────────────────────────────────────────────────
+  rpeInfoOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  rpeInfoContent: {
+    backgroundColor: '#252525',
+    borderRadius: 12,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+  },
+  rpeInfoHeader: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3A3A',
+  },
+  rpeInfoTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  rpeInfoSubtitle: {
+    fontSize: 13,
+    color: '#B0B0B0',
+  },
+  rpeTableScroll: {
+    maxHeight: 300,
+  },
+  rpeTable: {
+    padding: 16,
+  },
+  rpeTableRow: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3A3A3A',
+  },
+  rpeTableHeader: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#FF6200',
+  },
+  rpeTableHeaderText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FF6200',
+  },
+  rpeTableCell: {
+    fontSize: 13,
+    color: '#FFFFFF',
+  },
+  rpeInfoCloseBtn: {
+    margin: 16,
+    backgroundColor: '#FF6200',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  rpeInfoCloseBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

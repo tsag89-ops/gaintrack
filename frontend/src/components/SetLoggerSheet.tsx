@@ -30,6 +30,7 @@ export const SetLoggerSheet: React.FC<SetLoggerSheetProps> = ({
 }) => {
   const [localSets, setLocalSets] = useState<WorkoutSet[]>(sets);
   const [rpe, setRpe] = useState(7);
+  const [showRpeInfo, setShowRpeInfo] = useState(false);
 
   React.useEffect(() => {
     setLocalSets(sets.length > 0 ? sets : [{ set_id: "set_1", set_number: 1, weight: 0, reps: 0, rpe: 7, completed: false, is_warmup: false }]);
@@ -135,7 +136,15 @@ export const SetLoggerSheet: React.FC<SetLoggerSheetProps> = ({
             ))}
 
             <View style={styles.rpeContainer}>
-              <Text style={styles.rpeLabel}>RPE (Rate of Perceived Exertion)</Text>
+              <View style={styles.rpeLabelRow}>
+                <Text style={styles.rpeLabel}>RPE (Rate of Perceived Exertion)</Text>
+                <TouchableOpacity
+                  onPress={() => setShowRpeInfo(true)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="help-circle-outline" size={18} color="#B0B0B0" />
+                </TouchableOpacity>
+              </View>
               <View style={styles.rpeSlider}>
                 {[5, 6, 7, 8, 9, 10].map((value) => (
                   <TouchableOpacity
@@ -176,6 +185,57 @@ export const SetLoggerSheet: React.FC<SetLoggerSheetProps> = ({
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* RPE Info Modal */}
+      <Modal
+        visible={showRpeInfo}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setShowRpeInfo(false)}
+      >
+        <View style={styles.rpeInfoOverlay}>
+          <View style={styles.rpeInfoContent}>
+            <View style={styles.rpeInfoHeader}>
+              <Text style={styles.rpeInfoTitle}>RPE Guide</Text>
+              <TouchableOpacity onPress={() => setShowRpeInfo(false)}>
+                <Ionicons name="close" size={24} color="#B0B0B0" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.rpeInfoSubtitle}>
+              Rate of Perceived Exertion (RPE) / Reps in Reserve (RIR)
+            </Text>
+            <ScrollView style={styles.rpeTableScroll}>
+              <View style={styles.rpeTable}>
+                <View style={[styles.rpeTableRow, styles.rpeTableHeader]}>
+                  <Text style={[styles.rpeTableCell, styles.rpeTableHeaderText, { flex: 0.8 }]}>RPE</Text>
+                  <Text style={[styles.rpeTableCell, styles.rpeTableHeaderText, { flex: 2 }]}>Description</Text>
+                  <Text style={[styles.rpeTableCell, styles.rpeTableHeaderText, { flex: 1.5 }]}>RIR Guide</Text>
+                </View>
+                {[
+                  { rpe: 5, desc: 'Easy, sustainable', rir: '5+ reps left' },
+                  { rpe: 6, desc: 'Moderate, controlled', rir: '4 reps left' },
+                  { rpe: 7, desc: 'Challenging, steady', rir: '3 reps left' },
+                  { rpe: 8, desc: 'Hard, focused', rir: '2 reps left' },
+                  { rpe: 9, desc: 'Very hard, near limit', rir: '1 rep left' },
+                  { rpe: 10, desc: 'Maximal, all-out', rir: 'Failure' },
+                ].map((row) => (
+                  <View key={row.rpe} style={styles.rpeTableRow}>
+                    <Text style={[styles.rpeTableCell, { flex: 0.8, fontWeight: '700', color: '#4CAF50' }]}>{row.rpe}</Text>
+                    <Text style={[styles.rpeTableCell, { flex: 2 }]}>{row.desc}</Text>
+                    <Text style={[styles.rpeTableCell, { flex: 1.5, color: '#B0B0B0' }]}>{row.rir}</Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.rpeInfoCloseBtn}
+              onPress={() => setShowRpeInfo(false)}
+            >
+              <Text style={styles.rpeInfoCloseBtnText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
@@ -280,10 +340,15 @@ const styles = StyleSheet.create({
   rpeContainer: {
     marginTop: 20,
   },
+  rpeLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
   rpeLabel: {
     color: '#B0B0B0',
     fontSize: 14,
-    marginBottom: 12,
   },
   rpeSlider: {
     flexDirection: 'row',
@@ -354,5 +419,72 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },  rpeInfoOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
-});
+  rpeInfoContent: {
+    backgroundColor: '#252525',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+  },
+  rpeInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  rpeInfoTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  rpeInfoSubtitle: {
+    color: '#B0B0B0',
+    fontSize: 13,
+    marginBottom: 16,
+  },
+  rpeTableScroll: {
+    maxHeight: 300,
+  },
+  rpeTable: {
+    borderWidth: 1,
+    borderColor: '#303030',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  rpeTableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#303030',
+  },
+  rpeTableHeader: {
+    backgroundColor: '#1A1A1A',
+  },
+  rpeTableHeaderText: {
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  rpeTableCell: {
+    padding: 12,
+    color: '#FFFFFF',
+    fontSize: 13,
+  },
+  rpeInfoCloseBtn: {
+    backgroundColor: '#4CAF50',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  rpeInfoCloseBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },});
