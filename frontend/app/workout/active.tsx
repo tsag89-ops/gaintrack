@@ -80,6 +80,7 @@ const ActiveWorkoutScreen: React.FC = () => {
   // Modal state for exercise video/instructions
   const [modalVisible, setModalVisible] = useState(false);
   const [modalExercise, setModalExercise] = useState<WorkoutExercise | null>(null);
+  const [showRpeInfo, setShowRpeInfo] = useState(false);
 
   // Format elapsed seconds as MM:SS or H:MM:SS
   const formatDuration = (secs: number): string => {
