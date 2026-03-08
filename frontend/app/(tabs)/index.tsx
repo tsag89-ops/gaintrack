@@ -407,8 +407,10 @@ export default function HomeScreen() {
         }
       />
 
-      {/* ── Build label (debug) ── */}
-      <Text style={styles.buildLabel}>Build: {BUILD_LABEL}</Text>
+      {/* ── Build banner (debug) ── */}
+      <View style={styles.buildBanner}>
+        <Text style={styles.buildBannerText}>BUILD: {BUILD_LABEL}</Text>
+      </View>
 
       {/* ── Quick Log FAB ── */}
       <TouchableOpacity
@@ -662,14 +664,22 @@ const styles = StyleSheet.create({
     color: theme.textPrimary,
   },
 
-  // ── Build label ──
-  buildLabel: {
+  // ── Build banner ──
+  buildBanner: {
     position: 'absolute',
-    bottom: 8,
-    alignSelf: 'center',
-    fontSize: 10,
-    color: theme.textSecondary,
-    opacity: 0.5,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#b91c1c',
+    paddingVertical: 10,
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  buildBannerText: {
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 14,
+    color: '#ffffff',
   },
 
   // ── FAB ──
