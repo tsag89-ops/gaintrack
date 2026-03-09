@@ -2,31 +2,34 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLocalSearchParams } from 'expo-router';
 
-
-const NOTES_KEY = 'workout_notes';
+const NOTES_PREFIX = 'workout_notes_';
 
 export default function WorkoutDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Load notes from AsyncStorage on mount
+  // Load notes for this specific workout on mount
   React.useEffect(() => {
+    if (!id) return;
     const loadNotes = async () => {
       try {
-        const saved = await AsyncStorage.getItem(NOTES_KEY);
+        const saved = await AsyncStorage.getItem(NOTES_PREFIX + id);
         if (saved) setNotes(saved);
       } catch (e) {
         // ignore
       }
     };
     loadNotes();
-  }, []);
+  }, [id]);
 
   const saveNotes = async () => {
+    if (!id) return;
     setLoading(true);
     try {
-      await AsyncStorage.setItem(NOTES_KEY, notes);
+      await AsyncStorage.setItem(NOTES_PREFIX + id, notes);
       Alert.alert('Notes saved!');
     } catch (e) {
       Alert.alert('Error saving notes');
