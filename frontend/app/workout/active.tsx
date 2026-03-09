@@ -35,7 +35,7 @@ const SUPERSET_COLORS = ['#FF6200', '#4CAF50', '#29B6F6', '#FFB300', '#EF5350', 
 
 const ActiveWorkoutScreen: React.FC = () => {
   const router = useRouter();
-  const { name: nameParam, programId } = useLocalSearchParams<{ name: string; programId?: string }>();
+  const { name: nameParam, programId, templateId } = useLocalSearchParams<{ name: string; programId?: string; templateId?: string }>();
   const workoutTitle = nameParam || 'New Workout';
   const { currentWorkout, updateExerciseInWorkout, setCurrentWorkout, createWorkout, startWorkout,
     persistInProgress, restoreInProgress, clearInProgress } = useWorkoutStore();
@@ -607,50 +607,119 @@ const ActiveWorkoutScreen: React.FC = () => {
       const isOffline = savedWorkout.workout_id.startsWith('offline_');
       const newPRs = isOffline ? [] : await detectAndSavePRs(validExercises);
       await clearInProgress();
-      const title = isOffline
-        ? '📥 Saved offline'
-        : newPRs.length > 0
-          ? `🏆 ${newPRs.length} new PR${newPRs.length > 1 ? 's' : ''}!`
-          : 'Workout saved!';
-      const body = isOffline
-        ? "No connection — your workout is stored locally and will sync to the cloud automatically when you're back online."
-        : newPRs.length > 0
-          ? `Records broken: ${newPRs.join(', ')}\n\nSave as template?`
-          : 'Save as a template for next time?';
-      Alert.alert(title, body, isOffline
-        ? [{ text: 'OK', style: 'cancel' }]
-        : [
-            {
-              text: 'Save Template',
-              onPress: async () => {
-                const tmplRaw = await AsyncStorage.getItem('gaintrack_templates');
-                const templates = tmplRaw ? JSON.parse(tmplRaw) : [];
-                templates.unshift({
-                  id: Date.now().toString(),
-                  name: currentWorkout.name,
-                  exercises: validExercises.map((ex) => ({
-                    exercise_id: ex.exercise_id,
-                    exercise_name: ex.exercise_name,
-                    exercise: ex.exercise,
-                    sets: ex.sets.map((s) => ({
-                      set_id: s.set_id,
-                      set_number: s.set_number,
-                      reps: s.reps ?? 0,
-                      weight: s.weight ?? 0,
-                      rpe: s.rpe ?? null,
-                      completed: false,
-                      is_warmup: s.is_warmup ?? false,
-                    })),
-                  })),
-                  createdAt: new Date().toISOString(),
-                });
-                // [PRO] unlimited templates; free tier capped at 3
-                await AsyncStorage.setItem('gaintrack_templates', JSON.stringify(templates.slice(0, 10)));
+
+      // Helper: build a serialisable snapshot of the current exercises for template storage
+      const buildTemplateExercises = () =>
+        validExercises.map((ex) => ({
+          exercise_id: ex.exercise_id,
+          exercise_name: ex.exercise_name,
+          exercise: ex.exercise,
+          sets: ex.sets.map((s) => ({
+            set_id: s.set_id,
+            set_number: s.set_number,
+            reps: s.reps ?? 0,
+            weight: s.weight ?? 0,
+            rpe: s.rpe ?? null,
+            completed: false,
+            is_warmup: s.is_warmup ?? false,
+          })),
+        }));
+
+      // Helper: persist updated template exercises back to AsyncStorage
+      const saveTemplateExercises = async (tmplId: string, newExercises: any[]) => {
+        const tmplRaw = await AsyncStorage.getItem('gaintrack_templates');
+        const allTemplates: any[] = tmplRaw ? JSON.parse(tmplRaw) : [];
+        const idx = allTemplates.findIndex((t: any) => t.id === tmplId);
+        if (idx !== -1) {
+          allTemplates[idx] = { ...allTemplates[idx], exercises: newExercises, updatedAt: new Date().toISOString() };
+          await AsyncStorage.setItem('gaintrack_templates', JSON.stringify(allTemplates));
+        }
+      };
+
+      // Helper: compute a human-readable diff between original template and current workout
+      const buildTemplateDiff = (origExercises: any[], currentExercises: any[]): string => {
+        const lines: string[] = [];
+        const origMap = new Map(origExercises.map((e: any) => [e.exercise_id, e]));
+        const currMap = new Map(currentExercises.map((e: any) => [e.exercise_id, e]));
+
+        for (const [id, orig] of origMap) {
+          if (!currMap.has(id)) lines.push(`• Removed: ${orig.exercise_name}`);
+        }
+        for (const [id, curr] of currMap) {
+          if (!origMap.has(id)) {
+            lines.push(`• Added: ${curr.exercise_name}`);
+          } else {
+            const orig = origMap.get(id)!;
+            const origSets: any[] = orig.sets ?? [];
+            const currSets: any[] = curr.sets ?? [];
+            if (origSets.length !== currSets.length) {
+              lines.push(`• ${curr.exercise_name}: ${origSets.length} → ${currSets.length} sets`);
+            } else {
+              const setChanges: string[] = [];
+              currSets.forEach((cs, i) => {
+                const os = origSets[i];
+                if (!os) return;
+                const parts: string[] = [];
+                if (Number(cs.reps) !== Number(os.reps)) parts.push(`reps ${os.reps}→${cs.reps}`);
+                if (Number(cs.weight) !== Number(os.weight)) parts.push(`${os.weight}→${cs.weight}kg`);
+                if ((cs.rpe ?? '') !== (os.rpe ?? '')) parts.push(`RPE ${os.rpe ?? '-'}→${cs.rpe ?? '-'}`);
+                if (parts.length) setChanges.push(`set ${i + 1}: ${parts.join(', ')}`);
+              });
+              if (setChanges.length) lines.push(`• ${curr.exercise_name}: ${setChanges.join('; ')}`);
+            }
+          }
+        }
+        return lines.length ? lines.join('\n') : 'No changes detected.';
+      };
+
+      if (isOffline) {
+        Alert.alert('📥 Saved offline', "No connection — your workout is stored locally and will sync when you're back online.", [{ text: 'OK', style: 'cancel' }]);
+      } else if (templateId) {
+        // Workout was loaded from a template — ask to update it instead of saving a new one
+        const tmplRaw = await AsyncStorage.getItem('gaintrack_templates');
+        const allTemplates: any[] = tmplRaw ? JSON.parse(tmplRaw) : [];
+        const sourceTemplate = allTemplates.find((t: any) => t.id === templateId);
+        const prLine = newPRs.length > 0 ? `🏆 ${newPRs.join(', ')}\n\n` : '';
+        if (sourceTemplate) {
+          const diff = buildTemplateDiff(sourceTemplate.exercises ?? [], buildTemplateExercises());
+          Alert.alert(
+            newPRs.length > 0 ? `🏆 ${newPRs.length} new PR${newPRs.length > 1 ? 's' : ''}!` : 'Workout saved!',
+            `${prLine}Update template "${sourceTemplate.name}"?\n\n${diff}`,
+            [
+              {
+                text: 'Update Template',
+                onPress: () => saveTemplateExercises(templateId, buildTemplateExercises()),
               },
+              { text: 'Keep Original', style: 'cancel' },
+            ],
+          );
+        } else {
+          // Template no longer exists — just show PR info if any
+          if (newPRs.length > 0) Alert.alert(`🏆 ${newPRs.length} new PR${newPRs.length > 1 ? 's' : ''}!`, `Records broken: ${newPRs.join(', ')}`, [{ text: 'OK' }]);
+        }
+      } else {
+        // Regular workout — offer to save as a new template
+        const title = newPRs.length > 0 ? `🏆 ${newPRs.length} new PR${newPRs.length > 1 ? 's' : ''}!` : 'Workout saved!';
+        const body = newPRs.length > 0 ? `Records broken: ${newPRs.join(', ')}\n\nSave as template?` : 'Save as a template for next time?';
+        Alert.alert(title, body, [
+          {
+            text: 'Save Template',
+            onPress: async () => {
+              const tmplRaw = await AsyncStorage.getItem('gaintrack_templates');
+              const templates = tmplRaw ? JSON.parse(tmplRaw) : [];
+              templates.unshift({
+                id: Date.now().toString(),
+                name: currentWorkout.name,
+                exercises: buildTemplateExercises(),
+                createdAt: new Date().toISOString(),
+              });
+              // [PRO] unlimited templates; free tier capped at 3
+              await AsyncStorage.setItem('gaintrack_templates', JSON.stringify(templates.slice(0, 10)));
             },
-            { text: 'Skip', style: 'cancel' },
-          ],
-      );
+          },
+          { text: 'Skip', style: 'cancel' },
+        ]);
+      }
       setCurrentWorkout(null);
       // Advance program day if this session was started from a program
       if (programId) {

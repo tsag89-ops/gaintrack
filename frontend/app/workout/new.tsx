@@ -54,6 +54,7 @@ export default function NewWorkoutScreen() {
   const [showSetLogger, setShowSetLogger] = useState(preloaded !== null);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [templates, setTemplates] = useState<any[]>([]);
+  const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
   const addExercise = (exercise: Exercise, _superset?: boolean) => {
     const exerciseId = exercise.exercise_id || exercise.id;
     if (exercises.some((ex) => ex.exercise_id === exerciseId)) {
@@ -136,7 +137,10 @@ export default function NewWorkoutScreen() {
     await clearInProgress();
     startWorkout(workoutName);
     exercises.forEach((exercise) => addExerciseToWorkout(exercise));
-    router.push({ pathname: '/workout/active', params: { name: workoutName } });
+    router.push({
+      pathname: '/workout/active',
+      params: { name: workoutName, ...(appliedTemplateId ? { templateId: appliedTemplateId } : {}) },
+    });
   };
 
   // ── Templates [Feature 4] ───────────────────────────────────────────────
@@ -162,6 +166,7 @@ export default function NewWorkoutScreen() {
       }))
     );
     setWorkoutName(template.name);
+    setAppliedTemplateId(template.id);
     setShowTemplatePicker(false);
   };
 
