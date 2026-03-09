@@ -453,7 +453,21 @@ const ActiveWorkoutScreen: React.FC = () => {
   const toggleSetComplete = (exerciseId: string, setIdx: number) => {
     const exercise = exerciseList.find((ex) => ex.exercise_id === exerciseId);
     if (!exercise) return;
-    const wasComplete = exercise.sets[setIdx]?.completed ?? false;
+    const set = exercise.sets[setIdx];
+    const wasComplete = set?.completed ?? false;
+    // Block completing a set that has no weight or reps filled in
+    if (!wasComplete) {
+      const w = Number(set?.weight ?? 0);
+      const r = Number(set?.reps ?? 0);
+      if (r <= 0 || w < 0) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert(
+          'Missing values',
+          'Weight and reps must be filled in before marking a set as completed.',
+        );
+        return;
+      }
+    }
     const sets = exercise.sets.map((s, idx) =>
       idx === setIdx ? { ...s, completed: !s.completed } : s
     );
@@ -605,12 +619,45 @@ const ActiveWorkoutScreen: React.FC = () => {
   };
 
   // Finish workout: save to Firestore, detect PRs, stamp duration, prompt template [PRO]
-  const finishWorkout = async () => {
+  const finishWorkout = async (skipIncompleteCheck = false) => {
     if (!currentWorkout) return;
     if (!uid) {
       Alert.alert('Not signed in', 'Please log in to save workouts.');
       return;
     }
+
+    // Check for incomplete sets (have reps/weight filled but not marked complete)
+    if (!skipIncompleteCheck) {
+      const incompleteSets = exerciseList.reduce((count, ex) => {
+        return count + ex.sets.filter((s) => !s.completed && (Number(s.reps) > 0 || Number(s.weight) > 0)).length;
+      }, 0);
+      if (incompleteSets > 0) {
+        Alert.alert(
+          'Incomplete sets',
+          `You have ${incompleteSets} set${incompleteSets > 1 ? 's' : ''} that ${incompleteSets > 1 ? 'are' : 'is'} not marked as completed. What would you like to do?`,
+          [
+            { text: 'Keep editing', style: 'cancel' },
+            {
+              text: 'Discard incomplete & finish',
+              style: 'destructive',
+              onPress: () => {
+                // Remove sets that aren't marked complete and have data, then finish
+                setExerciseList((prev) =>
+                  prev.map((ex) => ({
+                    ...ex,
+                    sets: ex.sets.filter((s) => s.completed || (Number(s.reps) === 0 && Number(s.weight) === 0)),
+                  }))
+                );
+                // Use setTimeout so state update flushes before saving
+                setTimeout(() => finishWorkout(true), 50);
+              },
+            },
+          ],
+        );
+        return;
+      }
+    }
+
     const validExercises = exerciseList.filter((ex) => ex.sets.length > 0);
     const hasValidSets = validExercises.some((exercise) =>
       exercise.sets.some(
