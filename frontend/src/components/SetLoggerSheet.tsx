@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WorkoutSet } from '../types';
 
 interface SetLoggerSheetProps {
@@ -31,6 +32,20 @@ export const SetLoggerSheet: React.FC<SetLoggerSheetProps> = ({
   const [localSets, setLocalSets] = useState<WorkoutSet[]>(sets);
   const [rpe, setRpe] = useState(7);
   const [showRpeInfo, setShowRpeInfo] = useState(false);
+  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg');
+
+  // Load unit preference each time the sheet opens
+  useEffect(() => {
+    if (!visible) return;
+    AsyncStorage.getItem('user').then((raw) => {
+      if (raw) {
+        try {
+          const u = JSON.parse(raw);
+          if (u?.units?.weight) setWeightUnit(u.units.weight);
+        } catch {}
+      }
+    }).catch(() => null);
+  }, [visible]);
 
   React.useEffect(() => {
     setLocalSets(sets.length > 0 ? sets : [{ set_id: "set_1", set_number: 1, weight: 0, reps: 0, rpe: 7, completed: false, is_warmup: false }]);
@@ -114,7 +129,7 @@ export const SetLoggerSheet: React.FC<SetLoggerSheetProps> = ({
                     placeholder="0"
                     placeholderTextColor="#B0B0B0"
                   />
-                  <Text style={styles.unit}>lbs</Text>
+                  <Text style={styles.unit}>{weightUnit}</Text>
                 </View>
                 <View style={[styles.inputContainer, { flex: 1 }]}>
                   <TextInput
