@@ -2,12 +2,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 const NOTES_PREFIX = 'workout_notes_';
 
 export default function WorkoutDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -30,7 +31,7 @@ export default function WorkoutDetailScreen() {
     setLoading(true);
     try {
       await AsyncStorage.setItem(NOTES_PREFIX + id, notes);
-      Alert.alert('Notes saved!');
+      router.back();
     } catch (e) {
       Alert.alert('Error saving notes');
     } finally {
