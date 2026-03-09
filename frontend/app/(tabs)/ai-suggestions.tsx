@@ -749,13 +749,14 @@ Always give specific, personalized advice referencing the user's actual data, cu
                       <Ionicons name="warning-outline" size={16} color="#F44336" />
                       <Text style={styles.errorText}>
                         {msg.errorType === 'rate_limit'
-                          ? 'Too many requests — try again in 30 seconds'
+                          ? 'Too many requests — try again in 30 seconds.'
                           : msg.errorType === 'no_api_key'
                           ? 'AI not configured. Contact support.'
                           : msg.errorType === 'network'
-                          ? "Couldn't reach AI. Tap to retry."
-                          : 'Something went wrong. Tap to retry.'}
-                        {__DEV__ || msg.errorDetail ? `\n[debug] ${msg.errorType} — ${msg.errorDetail}` : ''}
+                          ? "Couldn't reach AI. Check your connection."
+                          : 'Something went wrong.'}
+                        {msg.errorDetail ? `\n${msg.errorDetail}` : ''}
+                        {canRetry ? '\nTap to retry.' : ''}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -910,11 +911,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     backgroundColor: 'transparent',
+    flexShrink: 1,
   },
   chipText: {
     color: '#FF6200',
     fontSize: 13,
     fontWeight: '500',
+    flexShrink: 1,
   },
   userRow: {
     flexDirection: 'row',
