@@ -438,6 +438,26 @@ const ActiveWorkoutScreen: React.FC = () => {
     setExerciseList(updated);
   };
 
+  // Add a warm-up set to an exercise
+  const addWarmupSet = (exerciseId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const exercise = exerciseList.find((ex) => ex.exercise_id === exerciseId);
+    if (!exercise) return;
+    const newSet: WorkoutSet = {
+      set_id: 'warmup_' + Date.now(),
+      set_number: exercise.sets.length + 1,
+      completed: false,
+      weight: 0,
+      reps: 0,
+      rpe: undefined,
+      is_warmup: true,
+    };
+    const updated = exerciseList.map((ex) =>
+      ex.exercise_id === exerciseId ? { ...ex, sets: [...ex.sets, newSet] } : ex
+    );
+    setExerciseList(updated);
+  };
+
   const skipRestTimer = async () => {
     cancelRestNotif();
     setActiveRest(false);
@@ -969,7 +989,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                 </View>
               }
               renderItem={({ item: set, index }) => (
-                <View style={[styles.setRow, set.completed && styles.setRowComplete]}>
+                <View style={[styles.setRow, set.completed && styles.setRowComplete, set.is_warmup && styles.setRowWarmup]}>
                   {/* Tap-to-complete checkmark [Feature 3] */}
                   <TouchableOpacity
                     style={styles.setCompleteBtn}
@@ -979,10 +999,16 @@ const ActiveWorkoutScreen: React.FC = () => {
                     <Ionicons
                       name={set.completed ? 'checkmark-circle' : 'ellipse-outline'}
                       size={22}
-                      color={set.completed ? '#4CAF50' : '#555'}
+                      color={set.completed ? '#4CAF50' : (set.is_warmup ? '#FF9800' : '#555')}
                     />
                   </TouchableOpacity>
-                  <Text style={styles.setNum}>Set {set.set_number}</Text>
+                  {set.is_warmup ? (
+                    <View style={styles.warmupNumBadge}>
+                      <Text style={styles.warmupNumText}>🔥</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.setNum}>Set {item.sets.filter((s) => !s.is_warmup).indexOf(set) + 1}</Text>
+                  )}
                   <TextInput
                     style={styles.input}
                     keyboardType="numeric"
@@ -1017,9 +1043,14 @@ const ActiveWorkoutScreen: React.FC = () => {
                 </View>
               )}
               ListFooterComponent={
-                <TouchableOpacity style={styles.addSetBtn} onPress={() => addSet(item.exercise_id)}>
-                  <Text style={styles.addSetText}>+ Add Set</Text>
-                </TouchableOpacity>
+                <View style={styles.setFooterRow}>
+                  <TouchableOpacity style={styles.warmupSetBtn} onPress={() => addWarmupSet(item.exercise_id)}>
+                    <Text style={styles.warmupSetBtnText}>🔥 Warm Up</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.addSetBtn} onPress={() => addSet(item.exercise_id)}>
+                    <Text style={styles.addSetText}>+ Add Set</Text>
+                  </TouchableOpacity>
+                </View>
               }
             />
             <TouchableOpacity
@@ -1336,8 +1367,13 @@ const styles = StyleSheet.create({
     borderColor: '#303030',
     textAlign: 'center',
   },
-  addSetBtn: {
+  setFooterRow: {
+    flexDirection: 'row',
+    gap: 8,
     marginTop: 6,
+  },
+  addSetBtn: {
+    flex: 1,
     backgroundColor: '#4CAF50',
     borderRadius: 6,
     alignItems: 'center',
@@ -1346,6 +1382,33 @@ const styles = StyleSheet.create({
   addSetText: {
     color: '#fff',
     fontWeight: 'bold',
+  },
+  warmupSetBtn: {
+    flex: 1,
+    backgroundColor: 'rgba(255,152,0,0.15)',
+    borderRadius: 6,
+    alignItems: 'center',
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#FF9800',
+  },
+  warmupSetBtnText: {
+    color: '#FF9800',
+    fontWeight: 'bold',
+  },
+  setRowWarmup: {
+    backgroundColor: 'rgba(255,152,0,0.08)',
+    borderRadius: 6,
+    borderLeftWidth: 2,
+    borderLeftColor: '#FF9800',
+  },
+  warmupNumBadge: {
+    width: 50,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  warmupNumText: {
+    fontSize: 18,
   },
   restBtn: {
     marginTop: 10,
