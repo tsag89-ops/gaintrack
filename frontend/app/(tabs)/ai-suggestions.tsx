@@ -746,18 +746,31 @@ Always give specific, personalized advice referencing the user's actual data, cu
                       disabled={!canRetry}
                       activeOpacity={canRetry ? 0.7 : 1}
                     >
-                      <Ionicons name="warning-outline" size={16} color="#F44336" />
+                      <View style={styles.errorHeader}>
+                        <Ionicons name="warning-outline" size={16} color="#F44336" />
+                        <Text style={styles.errorTitle}>
+                          {msg.errorType === 'rate_limit'
+                            ? 'Too many requests'
+                            : msg.errorType === 'no_api_key'
+                            ? 'AI not configured'
+                            : msg.errorType === 'network'
+                            ? 'Connection error'
+                            : 'Something went wrong'}
+                        </Text>
+                      </View>
                       <Text style={styles.errorText}>
                         {msg.errorType === 'rate_limit'
-                          ? 'Too many requests — try again in 30 seconds.'
+                          ? 'Please try again in 30 seconds.'
                           : msg.errorType === 'no_api_key'
-                          ? 'AI not configured. Contact support.'
+                          ? 'Contact support to resolve this.'
                           : msg.errorType === 'network'
-                          ? "Couldn't reach AI. Check your connection."
-                          : 'Something went wrong.'}
-                        {msg.errorDetail ? `\n${msg.errorDetail}` : ''}
-                        {canRetry ? '\nTap to retry.' : ''}
+                          ? "Couldn't reach the AI server. Check your connection."
+                          : 'An unexpected error occurred.'}
+                        {msg.errorDetail ? `\n\n${msg.errorDetail}` : ''}
                       </Text>
+                      {canRetry && (
+                        <Text style={styles.errorRetry}>Tap to retry</Text>
+                      )}
                     </TouchableOpacity>
                   </View>
                 );
@@ -900,8 +913,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   chipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: 'column',
     gap: 8,
   },
   chip: {
@@ -911,13 +923,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     backgroundColor: 'transparent',
-    flexShrink: 1,
+    alignSelf: 'flex-start',
   },
   chipText: {
     color: '#FF6200',
     fontSize: 13,
     fontWeight: '500',
-    flexShrink: 1,
   },
   userRow: {
     flexDirection: 'row',
@@ -950,9 +961,8 @@ const styles = StyleSheet.create({
     maxWidth: '88%',
   },
   errorBubble: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
+    flexDirection: 'column',
+    gap: 6,
     backgroundColor: '#252525',
     borderRadius: 18,
     borderBottomLeftRadius: 4,
@@ -962,12 +972,26 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     maxWidth: '88%',
   },
+  errorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  errorTitle: {
+    color: '#F44336',
+    fontSize: 14,
+    fontWeight: '700',
+  },
   errorText: {
     color: '#FF6B6B',
     fontSize: 13,
     lineHeight: 19,
-    flex: 1,
-    flexShrink: 1,
+  },
+  errorRetry: {
+    color: '#FF6200',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
   },
   typingBubble: {
     flexDirection: 'row',
