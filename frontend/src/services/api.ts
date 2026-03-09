@@ -424,8 +424,188 @@ export const statsApi = {
 
 export const progressionApi = {
   getProgression: async (exerciseId: string) => ([]),
-  getSuggestions: async (): Promise<{suggestions: any[], total_exercises_analyzed: number}> => ({suggestions: [], total_exercises_analyzed: 0}),
-  getExerciseProgression: async (exerciseName: string): Promise<any> => null,
+
+  getSuggestions: async (): Promise<{suggestions: any[], total_exercises_analyzed: number}> => {
+    const workouts = await getStoredData<any>(WORKOUTS_KEY);
+
+    // Only consider workouts from the last 30 days
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recentWorkouts = workouts
+      .filter((w: any) => w.date && new Date(w.date).getTime() >= cutoff)
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Build per-exercise history from recent workouts
+    const exerciseHistory: Record<string, Array<{
+      date: string; max_weight: number; sets_completed: number; total_reps: number; avg_rpe: number;
+    }>> = {};
+
+    for (const workout of recentWorkouts) {
+      const workoutDate = workout.date;
+      for (const exercise of workout.exercises ?? []) {
+        const exName: string = exercise.exercise_name ?? exercise.name;
+        if (!exName) continue;
+
+        const workingSets = (exercise.sets ?? []).filter(
+          (s: any) => !s.is_warmup && (s.weight ?? 0) > 0 && (s.reps ?? 0) > 0
+        );
+        if (workingSets.length === 0) continue;
+
+        if (!exerciseHistory[exName]) exerciseHistory[exName] = [];
+
+        const maxWeight = Math.max(...workingSets.map((s: any) => s.weight ?? 0));
+        const totalReps = workingSets.reduce((sum: number, s: any) => sum + (s.reps ?? 0), 0);
+        const rpeSets = workingSets.filter((s: any) => s.rpe != null && s.rpe > 0);
+        const avgRpe = rpeSets.length > 0
+          ? rpeSets.reduce((sum: number, s: any) => sum + s.rpe, 0) / rpeSets.length
+          : 7;
+
+        exerciseHistory[exName].push({
+          date: typeof workoutDate === 'string' ? workoutDate : new Date(workoutDate).toISOString(),
+          max_weight: maxWeight,
+          sets_completed: workingSets.length,
+          total_reps: totalReps,
+          avg_rpe: Math.round(avgRpe * 10) / 10,
+        });
+      }
+    }
+
+    const suggestions: any[] = [];
+
+    for (const [exName, history] of Object.entries(exerciseHistory)) {
+      if (history.length < 2) continue; // need at least 2 sessions
+
+      const recent = history.slice(0, 3);
+      const currentWeight = recent[0].max_weight;
+      if (currentWeight <= 0) continue;
+
+      const avgSets = recent.reduce((s, r) => s + r.sets_completed, 0) / recent.length;
+      const avgRpe = recent.reduce((s, r) => s + r.avg_rpe, 0) / recent.length;
+      const weights = recent.map(r => r.max_weight);
+
+      let shouldProgress = false;
+      let confidence = 'low';
+      let reason = '';
+      let increasePct = 0;
+
+      if (avgSets >= 3 && avgRpe <= 7) {
+        shouldProgress = true;
+        confidence = 'high';
+        increasePct = 5;
+        reason = `Excellent! Completed avg ${avgSets.toFixed(1)} sets at RPE ${avgRpe.toFixed(1)}. Ready for progression.`;
+      } else if (avgSets >= 3 && avgRpe <= 8) {
+        shouldProgress = true;
+        confidence = 'medium';
+        increasePct = 2.5;
+        reason = `Good progress! Completed avg ${avgSets.toFixed(1)} sets at RPE ${avgRpe.toFixed(1)}. Small increase recommended.`;
+      } else if (avgRpe >= 9) {
+        shouldProgress = false;
+        confidence = 'high';
+        reason = `RPE is high (${avgRpe.toFixed(1)}). Focus on current weight before progressing.`;
+      } else if (new Set(weights).size === 1 && recent.length >= 3) {
+        shouldProgress = true;
+        confidence = 'low';
+        increasePct = 2.5;
+        reason = 'Weight has been constant. Try a small increase to test limits.';
+      }
+
+      if (shouldProgress && increasePct > 0) {
+        let increaseAmount = Math.round((currentWeight * (increasePct / 100)) / 2.5) * 2.5;
+        if (increaseAmount < 2.5) increaseAmount = 2.5;
+        const suggestedWeight = currentWeight + increaseAmount;
+
+        suggestions.push({
+          exercise_name: exName,
+          current_weight: currentWeight,
+          suggested_weight: suggestedWeight,
+          increase_amount: increaseAmount,
+          increase_percentage: Math.round((increaseAmount / currentWeight) * 1000) / 10,
+          confidence,
+          reason,
+          recent_performance: recent,
+        });
+      }
+    }
+
+    // Sort: high confidence first
+    const order: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    suggestions.sort((a, b) => (order[a.confidence] ?? 3) - (order[b.confidence] ?? 3));
+
+    return { suggestions, total_exercises_analyzed: Object.keys(exerciseHistory).length };
+  },
+
+  getExerciseProgression: async (exerciseName: string): Promise<any> => {
+    const workouts = await getStoredData<any>(WORKOUTS_KEY);
+
+    // Sort all workouts newest-first
+    const sorted = workouts
+      .filter((w: any) => w.date)
+      .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const history: Array<{
+      date: string; workout_id: string; max_weight: number; total_volume: number;
+      sets: number; total_reps: number; avg_rpe: number;
+    }> = [];
+
+    for (const workout of sorted) {
+      for (const exercise of workout.exercises ?? []) {
+        const exName: string = exercise.exercise_name ?? exercise.name;
+        if (exName !== exerciseName) continue;
+
+        const workingSets = (exercise.sets ?? []).filter(
+          (s: any) => !s.is_warmup && (s.weight ?? 0) > 0 && (s.reps ?? 0) > 0
+        );
+        if (workingSets.length === 0) continue;
+
+        const maxWeight = Math.max(...workingSets.map((s: any) => s.weight ?? 0));
+        const totalVolume = workingSets.reduce(
+          (sum: number, s: any) => sum + (s.weight ?? 0) * (s.reps ?? 0), 0
+        );
+        const totalReps = workingSets.reduce((sum: number, s: any) => sum + (s.reps ?? 0), 0);
+        const avgRpe = workingSets.reduce((sum: number, s: any) => sum + (s.rpe ?? 7), 0) / workingSets.length;
+
+        history.push({
+          date: typeof workout.date === 'string' ? workout.date : new Date(workout.date).toISOString(),
+          workout_id: workout.workout_id,
+          max_weight: maxWeight,
+          total_volume: Math.round(totalVolume),
+          sets: workingSets.length,
+          total_reps: totalReps,
+          avg_rpe: Math.round(avgRpe * 10) / 10,
+        });
+      }
+    }
+
+    let maxWeightEver = 0;
+    let maxVolumeEver = 0;
+    let trend: string = 'no_data';
+
+    if (history.length > 0) {
+      maxWeightEver = Math.max(...history.map(h => h.max_weight));
+      maxVolumeEver = Math.max(...history.map(h => h.total_volume));
+
+      if (history.length >= 3) {
+        const recentAvg = history.slice(0, 3).reduce((s, h) => s + h.max_weight, 0) / 3;
+        const olderSlice = history.slice(3, 6);
+        const olderAvg = olderSlice.length > 0
+          ? olderSlice.reduce((s, h) => s + h.max_weight, 0) / olderSlice.length
+          : recentAvg;
+
+        if (recentAvg > olderAvg * 1.05) trend = 'improving';
+        else if (recentAvg < olderAvg * 0.95) trend = 'declining';
+        else trend = 'stable';
+      } else {
+        trend = 'not_enough_data';
+      }
+    }
+
+    return {
+      exercise_name: exerciseName,
+      history: history.slice(0, 20),
+      personal_records: { max_weight: maxWeightEver, max_volume: maxVolumeEver },
+      trend,
+      total_sessions: history.length,
+    };
+  },
 };
 
 export const measurementsApi = {
