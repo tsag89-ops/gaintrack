@@ -339,7 +339,7 @@ export default function HomeScreen() {
       {recentWorkouts.length > 0 && (
         <View style={styles.sectionRow}>
           <Text style={styles.sectionTitle}>Recent Workouts</Text>
-          <TouchableOpacity onPress={() => router.push('/progress')}>
+          <TouchableOpacity onPress={() => router.push('/workout-history')}>
             <Text style={styles.seeAll}>See all</Text>
           </TouchableOpacity>
         </View>
