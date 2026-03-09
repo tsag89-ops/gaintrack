@@ -184,6 +184,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="workout-history" options={{ presentation: 'card' }} />
           <Stack.Screen name="workout/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="workout/active" options={{ presentation: 'card' }} />
           <Stack.Screen name="add-food" options={{ presentation: 'modal' }} />
