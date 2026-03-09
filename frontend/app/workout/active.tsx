@@ -25,6 +25,7 @@ import { ExerciseVideo } from '../../src/components/ExerciseVideo';
 import { takePendingExercise } from '../../src/utils/exerciseMailbox';
 import { useNativeAuthState } from '../../src/hooks/useAuth';
 import { usePro } from '../../src/hooks/usePro';
+import { useWeightUnit } from '../../src/hooks/useWeightUnit';
 import { seedExercises } from '../../src/data/seedData';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
@@ -43,6 +44,7 @@ const ActiveWorkoutScreen: React.FC = () => {
     persistInProgress, restoreInProgress, clearInProgress } = useWorkoutStore();
   const { uid } = useNativeAuthState();
   const { isPro } = usePro();
+  const weightUnit = useWeightUnit();
   const [exerciseList, setExerciseList] = useState(currentWorkout?.exercises || []);
   const [prefilledFromLastSession, setPrefilledFromLastSession] = useState<Set<string>>(new Set());
 
@@ -775,7 +777,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                 if (!os) return;
                 const parts: string[] = [];
                 if (Number(cs.reps) !== Number(os.reps)) parts.push(`reps ${os.reps}→${cs.reps}`);
-                if (Number(cs.weight) !== Number(os.weight)) parts.push(`${os.weight}→${cs.weight}kg`);
+                if (Number(cs.weight) !== Number(os.weight)) parts.push(`${os.weight}→${cs.weight}${weightUnit}`);
                 if ((cs.rpe ?? '') !== (os.rpe ?? '')) parts.push(`RPE ${os.rpe ?? '-'}→${cs.rpe ?? '-'}`);
                 if (parts.length) setChanges.push(`set ${i + 1}: ${parts.join(', ')}`);
               });
@@ -934,7 +936,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                   <View style={styles.setColumnsHeaderRow}>
                     <View style={styles.setColumnsCheckSpacer} />
                     <Text style={styles.setColumnsSet}>Set</Text>
-                    <Text style={styles.setColumnsLabel}>Weight</Text>
+                    <Text style={styles.setColumnsLabel}>Weight ({weightUnit})</Text>
                     <Text style={styles.setColumnsLabel}>Reps</Text>
                     <Text style={styles.setColumnsLabel}>RPE</Text>
                     <View style={{ width: 28 }} />
@@ -961,7 +963,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                     keyboardType="numeric"
                     value={set.weight.toString()}
                     onChangeText={(v) => updateSet(item.exercise_id, index, 'weight', Number(v))}
-                    placeholder="kg"
+                    placeholder={weightUnit}
                     placeholderTextColor="#B0B0B0"
                   />
                   <TextInput

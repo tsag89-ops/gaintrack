@@ -4,6 +4,7 @@ import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Workout } from '../types';
 import { formatDate, calculateWorkoutVolume, calculateTotalSets, formatVolume } from '../utils/helpers';
+import { useWeightUnit } from '../hooks/useWeightUnit';
 
 interface WorkoutCardProps {
   workout: Workout;
@@ -15,6 +16,7 @@ interface WorkoutCardProps {
 export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDelete }) => {
   const volume = calculateWorkoutVolume(workout.exercises);
   const totalSets = calculateTotalSets(workout.exercises);
+  const weightUnit = useWeightUnit();
   const swipeRef = useRef<Swipeable>(null);
 
   const handleDeletePress = () => {
@@ -68,7 +70,7 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDe
         <View style={styles.statItem}>
           <Ionicons name="trending-up-outline" size={18} color="#FFC107" />
           <Text style={styles.statValue}>{formatVolume(volume)}</Text>
-          <Text style={styles.statLabel}>Volume</Text>
+          <Text style={styles.statLabel}>Vol ({weightUnit})</Text>
         </View>
       </View>
 

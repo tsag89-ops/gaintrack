@@ -18,12 +18,14 @@ import { Exercise, WorkoutExercise, WorkoutSet } from '../../src/types';
 import { SetLoggerSheet } from '../../src/components/SetLoggerSheet';
 import { ExercisePicker } from '../../src/components/ExercisePicker';
 import { usePro } from '../../src/hooks/usePro';
+import { useWeightUnit } from '../../src/hooks/useWeightUnit';
 
 export default function NewWorkoutScreen() {
   const router = useRouter();
   const { preloadExercise } = useLocalSearchParams<{ preloadExercise?: string }>();
   const { startWorkout, addExerciseToWorkout, clearInProgress, currentWorkout } = useWorkoutStore();
   const { isPro } = usePro();
+  const weightUnit = useWeightUnit();
   const [workoutName, setWorkoutName] = useState('Workout');
   const hasActiveWorkout = Boolean(currentWorkout);
 
@@ -226,7 +228,7 @@ export default function NewWorkoutScreen() {
                 </Text>
                 {exercise.sets.filter((s) => !s.is_warmup).length > 0 && (
                   <Text style={styles.setsDetail}>
-                    Best: {Math.max(...exercise.sets.filter((s) => !s.is_warmup).map((s) => s.weight))} lbs
+                    Best: {Math.max(...exercise.sets.filter((s) => !s.is_warmup).map((s) => s.weight))} {weightUnit}
                   </Text>
                 )}
               </View>

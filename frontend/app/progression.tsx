@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { progressionApi } from '../src/services/api';
+import { useWeightUnit } from '../src/hooks/useWeightUnit';
 
 interface ProgressionSuggestion {
   exercise_name: string;
@@ -65,6 +66,7 @@ const TREND_ICONS: Record<string, { icon: string; color: string }> = {
 
 export default function ProgressionScreen() {
   const router = useRouter();
+  const weightUnit = useWeightUnit();
   const [suggestions, setSuggestions] = useState<ProgressionSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -209,11 +211,11 @@ export default function ProgressionScreen() {
                       <Text style={styles.currentWeight}>{suggestion.current_weight}</Text>
                       <Ionicons name="arrow-forward" size={20} color="#4CAF50" />
                       <Text style={styles.suggestedWeight}>{suggestion.suggested_weight}</Text>
-                      <Text style={styles.weightUnit}>lbs</Text>
+                      <Text style={styles.weightUnit}>{weightUnit}</Text>
                     </View>
                     <View style={styles.increaseInfo}>
                       <Text style={styles.increaseAmount}>
-                        +{suggestion.increase_amount} lbs ({suggestion.increase_percentage}%)
+                        +{suggestion.increase_amount} {weightUnit} ({suggestion.increase_percentage}%)
                       </Text>
                     </View>
                   </View>
@@ -226,7 +228,7 @@ export default function ProgressionScreen() {
                       {suggestion.recent_performance.slice(0, 3).map((perf, idx) => (
                         <View key={idx} style={styles.perfItem}>
                           <Text style={styles.perfDate}>{formatDate(perf.date)}</Text>
-                          <Text style={styles.perfWeight}>{perf.max_weight} lbs</Text>
+                          <Text style={styles.perfWeight}>{perf.max_weight} {weightUnit}</Text>
                           <Text style={styles.perfRpe}>RPE {perf.avg_rpe}</Text>
                         </View>
                       ))}
@@ -257,7 +259,7 @@ export default function ProgressionScreen() {
                 <View style={styles.prCard}>
                   <View style={styles.prItem}>
                     <Ionicons name="trophy" size={24} color="#FFC107" />
-                    <Text style={styles.prValue}>{exerciseHistory.personal_records.max_weight} lbs</Text>
+                    <Text style={styles.prValue}>{exerciseHistory.personal_records.max_weight} {weightUnit}</Text>
                     <Text style={styles.prLabel}>Max Weight</Text>
                   </View>
                   <View style={styles.prItem}>
@@ -291,7 +293,7 @@ export default function ProgressionScreen() {
                       <View style={styles.historyStats}>
                         <View style={styles.historyStat}>
                           <Text style={styles.historyValue}>{session.max_weight}</Text>
-                          <Text style={styles.historyLabel}>lbs</Text>
+                          <Text style={styles.historyLabel}>{weightUnit}</Text>
                         </View>
                         <View style={styles.historyStat}>
                           <Text style={styles.historyValue}>{session.sets}x{Math.round(session.total_reps / session.sets)}</Text>
