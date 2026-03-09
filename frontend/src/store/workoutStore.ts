@@ -31,8 +31,8 @@ interface WorkoutState {
   clearInProgress: () => Promise<void>;
 
   // ── In-workout local mutations (unchanged) ───────────────────────────────
-  addExerciseToWorkout: (exercise: WorkoutExercise) => void;
-  updateExerciseInWorkout: (exerciseId: string, sets: WorkoutSet[]) => void;
+  addExerciseToWorkout: (exercise: WorkoutExercise) => void;  /** Adds multiple exercises in a single store update — avoids N re-renders. */
+  addMultipleExercisesToWorkout: (exercises: WorkoutExercise[]) => void;  updateExerciseInWorkout: (exerciseId: string, sets: WorkoutSet[]) => void;
   removeExerciseFromWorkout: (exerciseId: string) => void;
 
   // ── Firestore CRUD [PRO] ─────────────────────────────────────────────────
@@ -141,6 +141,18 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         currentWorkout: {
           ...current,
           exercises: [...current.exercises, exercise],
+        },
+      });
+    }
+  },
+
+  addMultipleExercisesToWorkout: (exercises) => {
+    const current = get().currentWorkout;
+    if (current) {
+      set({
+        currentWorkout: {
+          ...current,
+          exercises: [...current.exercises, ...exercises],
         },
       });
     }

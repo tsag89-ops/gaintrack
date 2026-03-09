@@ -1,6 +1,6 @@
 // src/hooks/useAISuggestions.ts
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAISuggestions, AISuggestion, AIContext } from '../services/aiService';
 
@@ -80,9 +80,13 @@ export function useAISuggestions(context: AIContext = DEFAULT_CONTEXT): AISugges
     setLoading(false);
   }, [fetchAndCache]);
 
+  // Stable string key — avoids reference-equality thrashing on every render
+  // while still re-fetching when context content actually changes.
+  const contextKey = useMemo(() => JSON.stringify(context), [context]);
+
   useEffect(() => {
     loadFromCacheOrFetch();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [contextKey]); // re-fetch when workout/goal context changes
 
   return { suggestions, loading, error, lastUpdated, refresh };
 }

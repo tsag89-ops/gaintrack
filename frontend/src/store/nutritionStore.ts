@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { format } from 'date-fns';
 import { DailyNutrition, Food, MealEntry, MealType } from '../types';
 
 interface NutritionState {
@@ -17,7 +18,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
   todayNutrition: null,
   foods: [],
   isLoading: false,
-  selectedDate: new Date().toISOString().split('T')[0],
+  selectedDate: format(new Date(), 'yyyy-MM-dd'),
 
   setTodayNutrition: (nutrition) => set({ todayNutrition: nutrition }),
   setFoods: (foods) => set({ foods }),

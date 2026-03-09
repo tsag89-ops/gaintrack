@@ -122,6 +122,61 @@ const CHART_CFG = {
   propsForBackgroundLines: { stroke: colors.border, strokeDasharray: '' },
 };
 
+// ── Extracted sub-components (defined outside ProgressScreen to keep stable
+//     React element identity — prevents unmount/remount on every tab render) ──
+
+const ExerciseSelector = React.memo(function ExerciseSelector({
+  selectedExercise,
+  onPress,
+}: {
+  selectedExercise: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.exerciseSelector} onPress={onPress} activeOpacity={0.75}>
+      <Text style={styles.exerciseSelectorText} numberOfLines={1}>
+        {selectedExercise || 'Select Exercise'}
+      </Text>
+      <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
+    </TouchableOpacity>
+  );
+});
+
+const EmptyState = React.memo(function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: string;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View style={styles.emptyCard}>
+      <Ionicons name={icon as any} size={40} color={colors.textDisabled} />
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptySubtitle}>{subtitle}</Text>
+    </View>
+  );
+});
+
+const StatBox = React.memo(function StatBox({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
+  return (
+    <View style={styles.statBox}>
+      <Text style={[styles.statBoxValue, valueColor ? { color: valueColor } : undefined]}>{value}</Text>
+      <Text style={styles.statBoxLabel}>{label}</Text>
+    </View>
+  );
+});
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export default function ProgressScreen() {
@@ -343,7 +398,7 @@ export default function ProgressScreen() {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);
-      days.push(d.toISOString().split('T')[0]);
+      days.push(format(d, 'yyyy-MM-dd'));
     }
     const map: Record<string, any> = Object.fromEntries(
       nutritionDays.map((n: any) => [n.date, n])
@@ -370,7 +425,7 @@ export default function ProgressScreen() {
     try {
       const rows = ['Date,Workout,Exercise,Set,Reps,Weight_kg,1RM_kg'];
       workouts.forEach((w) => {
-        const wDate = new Date(w.date).toISOString().split('T')[0];
+        const wDate = format(new Date(w.date), 'yyyy-MM-dd');
         const wName = (w.name ?? 'Workout').replace(/,/g, ' ');
         (w.exercises ?? []).forEach((ex) => {
           const eName = getExName(ex).replace(/,/g, ' ');
@@ -409,29 +464,9 @@ export default function ProgressScreen() {
   const hasData = (cd: ChartDataSet) =>
     cd.labels.length > 0 && cd.data.length > 0 && cd.data.some((v) => v > 0);
 
-  const ExerciseSelector = () => (
-    <TouchableOpacity style={styles.exerciseSelector} onPress={() => setShowPicker(true)} activeOpacity={0.75}>
-      <Text style={styles.exerciseSelectorText} numberOfLines={1}>
-        {selectedExercise || 'Select Exercise'}
-      </Text>
-      <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
-    </TouchableOpacity>
-  );
-
-  const EmptyState = ({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) => (
-    <View style={styles.emptyCard}>
-      <Ionicons name={icon as any} size={40} color={colors.textDisabled} />
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptySubtitle}>{subtitle}</Text>
-    </View>
-  );
-
-  const StatBox = ({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) => (
-    <View style={styles.statBox}>
-      <Text style={[styles.statBoxValue, valueColor ? { color: valueColor } : undefined]}>{value}</Text>
-      <Text style={styles.statBoxLabel}>{label}</Text>
-    </View>
-  );
+  // ExerciseSelector, EmptyState and StatBox are module-level React.memo components.
+  // Stable callback for the ExerciseSelector onPress:
+  const openExercisePicker = useCallback(() => setShowPicker(true), []);
 
   if (loading) {
     return (
@@ -511,7 +546,7 @@ export default function ProgressScreen() {
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {activeTab === '1rm' && (
             <View>
-              <ExerciseSelector />
+              <ExerciseSelector selectedExercise={selectedExercise} onPress={openExercisePicker} />
               {hasData(oneRMChart) ? (
                 <View style={styles.chartCard}>
                   <Text style={styles.cardTitle}>Estimated 1RM</Text>
@@ -545,7 +580,7 @@ export default function ProgressScreen() {
 
           {activeTab === 'volume' && (
             <View>
-              <ExerciseSelector />
+              <ExerciseSelector selectedExercise={selectedExercise} onPress={openExercisePicker} />
               {hasData(volumeChart) ? (
                 <View style={styles.chartCard}>
                   <Text style={styles.cardTitle}>Weekly Volume Load</Text>

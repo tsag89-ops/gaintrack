@@ -10,6 +10,7 @@ import Animated, {
   withTiming,
   Easing,
   interpolate,
+  cancelAnimation,
 } from 'react-native-reanimated';
 import { theme } from '../../constants/theme';
 
@@ -37,7 +38,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
       true, // reverse (ping-pong)
     );
     return () => {
-      progress.value = 0;
+      cancelAnimation(progress);
     };
   }, [progress]);
 

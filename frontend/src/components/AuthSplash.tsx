@@ -99,6 +99,16 @@ export default function AuthSplash({ message }: AuthSplashProps) {
       -1,
       false,
     );
+
+    return () => {
+      cancelAnimation(logoOpacity);
+      cancelAnimation(logoScale);
+      cancelAnimation(nameOpacity);
+      cancelAnimation(nameY);
+      cancelAnimation(tagOpacity);
+      cancelAnimation(barProgress);
+      cancelAnimation(shimmer);
+    };
   }, []);
 
   // ── Animated styles ───────────────────────────────────────────────────────

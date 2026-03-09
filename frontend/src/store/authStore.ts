@@ -42,11 +42,11 @@ interface AuthState {
 async function upsertUserProfile(userId: string, data: object) {
   try {
     await setDoc(doc(db, 'users', userId), data, { merge: true });
-    console.log('[authStore] Firestore profile upsert success ✅');
+    if (__DEV__) console.log('[authStore] Firestore profile upsert success ✅');
   } catch (e) {
     try {
       await (db as any).collection('users').doc(userId).set(data, { merge: true });
-      console.log('[authStore] Firestore profile upsert success (native) ✅');
+      if (__DEV__) console.log('[authStore] Firestore profile upsert success (native) ✅');
     } catch (e2) {
       console.warn('[authStore] Firestore profile save failed:', e2);
     }
@@ -59,16 +59,16 @@ async function fetchIsPro(userId: string): Promise<boolean> {
     const snap = await getDoc(doc(db, 'users', userId));
     if (snap.exists()) {
       const isPro = snap.data().isPro ?? false;
-      console.log('[authStore] isPro from Firestore:', isPro);
-      return isPro;
-    }
-  } catch (e) {
+        if (__DEV__) console.log('[authStore] isPro from Firestore:', isPro);
+        return isPro;
+      }
+    } catch (e) {
     // Web SDK throws on native Android/iOS — fall back to rnFirebase compat API
     try {
       const snap2 = await (db as any).collection('users').doc(userId).get();
       if (snap2.exists) {
         const isPro = snap2.data()?.isPro ?? false;
-        console.log('[authStore] isPro from Firestore (native):', isPro);
+        if (__DEV__) console.log('[authStore] isPro from Firestore (native):', isPro);
         return isPro;
       }
     } catch (e2) {
@@ -131,7 +131,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const customerInfo = await getCustomerInfo();
       const rcIsPro = hasProEntitlement(customerInfo);
       if (rcIsPro) {
-        console.log('[authStore] isPro from RevenueCat entitlements: true');
+        if (__DEV__) console.log('[authStore] isPro from RevenueCat entitlements: true');
         isPro = true;
       }
     } catch (e) {

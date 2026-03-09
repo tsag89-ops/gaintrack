@@ -28,13 +28,13 @@ const firebaseConfig = {
   appId:             process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-console.log('[Firebase] init start');
+if (__DEV__) console.log('[Firebase] init start');
 let app: ReturnType<typeof initializeApp>;
 let _auth: ReturnType<typeof getAuth>;
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   _auth = getAuth(app);
-  console.log('[Firebase] init complete');
+  if (__DEV__) console.log('[Firebase] init complete');
 } catch (e) {
   console.error('[Firebase] init error', e);
   throw e;
@@ -71,19 +71,19 @@ export const auth = {
 
   signInWithGoogle: async () => {
     const provider = new GoogleAuthProvider();
-    console.log('[Firebase] signInWithGoogle: attempting popup, auth domain:', _auth.app.options.authDomain);
+    if (__DEV__) console.log('[Firebase] signInWithGoogle: attempting popup, auth domain:', _auth.app.options.authDomain);
     // Popup first — COOP warnings from EAS hosting are non-fatal; Firebase
     // completes the handshake via BroadcastChannel when window.closed is blocked.
     // Fall back to redirect only for explicit popup-blocked errors.
     try {
       const cred = await signInWithPopup(_auth, provider);
-      console.log('[Firebase] popup success, uid:', cred.user.uid);
+      if (__DEV__) console.log('[Firebase] popup success, uid:', cred.user.uid);
       return { user: wrapUser(cred.user) };
     } catch (e: any) {
       console.warn('[Firebase] popup failed:', e?.code, e?.message);
       if (e?.code === 'auth/popup-blocked') {
         // Only fall back on explicit popup-blocked — other errors should surface
-        console.log('[Firebase] popup blocked, falling back to redirect...');
+        if (__DEV__) console.log('[Firebase] popup blocked, falling back to redirect...');
         await signInWithRedirect(_auth, provider);
         return null; // page will reload
       }

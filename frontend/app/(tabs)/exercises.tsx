@@ -28,7 +28,7 @@ import { setPendingExercise } from '../../src/utils/exerciseMailbox';
 export default function ExercisesScreen() {
   const router = useRouter();
   const { isPro } = usePro();
-  const { currentWorkout, startWorkout, addExerciseToWorkout, clearInProgress } = useWorkoutStore();
+  const { currentWorkout, startWorkout, addExerciseToWorkout, addMultipleExercisesToWorkout, clearInProgress } = useWorkoutStore();
 
   // ── Template picker state ──────────────────────────────────────────────────
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -57,7 +57,7 @@ export default function ExercisesScreen() {
       })),
       notes: undefined,
     }));
-    exercises.forEach((ex: any) => addExerciseToWorkout(ex));
+    addMultipleExercisesToWorkout(exercises);
     router.push({
       pathname: '/workout/active',
       params: { name: template.name, templateId: template.id },

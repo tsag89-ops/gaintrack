@@ -215,8 +215,10 @@ export default function HomeScreen() {
   const firstName = user?.name?.split(' ')[0] ?? 'Athlete';
 
   // ── Sub-components ────────────────────────────────────────────────────────
+  // Wrapped in useCallback so FlatList receives a stable reference and does
+  // not unmount/remount the header (including the BarChart) on every render.
 
-  const ListHeader = () => (
+  const ListHeader = useCallback(() => (
     <View>
       {/* ── Header ── */}
       <View style={styles.header}>
@@ -345,15 +347,15 @@ export default function HomeScreen() {
         </View>
       )}
     </View>
-  );
+  ), [greeting, firstName, streak, resumeWorkoutName, hasActiveWorkout, chartLabels, chartData, chartMax, totalVolumeThisWeek, handleNewWorkout, handleResumeWorkout, handleDismissResume, router]);
 
-  const EmptyWorkouts = () => (
+  const EmptyWorkouts = useCallback(() => (
     <View style={styles.emptyState}>
       <Ionicons name="barbell-outline" size={56} color={theme.charcoal} />
       <Text style={styles.emptyTitle}>No workouts yet</Text>
       <Text style={styles.emptySubtitle}>Hit the button above to start your first session!</Text>
     </View>
-  );
+  ), []);
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (isLoading && workouts.length === 0) {

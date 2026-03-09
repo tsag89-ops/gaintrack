@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  FlatList,
   TouchableOpacity,
   TextInput,
   Alert,
@@ -127,11 +128,116 @@ export default function AddFoodScreen() {
     }
   };
 
-  const filteredFoods = foods.filter((food) => {
+  const filteredFoods = useMemo(() => foods.filter((food) => {
     const matchesCategory = selectedCategory === 'all' || food.category === selectedCategory;
     const matchesSearch = !searchQuery || food.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
-  });
+  }), [foods, selectedCategory, searchQuery]);
+
+  // ── Virtualised flat data array for FlatList ──────────────────────────────
+  // Combines OFFResults, recentFoods, and filteredFoods into a single typed
+  // array so all items are rendered in one windowed FlatList instead of a
+  // ScrollView that mounts every node simultaneously.
+  type ListRow =
+    | { kind: 'header'; label: string; key: string }
+    | { kind: 'off';    item: FoodItem; key: string }
+    | { kind: 'recent'; food: Food;    key: string }
+    | { kind: 'local';  food: Food;    key: string };
+
+  const foodListData = useMemo((): ListRow[] => {
+    const rows: ListRow[] = [];
+    if (offResults.length > 0) {
+      rows.push({ kind: 'header', label: 'Open Food Facts Results', key: 'h-off' });
+      offResults.forEach((item) => rows.push({ kind: 'off', item, key: 'off-' + item.id }));
+      rows.push({ kind: 'header', label: 'Local Foods', key: 'h-local-sep' });
+    }
+    if (!searchQuery && selectedCategory === 'all' && recentFoods.length > 0) {
+      rows.push({ kind: 'header', label: 'Recent', key: 'h-recent' });
+      recentFoods.forEach((food) => rows.push({ kind: 'recent', food, key: 'recent-' + food.food_id }));
+      rows.push({ kind: 'header', label: 'All Foods', key: 'h-all' });
+    }
+    filteredFoods.forEach((food) => rows.push({ kind: 'local', food, key: 'local-' + food.food_id }));
+    return rows;
+  }, [offResults, recentFoods, filteredFoods, searchQuery, selectedCategory]);
+
+  const renderFoodRow = ({ item: row }: { item: ListRow }) => {
+    if (row.kind === 'header') {
+      return <Text style={styles.sectionHeader}>{row.label}</Text>;
+    }
+    if (row.kind === 'off') {
+      const item = row.item;
+      return (
+        <TouchableOpacity
+          style={[styles.foodCard, selectedOFFFood?.id === item.id && styles.foodCardSelected]}
+          onPress={() => handleSelectOFFFood(item)}
+        >
+          {item.imageUrl ? (
+            <Image source={{ uri: item.imageUrl }} style={styles.foodThumb} resizeMode="cover" />
+          ) : (
+            <View style={styles.foodThumbPlaceholder}>
+              <Ionicons name="nutrition-outline" size={20} color="#6B7280" />
+            </View>
+          )}
+          <View style={styles.foodInfo}>
+            <Text style={styles.foodName} numberOfLines={1}>{item.name}</Text>
+            {item.brand ? <Text style={styles.foodServing} numberOfLines={1}>{item.brand}</Text> : null}
+            <Text style={styles.foodServing}>per 100g</Text>
+          </View>
+          <View style={styles.foodMacros}>
+            <Text style={styles.foodCalories}>{Math.round(item.calories)} kcal</Text>
+            <View style={styles.macroRow}>
+              <Text style={[styles.macroText, { color: '#EF4444' }]}>P {Math.round(item.protein)}g</Text>
+              <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {Math.round(item.carbs)}g</Text>
+              <Text style={[styles.macroText, { color: '#F59E0B' }]}>F {Math.round(item.fat)}g</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+    if (row.kind === 'recent') {
+      const food = row.food;
+      return (
+        <TouchableOpacity
+          style={[styles.foodCard, selectedFood?.food_id === food.food_id && styles.foodCardSelected]}
+          onPress={() => handleSelectFood(food)}
+        >
+          <View style={styles.foodInfo}>
+            <Text style={styles.foodName}>{food.name}</Text>
+            <Text style={styles.foodServing}>{food.unit}</Text>
+          </View>
+          <View style={styles.foodMacros}>
+            <Text style={styles.foodCalories}>{food.calories} cal</Text>
+            <View style={styles.macroRow}>
+              <Text style={[styles.macroText, { color: '#EF4444' }]}>P {food.protein}g</Text>
+              <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {food.carbs}g</Text>
+              <Text style={[styles.macroText, { color: '#F59E0B' }]}>F {food.fat}g</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+    // kind === 'local'
+    const food = row.food;
+    return (
+      <TouchableOpacity
+        style={[styles.foodCard, selectedFood?.food_id === food.food_id && styles.foodCardSelected]}
+        onPress={() => handleSelectFood(food)}
+      >
+        <View style={styles.foodInfo}>
+          <Text style={styles.foodName}>{food.name}</Text>
+          <Text style={styles.foodServing}>{food.unit}</Text>
+        </View>
+        <View style={styles.foodMacros}>
+          <Text style={styles.foodCalories}>{food.calories} cal</Text>
+          <View style={styles.macroRow}>
+            <Text style={[styles.macroText, { color: '#EF4444' }]}>P {food.protein}g</Text>
+            <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {food.carbs}g</Text>
+            <Text style={[styles.macroText, { color: '#F59E0B' }]}>F {food.fat}g</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const handleSelectFood = (food: Food) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -319,93 +425,18 @@ export default function AddFoodScreen() {
             <ActivityIndicator size="large" color="#FF6200" />
           </View>
         ) : (
-          <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-            {/* Open Food Facts results */}
-            {offResults.length > 0 && (
-              <>
-                <Text style={styles.sectionHeader}>Open Food Facts Results</Text>
-                {offResults.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[styles.foodCard, selectedOFFFood?.id === item.id && styles.foodCardSelected]}
-                    onPress={() => handleSelectOFFFood(item)}
-                  >
-                    {item.imageUrl ? (
-                      <Image source={{ uri: item.imageUrl }} style={styles.foodThumb} />
-                    ) : (
-                      <View style={styles.foodThumbPlaceholder}>
-                        <Ionicons name="nutrition-outline" size={20} color="#6B7280" />
-                      </View>
-                    )}
-                    <View style={styles.foodInfo}>
-                      <Text style={styles.foodName} numberOfLines={1}>{item.name}</Text>
-                      {item.brand ? <Text style={styles.foodServing} numberOfLines={1}>{item.brand}</Text> : null}
-                      <Text style={styles.foodServing}>per 100g</Text>
-                    </View>
-                    <View style={styles.foodMacros}>
-                      <Text style={styles.foodCalories}>{Math.round(item.calories)} kcal</Text>
-                      <View style={styles.macroRow}>
-                        <Text style={[styles.macroText, { color: '#EF4444' }]}>P {Math.round(item.protein)}g</Text>
-                        <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {Math.round(item.carbs)}g</Text>
-                        <Text style={[styles.macroText, { color: '#F59E0B' }]}>F {Math.round(item.fat)}g</Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-                <Text style={styles.sectionHeader}>Local Foods</Text>
-              </>
-            )}
-
-            {!searchQuery && selectedCategory === 'all' && recentFoods.length > 0 && (
-              <>
-                <Text style={styles.sectionHeader}>Recent</Text>
-                {recentFoods.map((food) => (
-                  <TouchableOpacity
-                    key={'recent-' + food.food_id}
-                    style={[styles.foodCard, selectedFood?.food_id === food.food_id && styles.foodCardSelected]}
-                    onPress={() => handleSelectFood(food)}
-                  >
-                    <View style={styles.foodInfo}>
-                      <Text style={styles.foodName}>{food.name}</Text>
-                      <Text style={styles.foodServing}>{food.unit}</Text>
-                    </View>
-                    <View style={styles.foodMacros}>
-                      <Text style={styles.foodCalories}>{food.calories} cal</Text>
-                      <View style={styles.macroRow}>
-                        <Text style={[styles.macroText, { color: '#EF4444' }]}>P {food.protein}g</Text>
-                        <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {food.carbs}g</Text>
-                        <Text style={[styles.macroText, { color: '#F59E0B' }]}>F {food.fat}g</Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-                <Text style={styles.sectionHeader}>All Foods</Text>
-              </>
-            )}
-            {filteredFoods.map((food) => (
-              <TouchableOpacity
-                key={food.food_id}
-                style={[
-                  styles.foodCard,
-                  selectedFood?.food_id === food.food_id && styles.foodCardSelected,
-                ]}
-                onPress={() => handleSelectFood(food)}
-              >
-                <View style={styles.foodInfo}>
-                  <Text style={styles.foodName}>{food.name}</Text>
-                  <Text style={styles.foodServing}>{food.unit}</Text>
-                </View>
-                <View style={styles.foodMacros}>
-                  <Text style={styles.foodCalories}>{food.calories} cal</Text>
-                  <View style={styles.macroRow}>
-                    <Text style={[styles.macroText, { color: '#EF4444' }]}>P {food.protein}g</Text>
-                    <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {food.carbs}g</Text>
-                    <Text style={[styles.macroText, { color: '#F59E0B' }]}>F {food.fat}g</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <FlatList
+            data={foodListData}
+            keyExtractor={(row) => row.key}
+            renderItem={renderFoodRow}
+            style={styles.content}
+            contentContainerStyle={styles.scrollContent}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          />
         )}
 
         {/* Selected OFF Food Panel (grams-based) */}

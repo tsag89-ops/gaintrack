@@ -380,6 +380,14 @@ const ActiveWorkoutScreen: React.FC = () => {
     }
   }, [exerciseList, currentWorkout]);
 
+  // Cleanup undo timers on unmount to prevent setState on unmounted component.
+  useEffect(() => {
+    return () => {
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      if (undoIntervalRef.current) clearInterval(undoIntervalRef.current);
+    };
+  }, []);
+
   // Duration ticker — updates once per second [Feature 1]
   useEffect(() => {
     const interval = setInterval(() => {

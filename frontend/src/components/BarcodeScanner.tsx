@@ -28,7 +28,7 @@ export default function BarcodeScanner({ onFoodFound, onNotFound, onClose }: Bar
     if (!permission?.granted) {
       requestPermission();
     }
-  }, []);
+  }, [permission?.granted]);
 
   const handleBarCodeScanned = async ({ data }: BarcodeScanningResult) => {
     if (scanning || data === lastScanned.current) return;

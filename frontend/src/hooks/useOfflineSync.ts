@@ -21,7 +21,7 @@ export function useOfflineSync() {
       const pending = await getPendingCount();
       if (pending === 0) return;
       const synced = await flushOfflineQueue();
-      if (synced > 0) {
+      if (synced > 0 && __DEV__) {
         console.log(`[useOfflineSync] Synced ${synced} offline workout(s) to Firestore`);
       }
     } catch (e) {
