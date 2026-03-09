@@ -51,9 +51,8 @@ const ActiveWorkoutScreen: React.FC = () => {
     try {
       const idA: string = ex?.exercise_id || '';
       const idB: string = ex?.id || '';
-      const exName: string = (ex?.name ?? '').toLowerCase();
-
-      // 1. Fast path: check dedicated per-exercise history cache first
+    // Accept both Exercise (has .name) and WorkoutExercise (has .exercise_name)
+    const exName: string = (ex?.name ?? ex?.exercise_name ?? '').toLowerCase();
       try {
         const cacheRaw = await AsyncStorage.getItem(EXERCISE_HISTORY_KEY);
         if (cacheRaw) {
@@ -335,12 +334,38 @@ const ActiveWorkoutScreen: React.FC = () => {
     }).catch(() => null);
     const init = async () => {
       const restored = await restoreInProgress();
+      let listToUse: WorkoutExercise[];
+
       if (restored !== null) {
-        setExerciseList(restored.exerciseList);
+        listToUse = restored.exerciseList;
         startedAtRef.current = restored.startedAt;
         setElapsedSecs(Math.floor((Date.now() - restored.startedAt) / 1000));
       } else if (!currentWorkout) {
         startWorkout(workoutTitle);
+        return; // No exercises yet — nothing to prefill
+      } else {
+        listToUse = currentWorkout.exercises; // e.g. Quick Workout with sets: []
+      }
+
+      // Prefill any exercises that were added with empty sets from last session cache
+      const prefilledIds: string[] = [];
+      const result = await Promise.all(
+        listToUse.map(async (ex) => {
+          if (ex.sets.length > 0) return ex; // Template / restored sets — keep as-is
+          // Build a search object that loadLastSessionSets can use
+          const searchEx = ex.exercise
+            || { exercise_id: ex.exercise_id, id: ex.exercise_id, name: ex.exercise_name };
+          const lastSets = await loadLastSessionSets(searchEx);
+          if (lastSets.length > 0) {
+            prefilledIds.push(ex.exercise_id);
+            return { ...ex, sets: lastSets };
+          }
+          return ex;
+        })
+      );
+      setExerciseList(result);
+      if (prefilledIds.length > 0) {
+        setPrefilledFromLastSession(new Set(prefilledIds));
       }
     };
     init();
