@@ -101,6 +101,13 @@ export default function ProgramBuilderScreen() {
   } | null>(null);
   const [customIncrement, setCustomIncrement] = useState('');
 
+  // Set editor modal state
+  const [setEditorModal, setSetEditorModal] = useState<{
+    dayId: string;
+    exerciseName: string;
+  } | null>(null);
+  const [editingSets, setEditingSets] = useState<Array<{ weight: string; reps: string }>>([]);
+
   // Load existing program for edit mode
   useEffect(() => {
     if (!editId) return;
@@ -165,26 +172,80 @@ export default function ProgramBuilderScreen() {
   const handlePickerAdd = useCallback(
     (exercise: any) => {
       if (!activeDayId) return;
+      const defaultSets: Array<{ reps: number; weight: number }> = [
+        { reps: 8, weight: 0 },
+        { reps: 8, weight: 0 },
+        { reps: 8, weight: 0 },
+      ];
+      let added = false;
       setDays((prev) =>
         prev.map((d) => {
           if (d.id !== activeDayId) return d;
           if (!isPro && d.exercises.length >= FREE_EXERCISE_LIMIT) return d; // [PRO]
-          const alreadyAdded = d.exercises.some((e) => e.exerciseName === exercise.name);
-          if (alreadyAdded) return d;
+          if (d.exercises.some((e) => e.exerciseName === exercise.name)) return d;
+          added = true;
           const newEx: ProgramExercise = {
             exerciseName: exercise.name,
             sets: 3,
             reps: 8,
-            weight: 20,
+            weight: 0,
             progression: DEFAULT_PROGRESSION,
+            setDetails: defaultSets,
           };
           return { ...d, exercises: [...d.exercises, newEx] };
         }),
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (added) {
+        // Immediately open set editor for the newly added exercise
+        setEditingSets(defaultSets.map(s => ({ weight: String(s.weight), reps: String(s.reps) })));
+        setSetEditorModal({ dayId: activeDayId, exerciseName: exercise.name });
+      }
     },
     [activeDayId, isPro],
   );
+
+  const handleLabelChange = useCallback((dayId: string, label: string) => {
+    setDays((prev) => prev.map((d) => d.id === dayId ? { ...d, label } : d));
+  }, []);
+
+  const handleEditExercise = useCallback((dayId: string, exerciseName: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const day = days.find((d) => d.id === dayId);
+    if (!day) return;
+    const ex = day.exercises.find((e) => e.exerciseName === exerciseName);
+    if (!ex) return;
+    const sets = ex.setDetails && ex.setDetails.length > 0
+      ? ex.setDetails
+      : Array.from({ length: ex.sets }, () => ({ weight: ex.weight, reps: ex.reps }));
+    setEditingSets(sets.map((s) => ({ weight: String(s.weight), reps: String(s.reps) })));
+    setSetEditorModal({ dayId, exerciseName });
+  }, [days]);
+
+  const handleSaveExerciseSets = useCallback(() => {
+    if (!setEditorModal) return;
+    const { dayId, exerciseName } = setEditorModal;
+    const setDetails = editingSets.map((s) => ({
+      weight: parseFloat(s.weight) || 0,
+      reps: parseInt(s.reps) || 0,
+    }));
+    setDays((prev) =>
+      prev.map((d) =>
+        d.id === dayId
+          ? {
+              ...d,
+              exercises: d.exercises.map((e) =>
+                e.exerciseName === exerciseName
+                  ? { ...e, sets: setDetails.length, setDetails }
+                  : e,
+              ),
+            }
+          : d,
+      ),
+    );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSetEditorModal(null);
+  }, [setEditorModal, editingSets]);
 
   const handleRemoveExercise = useCallback((dayId: string, exerciseName: string) => {
     setDays((prev) =>
@@ -323,6 +384,8 @@ export default function ProgramBuilderScreen() {
             onAddExercise={openPicker}
             onRemoveExercise={handleRemoveExercise}
             onDelete={handleDeleteDay}
+            onLabelChange={handleLabelChange}
+            onEditExercise={handleEditExercise}
             drag={drag}
             isActive={isActive}
           />
@@ -411,19 +474,24 @@ export default function ProgramBuilderScreen() {
           {day.exercises.length === 0 ? (
             <Text style={styles.reviewExEmpty}>No exercises</Text>
           ) : (
-            day.exercises.map((ex) => (
-              <View key={ex.exerciseName} style={styles.reviewExRow}>
-                <Text style={styles.reviewExName}>{ex.exerciseName}</Text>
-                <Text style={styles.reviewExMeta}>
-                  {ex.sets}×{ex.reps} @ {ex.weight} kg ·{' '}
-                  {PROGRESSION_OPTIONS.find(
-                    (o) =>
-                      o.rule.type === ex.progression.type &&
-                      o.rule.increment === ex.progression.increment,
-                  )?.label ?? 'Custom'}
-                </Text>
-              </View>
-            ))
+            day.exercises.map((ex) => {
+              const meta = ex.setDetails && ex.setDetails.length > 0
+                ? ex.setDetails.map(s => `${s.weight}kg×${s.reps}`).join(' / ')
+                : `${ex.sets}×${ex.reps} @ ${ex.weight} kg`;
+              return (
+                <View key={ex.exerciseName} style={styles.reviewExRow}>
+                  <Text style={styles.reviewExName}>{ex.exerciseName}</Text>
+                  <Text style={styles.reviewExMeta}>
+                    {meta} ·{' '}
+                    {PROGRESSION_OPTIONS.find(
+                      (o) =>
+                        o.rule.type === ex.progression.type &&
+                        o.rule.increment === ex.progression.increment,
+                    )?.label ?? 'Custom'}
+                  </Text>
+                </View>
+              );
+            })
           )}
         </View>
       ))}
@@ -497,6 +565,94 @@ export default function ProgramBuilderScreen() {
           onClose={() => setPickerVisible(false)}
           isPro={isPro}
         />
+      </Modal>
+
+      {/* Set Editor Modal */}
+      <Modal
+        visible={!!setEditorModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSetEditorModal(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setSetEditorModal(null)}
+        >
+          <TouchableOpacity style={styles.setEditorSheet} activeOpacity={1}>
+            <View style={styles.setEditorHandle} />
+            <View style={styles.setEditorHeader}>
+              <Text style={styles.progressionTitle}>{setEditorModal?.exerciseName}</Text>
+              <TouchableOpacity onPress={() => setSetEditorModal(null)} hitSlop={8}>
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.setEditorColRow}>
+              <Text style={[styles.setEditorColLabel, { flex: 0.5 }]}>Set</Text>
+              <Text style={[styles.setEditorColLabel, { flex: 1 }]}>Weight (kg)</Text>
+              <Text style={[styles.setEditorColLabel, { flex: 1 }]}>Reps</Text>
+              <View style={{ width: 28 }} />
+            </View>
+
+            <ScrollView style={{ maxHeight: 260 }} keyboardShouldPersistTaps="handled">
+              {editingSets.map((set, i) => (
+                <View key={i} style={styles.setEditorRow}>
+                  <Text style={[styles.setEditorIndex, { flex: 0.5 }]}>{i + 1}</Text>
+                  <TextInput
+                    style={[styles.setEditorInput, { flex: 1 }]}
+                    value={set.weight}
+                    onChangeText={(v) => {
+                      const updated = [...editingSets];
+                      updated[i] = { ...updated[i], weight: v };
+                      setEditingSets(updated);
+                    }}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                    placeholderTextColor={colors.textDisabled}
+                  />
+                  <TextInput
+                    style={[styles.setEditorInput, { flex: 1 }]}
+                    value={set.reps}
+                    onChangeText={(v) => {
+                      const updated = [...editingSets];
+                      updated[i] = { ...updated[i], reps: v };
+                      setEditingSets(updated);
+                    }}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor={colors.textDisabled}
+                  />
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (editingSets.length > 1)
+                        setEditingSets(editingSets.filter((_, idx) => idx !== i));
+                    }}
+                    hitSlop={8}
+                    style={{ width: 28, alignItems: 'center' }}
+                  >
+                    <Ionicons name="trash-outline" size={16} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.addSetEditorBtn}
+              onPress={() => {
+                const last = editingSets[editingSets.length - 1];
+                setEditingSets([...editingSets, { weight: last?.weight ?? '0', reps: last?.reps ?? '0' }]);
+              }}
+            >
+              <Ionicons name="add" size={18} color={colors.success} />
+              <Text style={styles.addSetEditorText}>Add Set</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.setEditorDoneBtn} onPress={handleSaveExerciseSets}>
+              <Text style={styles.setEditorDoneText}>Done</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {/* Progression Rule Modal */}
@@ -811,6 +967,85 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
+  },
+  setEditorSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radii['2xl'],
+    borderTopRightRadius: radii['2xl'],
+    padding: spacing[5],
+    gap: spacing[3],
+  },
+  setEditorHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: radii.full,
+    backgroundColor: colors.border,
+    alignSelf: 'center',
+    marginBottom: spacing[1],
+  },
+  setEditorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  setEditorColRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+    marginBottom: 4,
+  },
+  setEditorColLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    textAlign: 'center',
+  },
+  setEditorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginBottom: 8,
+  },
+  setEditorIndex: {
+    fontSize: typography.fontSize.base,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  setEditorInput: {
+    backgroundColor: colors.charcoal,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing[2],
+    paddingVertical: 8,
+    color: colors.textPrimary,
+    fontSize: typography.fontSize.base,
+    textAlign: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  addSetEditorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+  },
+  addSetEditorText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.success,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  setEditorDoneBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: radii.lg,
+    paddingVertical: spacing[3],
+    alignItems: 'center',
+    marginTop: spacing[2],
+  },
+  setEditorDoneText: {
+    color: colors.textPrimary,
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize.base,
   },
   progressionSheet: {
     backgroundColor: colors.surface,

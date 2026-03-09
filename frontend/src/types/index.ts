@@ -115,12 +115,22 @@ export interface ProgramExercise {
   reps: number;
   weight: number;         // base weight
   progression: ProgressionRule;
+  setDetails?: Array<{ reps: number; weight: number }>; // per-set individual values
+}
+
+export interface ProgramDaySession {
+  date: string;
+  exercises: Array<{
+    exerciseName: string;
+    sets: Array<{ weight: number; reps: number; completed: boolean }>;
+  }>;
 }
 
 export interface ProgramDay {
   id: string;
   label: string;          // e.g. "Day A — Push"
   exercises: ProgramExercise[];
+  completedSessions?: ProgramDaySession[];
 }
 
 export interface WorkoutProgram {

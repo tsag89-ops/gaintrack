@@ -38,7 +38,7 @@ const EXERCISE_HISTORY_KEY = 'gaintrack_exercise_history';
 
 const ActiveWorkoutScreen: React.FC = () => {
   const router = useRouter();
-  const { name: nameParam, programId, templateId } = useLocalSearchParams<{ name: string; programId?: string; templateId?: string }>();
+  const { name: nameParam, programId, templateId, dayIndex } = useLocalSearchParams<{ name: string; programId?: string; templateId?: string; dayIndex?: string }>();
   const workoutTitle = nameParam || 'New Workout';
   const { currentWorkout, updateExerciseInWorkout, setCurrentWorkout, createWorkout, startWorkout,
     persistInProgress, restoreInProgress, clearInProgress } = useWorkoutStore();
@@ -847,8 +847,25 @@ const ActiveWorkoutScreen: React.FC = () => {
           if (prog) {
             const nextDayIndex = prog.currentDayIndex + 1;
             const cycleComplete = nextDayIndex >= prog.daysPerWeek;
+
+            // Save completed session data into the program day for reference
+            const completedExerciseData = exerciseList.map((ex: any) => ({
+              exerciseName: ex.exercise_name,
+              sets: ex.sets.map((s: any) => ({ weight: s.weight, reps: s.reps, completed: s.completed })),
+            }));
+            const dayIdx = parseInt(dayIndex || String(prog.currentDayIndex));
+            const updatedDays = prog.days.map((d: any, i: number) => {
+              if (i !== dayIdx) return d;
+              const session = {
+                date: format(new Date(), 'yyyy-MM-dd'),
+                exercises: completedExerciseData,
+              };
+              return { ...d, completedSessions: [...(d.completedSessions || []), session] };
+            });
+
             await saveProgram({
               ...prog,
+              days: updatedDays,
               currentDayIndex: cycleComplete ? 0 : nextDayIndex,
               currentCycle: cycleComplete ? prog.currentCycle + 1 : prog.currentCycle,
               lastSessionDate: format(new Date(), 'yyyy-MM-dd'),

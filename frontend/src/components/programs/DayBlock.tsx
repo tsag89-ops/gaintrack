@@ -4,7 +4,7 @@
 // Pro gate: max 3 exercises/day for free users.
 
 import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { ProgramDay } from '../../types';
@@ -17,6 +17,8 @@ interface DayBlockProps {
   onAddExercise: (dayId: string) => void;
   onRemoveExercise: (dayId: string, exerciseName: string) => void;
   onDelete: (dayId: string) => void;
+  onLabelChange: (dayId: string, label: string) => void;
+  onEditExercise: (dayId: string, exerciseName: string) => void;
   /** Drag handle — pass through from DraggableFlatList renderItem */
   drag?: () => void;
   isActive?: boolean;
@@ -31,6 +33,8 @@ export const DayBlock: React.FC<DayBlockProps> = ({
   onAddExercise,
   onRemoveExercise,
   onDelete,
+  onLabelChange,
+  onEditExercise,
   drag,
   isActive = false,
 }) => {
@@ -58,33 +62,51 @@ export const DayBlock: React.FC<DayBlockProps> = ({
         </TouchableOpacity>
         <View style={styles.labelWrap}>
           <Text style={styles.dayIndex}>Day {index + 1}</Text>
-          <Text style={styles.dayLabel} numberOfLines={1}>{day.label}</Text>
+          <TextInput
+            style={styles.dayLabelInput}
+            value={day.label}
+            onChangeText={(v) => onLabelChange(day.id, v)}
+            placeholder="Day label"
+            placeholderTextColor={colors.textDisabled}
+          />
         </View>
         <TouchableOpacity onPress={handleDelete} hitSlop={8}>
           <Ionicons name="trash-outline" size={18} color={colors.error} />
         </TouchableOpacity>
       </View>
 
-      {/* Exercise list */}
-      {day.exercises.map((ex) => (
-        <View key={ex.exerciseName} style={styles.exerciseRow}>
-          <View style={styles.exerciseInfo}>
-            <Text style={styles.exerciseName} numberOfLines={1}>{ex.exerciseName}</Text>
-            <Text style={styles.exerciseMeta}>
-              {ex.sets}×{ex.reps} @ {ex.weight} kg
-            </Text>
+      {day.exercises.map((ex) => {
+        const meta = ex.setDetails && ex.setDetails.length > 0
+          ? ex.setDetails.map(s => `${s.weight}kg×${s.reps}`).join(' / ')
+          : `${ex.sets}×${ex.reps} @ ${ex.weight} kg`;
+        return (
+          <View key={ex.exerciseName} style={styles.exerciseRow}>
+            <View style={styles.exerciseInfo}>
+              <Text style={styles.exerciseName} numberOfLines={1}>{ex.exerciseName}</Text>
+              <Text style={styles.exerciseMeta} numberOfLines={1}>{meta}</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onEditExercise(day.id, ex.exerciseName);
+              }}
+              hitSlop={8}
+              style={{ marginRight: 8 }}
+            >
+              <Ionicons name="create-outline" size={18} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onRemoveExercise(day.id, ex.exerciseName);
+              }}
+              hitSlop={8}
+            >
+              <Ionicons name="close-circle" size={18} color={colors.textDisabled} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onRemoveExercise(day.id, ex.exerciseName);
-            }}
-            hitSlop={8}
-          >
-            <Ionicons name="close-circle" size={18} color={colors.textDisabled} />
-          </TouchableOpacity>
-        </View>
-      ))}
+        );
+      })}
 
       {/* Add exercise button */}
       <TouchableOpacity
@@ -144,10 +166,12 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
-  dayLabel: {
+  dayLabelInput: {
     fontSize: typography.fontSize.base,
     fontWeight: typography.fontWeight.semibold,
     color: colors.textPrimary,
+    padding: 0,
+    margin: 0,
   },
   exerciseRow: {
     flexDirection: 'row',

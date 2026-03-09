@@ -37,11 +37,14 @@ const toWorkoutExercise = (ex: ProgramExercise): WorkoutExercise => {
   const found = EXERCISES.find(
     (e) => e.name.toLowerCase() === ex.exerciseName.toLowerCase(),
   );
-  const sets: WorkoutSet[] = Array.from({ length: ex.sets }, (_, i) => ({
+  const rawSets = ex.setDetails && ex.setDetails.length > 0
+    ? ex.setDetails
+    : Array.from({ length: ex.sets }, () => ({ reps: ex.reps, weight: ex.weight }));
+  const sets: WorkoutSet[] = rawSets.map((s, i) => ({
     set_id: `${makeId()}_${i}`,
     set_number: i + 1,
-    reps: ex.reps,
-    weight: ex.weight,
+    reps: s.reps,
+    weight: s.weight,
     completed: false,
     is_warmup: false,
   }));
@@ -262,17 +265,37 @@ export default function ProgramDetailScreen() {
               {progressedDay.exercises.length === 0 ? (
                 <Text style={styles.noExText}>No exercises</Text>
               ) : (
-                progressedDay.exercises.map((ex) => (
-                  <View key={ex.exerciseName} style={styles.exRow}>
-                    <View style={styles.exInfo}>
-                      <Text style={styles.exName}>{ex.exerciseName}</Text>
-                      <Text style={styles.exMeta}>
-                        {ex.sets}×{ex.reps} @ {ex.weight} kg
-                      </Text>
+                progressedDay.exercises.map((ex) => {
+                  const meta = ex.setDetails && ex.setDetails.length > 0
+                    ? ex.setDetails.map((s) => `${s.weight}kg×${s.reps}`).join(' / ')
+                    : `${ex.sets}×${ex.reps} @ ${ex.weight} kg`;
+                  return (
+                    <View key={ex.exerciseName} style={styles.exRow}>
+                      <View style={styles.exInfo}>
+                        <Text style={styles.exName}>{ex.exerciseName}</Text>
+                        <Text style={styles.exMeta} numberOfLines={2}>{meta}</Text>
+                      </View>
+                      <ProgressionBadge rule={ex.progression} cycle={program.currentCycle} compact />
                     </View>
-                    <ProgressionBadge rule={ex.progression} cycle={program.currentCycle} compact />
-                  </View>
-                ))
+                  );
+                })
+              )}
+
+              {/* Completed session history */}
+              {(day.completedSessions?.length ?? 0) > 0 && (
+                <View style={styles.historySection}>
+                  <Text style={styles.historyTitle}>Session History</Text>
+                  {[...(day.completedSessions ?? [])].reverse().slice(0, 3).map((session, si) => (
+                    <View key={si} style={styles.historyRow}>
+                      <Text style={styles.historyDate}>{session.date}</Text>
+                      {session.exercises.map((hEx) => (
+                        <Text key={hEx.exerciseName} style={styles.historyExLine} numberOfLines={1}>
+                          {hEx.exerciseName}: {hEx.sets.map(s => `${s.weight}kg×${s.reps}`).join(' / ')}
+                        </Text>
+                      ))}
+                    </View>
+                  ))}
+                </View>
               )}
             </Animated.View>
           );
@@ -457,6 +480,35 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     color: colors.textSecondary,
     marginTop: 1,
+  },
+  historySection: {
+    marginTop: spacing[2],
+    paddingTop: spacing[2],
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  historyTitle: {
+    fontSize: typography.fontSize.xs,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+    marginBottom: 6,
+  },
+  historyRow: {
+    marginBottom: spacing[2],
+    padding: spacing[2],
+    backgroundColor: colors.background,
+    borderRadius: radii.md,
+  },
+  historyDate: {
+    fontSize: typography.fontSize.xs,
+    color: colors.primary,
+    fontWeight: typography.fontWeight.semibold,
+    marginBottom: 2,
+  },
+  historyExLine: {
+    fontSize: typography.fontSize.xs,
+    color: colors.textSecondary,
   },
   startSessionWrap: {
     position: 'absolute',
