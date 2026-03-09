@@ -132,7 +132,7 @@ interface DailyUsage {
 
 // ── Quick suggestion chips ─────────────────────────────────────────────────────
 const CHIPS = [
-  'Analyze my workout this week',
+  'Analyze my weekly workout',
   'Am I hitting my protein goals?',
   'Suggest a workout for today',
   'Am I on track for my body goal?',

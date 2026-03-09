@@ -89,6 +89,7 @@ export default function TabLayout() {
         name="plates"
         options={{
           title: 'Plates',
+          href: null,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calculator-outline" size={size} color={color} />
           ),

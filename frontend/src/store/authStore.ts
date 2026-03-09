@@ -112,6 +112,20 @@ export const useAuthStore = create<AuthState>((set) => ({
       console.warn('setSession storage error:', e);
     }
 
+    // Restore per-user prefs (equipment, etc.) that survive logout
+    try {
+      const uid = user.id ?? (user as any).user_id;
+      if (uid) {
+        const prefsStr = await storage.getItem(`user_prefs_${uid}`);
+        if (prefsStr) {
+          const prefs = JSON.parse(prefsStr);
+          if (prefs.equipment) finalUser = { ...finalUser, equipment: prefs.equipment };
+        }
+      }
+    } catch (e) {
+      console.warn('setSession user_prefs restore error:', e);
+    }
+
     // Write profile — NO isPro here (blocked by Security Rules)
     await upsertUserProfile(finalUser.id, {
       uid: finalUser.id,
