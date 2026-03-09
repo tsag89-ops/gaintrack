@@ -94,7 +94,7 @@ function calcStreak(workouts: Workout[]): number {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { workouts, isLoading, loadUserWorkouts, deleteWorkout } = useWorkoutStore();
+  const { workouts, isLoading, loadUserWorkouts, deleteWorkout, clearInProgress } = useWorkoutStore();
   const { user } = useAuthStore();
   const { uid } = useNativeAuthState();
   const { isPro } = usePro();
@@ -169,7 +169,7 @@ export default function HomeScreen() {
       return;
     }
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push('/workout/new');
+    router.push('/(tabs)/exercises');
   };
 
   const handleQuickLog = async () => {
@@ -178,7 +178,7 @@ export default function HomeScreen() {
       return;
     }
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    router.push('/workout/new');
+    router.push('/(tabs)/exercises');
   };
 
   const handleResumeWorkout = async () => {
@@ -188,7 +188,8 @@ export default function HomeScreen() {
 
   const handleDismissResume = async () => {
     await Haptics.selectionAsync();
-    await AsyncStorage.removeItem('gaintrack_active_workout');
+    // Clear both AsyncStorage and Zustand so no ghost workout remains
+    await clearInProgress();
     setResumeWorkoutName(null);
   };
 

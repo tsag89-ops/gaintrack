@@ -116,6 +116,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   clearInProgress: async () => {
     try {
       await AsyncStorage.removeItem(ACTIVE_WORKOUT_KEY);
+      set({ currentWorkout: null });
     } catch (err) {
       console.warn('[workoutStore] clearInProgress failed:', err);
     }

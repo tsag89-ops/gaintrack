@@ -53,6 +53,8 @@ export interface ExercisePickerProps {
   addedExerciseIds?: string[];
   /** Standalone browse mode — hides close button, shows "Exercises" title, hides superset toggle */
   standalone?: boolean;
+  /** Optional callback shown as a "From Template" button in standalone mode */
+  onTemplatePress?: () => void;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -418,6 +420,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
   isPro,
   addedExerciseIds = [],
   standalone = false,
+  onTemplatePress,
 }) => {
   const [query, setQuery]               = useState('');
   const [activeMuscle, setActiveMuscle] = useState<string>('All');
@@ -534,6 +537,18 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
           </TouchableOpacity>
         )}
         <Text style={styles.headerTitle}>{standalone ? 'Exercises' : 'Add Exercise'}</Text>
+
+        {/* Template button — shown in standalone mode when a handler is provided */}
+        {standalone && onTemplatePress ? (
+          <TouchableOpacity
+            onPress={onTemplatePress}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+          >
+            <Ionicons name="copy-outline" size={18} color={theme.primary} />
+            <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '600' }}>Templates</Text>
+          </TouchableOpacity>
+        ) : null}
 
         {/* Superset toggle — PRO (hidden in standalone browse mode) */}
         {!standalone && (
