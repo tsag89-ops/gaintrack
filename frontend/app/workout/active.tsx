@@ -32,6 +32,8 @@ import * as Notifications from 'expo-notifications';
 const DEFAULT_REST_SECONDS = 90;
 const REST_DURATION_KEY = 'gaintrack_rest_duration';
 const SUPERSET_COLORS = ['#FF6200', '#4CAF50', '#29B6F6', '#FFB300', '#EF5350', '#AB47BC'];
+// Per-exercise last-session cache — written on every finish, read before scanning workout history
+const EXERCISE_HISTORY_KEY = 'gaintrack_exercise_history';
 
 const ActiveWorkoutScreen: React.FC = () => {
   const router = useRouter();
@@ -47,12 +49,28 @@ const ActiveWorkoutScreen: React.FC = () => {
   // Fetch sets from the most recent workout containing this exercise, used for prefill.
   const loadLastSessionSets = async (ex: any): Promise<WorkoutSet[]> => {
     try {
-      // Collect all possible IDs and the name for robust matching
       const idA: string = ex?.exercise_id || '';
       const idB: string = ex?.id || '';
       const exName: string = (ex?.name ?? '').toLowerCase();
 
-      // Merge in-memory store workouts with persisted AsyncStorage workouts for best coverage
+      // 1. Fast path: check dedicated per-exercise history cache first
+      try {
+        const cacheRaw = await AsyncStorage.getItem(EXERCISE_HISTORY_KEY);
+        if (cacheRaw) {
+          const cache: Record<string, WorkoutSet[]> = JSON.parse(cacheRaw);
+          const cached = cache[idA] ?? cache[idB] ?? cache[exName];
+          if (cached && cached.length > 0) {
+            return cached.map((set: WorkoutSet, idx: number) => ({
+              ...set,
+              set_id: `prefill-${idA || idB}-${Date.now()}-${idx}`,
+              set_number: idx + 1,
+              completed: false,
+            }));
+          }
+        }
+      } catch {}
+
+      // 2. Fallback: scan full workout history (handles pre-cache data)
       const storeWorkouts: any[] = useWorkoutStore.getState().workouts ?? [];
       let persisted: any[] = [];
       try {
@@ -60,7 +78,6 @@ const ActiveWorkoutScreen: React.FC = () => {
         if (raw) persisted = JSON.parse(raw);
       } catch {}
 
-      // Deduplicate by workout_id, prefer storeWorkouts entries
       const seen = new Set<string>();
       const all: any[] = [];
       for (const w of [...storeWorkouts, ...persisted]) {
@@ -82,7 +99,6 @@ const ActiveWorkoutScreen: React.FC = () => {
           const storedId: string = item?.exercise_id ?? item?.id ?? '';
           if (idA && storedId === idA) return true;
           if (idB && storedId === idB) return true;
-          // Name-based fallback to handle any historic ID mismatches
           if (exName && (item?.exercise_name ?? item?.name ?? '').toLowerCase() === exName) return true;
           return false;
         });
@@ -607,6 +623,32 @@ const ActiveWorkoutScreen: React.FC = () => {
       const isOffline = savedWorkout.workout_id.startsWith('offline_');
       const newPRs = isOffline ? [] : await detectAndSavePRs(validExercises);
       await clearInProgress();
+
+      // Write per-exercise last-sets cache so next session prefill always works
+      try {
+        const cacheRaw = await AsyncStorage.getItem(EXERCISE_HISTORY_KEY);
+        const cache: Record<string, WorkoutSet[]> = cacheRaw ? JSON.parse(cacheRaw) : {};
+        for (const ex of validExercises) {
+          const workingSets = ex.sets.filter((s) => !s.is_warmup && ((s.reps ?? 0) > 0 || (s.weight ?? 0) > 0));
+          if (workingSets.length === 0) continue;
+          const cleanSets: WorkoutSet[] = workingSets.map((s) => ({
+            set_id: s.set_id,
+            set_number: s.set_number,
+            reps: s.reps ?? 0,
+            weight: s.weight ?? 0,
+            rpe: s.rpe ?? undefined,
+            completed: false,
+            is_warmup: false,
+          }));
+          // Index by exercise_id, numeric id (from exercise.id), and lowercased name
+          if (ex.exercise_id) cache[ex.exercise_id] = cleanSets;
+          const numericId: string = ex.exercise?.id ?? '';
+          if (numericId) cache[numericId] = cleanSets;
+          const nameKey = (ex.exercise_name ?? '').toLowerCase();
+          if (nameKey) cache[nameKey] = cleanSets;
+        }
+        await AsyncStorage.setItem(EXERCISE_HISTORY_KEY, JSON.stringify(cache));
+      } catch {}
 
       // Helper: build a serialisable snapshot of the current exercises for template storage
       const buildTemplateExercises = () =>
