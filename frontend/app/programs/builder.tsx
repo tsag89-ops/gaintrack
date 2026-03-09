@@ -30,6 +30,7 @@ import DraggableFlatList, { RenderItemParams } from 'react-native-draggable-flat
 import { format } from 'date-fns';
 import { usePrograms } from '../../src/hooks/usePrograms';
 import { usePro } from '../../src/hooks/usePro';
+import { useWeightUnit } from '../../src/hooks/useWeightUnit';
 import { DayBlock } from '../../src/components/programs/DayBlock';
 import { ProgressionBadge } from '../../src/components/programs/ProgressionBadge';
 import { ExercisePicker } from '../../src/components/ExercisePicker';
@@ -82,6 +83,7 @@ export default function ProgramBuilderScreen() {
   const { id: editId } = useLocalSearchParams<{ id?: string }>();
   const { programs, saveOne } = usePrograms();
   const { isPro } = usePro();
+  const weightUnit = useWeightUnit();
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
@@ -100,6 +102,8 @@ export default function ProgramBuilderScreen() {
     current: ProgressionRule;
   } | null>(null);
   const [customIncrement, setCustomIncrement] = useState('');
+  const [customRuleType, setCustomRuleType] = useState<'weight' | 'reps'>('weight');
+  const [customRulePeriod, setCustomRulePeriod] = useState<'session' | 'week' | 'cycle'>('session');
 
   // Set editor modal state
   const [setEditorModal, setSetEditorModal] = useState<{
@@ -426,6 +430,8 @@ export default function ProgramBuilderScreen() {
                     }
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setCustomIncrement(String(ex.progression.increment));
+                    setCustomRuleType(ex.progression.type === 'reps' ? 'reps' : 'weight');
+                    setCustomRulePeriod(ex.progression.every ?? 'session');
                     setProgressionModal({
                       dayId: day.id,
                       exerciseName: ex.exerciseName,
@@ -693,7 +699,15 @@ export default function ProgramBuilderScreen() {
                       return;
                     }
                     if (opt.rule.type === 'custom') {
-                      // keep modal open for custom input
+                      // switch to custom editor mode
+                      setProgressionModal((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              current: { type: 'custom', increment: parseFloat(customIncrement) || 2.5, every: customRulePeriod },
+                            }
+                          : prev,
+                      );
                       return;
                     }
                     applyProgression(opt.rule);
@@ -721,25 +735,68 @@ export default function ProgramBuilderScreen() {
               );
             })}
 
-            {/* Custom increment input (Pro only) */}
+            {/* Custom rule editor (Pro only) */}
             {progressionModal?.current.type === 'custom' && isPro && (
-              <View style={styles.customRow}>
-                <Text style={styles.customLabel}>Increment amount:</Text>
-                <TextInput
-                  style={styles.customInput}
-                  value={customIncrement}
-                  onChangeText={setCustomIncrement}
-                  keyboardType="decimal-pad"
-                  placeholder="e.g. 1.25"
-                  placeholderTextColor={colors.textDisabled}
-                />
+              <View style={styles.customEditor}>
+                {/* Type selector */}
+                <Text style={styles.customSectionLabel}>What to increase</Text>
+                <View style={styles.toggleRow}>
+                  {(['weight', 'reps'] as const).map((t) => (
+                    <TouchableOpacity
+                      key={t}
+                      style={[styles.toggleChip, customRuleType === t && styles.toggleChipActive]}
+                      onPress={() => setCustomRuleType(t)}
+                    >
+                      <Text style={[styles.toggleChipText, customRuleType === t && styles.toggleChipTextActive]}>
+                        {t === 'weight' ? 'Weight' : 'Reps'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Increment */}
+                <Text style={styles.customSectionLabel}>Amount per {customRulePeriod}</Text>
+                <View style={styles.customIncrementRow}>
+                  <TextInput
+                    style={styles.customInput}
+                    value={customIncrement}
+                    onChangeText={setCustomIncrement}
+                    keyboardType="decimal-pad"
+                    placeholder={customRuleType === 'weight' ? '2.5' : '1'}
+                    placeholderTextColor={colors.textDisabled}
+                  />
+                  <Text style={styles.customUnit}>
+                    {customRuleType === 'weight' ? weightUnit : 'rep'}
+                  </Text>
+                </View>
+
+                {/* Period selector */}
+                <Text style={styles.customSectionLabel}>Every</Text>
+                <View style={styles.toggleRow}>
+                  {(['session', 'week', 'cycle'] as const).map((p) => (
+                    <TouchableOpacity
+                      key={p}
+                      style={[styles.toggleChip, customRulePeriod === p && styles.toggleChipActive]}
+                      onPress={() => setCustomRulePeriod(p)}
+                    >
+                      <Text style={[styles.toggleChipText, customRulePeriod === p && styles.toggleChipTextActive]}>
+                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
                 <TouchableOpacity
                   style={styles.customApplyBtn}
                   onPress={() =>
-                    applyProgression({ type: 'custom', increment: parseFloat(customIncrement) || 2.5, every: 'session' })
+                    applyProgression({
+                      type: customRuleType,
+                      increment: parseFloat(customIncrement) || (customRuleType === 'weight' ? 2.5 : 1),
+                      every: customRulePeriod,
+                    })
                   }
                 >
-                  <Text style={styles.customApplyText}>Apply</Text>
+                  <Text style={styles.customApplyText}>Apply Custom Rule</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -1095,16 +1152,46 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   lockText: { fontSize: typography.fontSize.xs, color: colors.accent },
-  customRow: {
+  customEditor: {
+    marginTop: spacing[3],
+    gap: spacing[2],
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing[3],
+  },
+  customSectionLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    gap: spacing[2],
+  },
+  toggleChip: {
+    flex: 1,
+    paddingVertical: spacing[2],
+    borderRadius: radii.md,
+    backgroundColor: colors.charcoal,
+    alignItems: 'center',
+  },
+  toggleChipActive: {
+    backgroundColor: colors.primary,
+  },
+  toggleChipText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  toggleChipTextActive: {
+    color: colors.textPrimary,
+  },
+  customIncrementRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[2],
-    marginTop: spacing[2],
-  },
-  customLabel: {
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-    flex: 1,
   },
   customInput: {
     backgroundColor: colors.charcoal,
@@ -1115,11 +1202,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: typography.fontSize.base,
   },
+  customUnit: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+  },
   customApplyBtn: {
     backgroundColor: colors.primary,
     borderRadius: radii.md,
     paddingHorizontal: spacing[3],
     paddingVertical: spacing[2],
+    alignItems: 'center',
+    marginTop: spacing[2],
   },
   customApplyText: {
     color: colors.textPrimary,
