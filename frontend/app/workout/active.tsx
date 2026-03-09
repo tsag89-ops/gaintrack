@@ -45,8 +45,13 @@ const ActiveWorkoutScreen: React.FC = () => {
   const [prefilledFromLastSession, setPrefilledFromLastSession] = useState<Set<string>>(new Set());
 
   // Fetch sets from the most recent workout containing this exercise, used for prefill.
-  const loadLastSessionSets = async (exerciseId: string): Promise<WorkoutSet[]> => {
+  const loadLastSessionSets = async (ex: any): Promise<WorkoutSet[]> => {
     try {
+      // Collect all possible IDs and the name for robust matching
+      const idA: string = ex?.exercise_id || '';
+      const idB: string = ex?.id || '';
+      const exName: string = (ex?.name ?? '').toLowerCase();
+
       // Merge in-memory store workouts with persisted AsyncStorage workouts for best coverage
       const storeWorkouts: any[] = useWorkoutStore.getState().workouts ?? [];
       let persisted: any[] = [];
@@ -73,14 +78,20 @@ const ActiveWorkoutScreen: React.FC = () => {
       });
 
       for (const workout of all) {
-        const previousExercise = (workout?.exercises ?? []).find(
-          (item: any) => (item?.exercise_id ?? item?.id) === exerciseId,
-        );
+        const previousExercise = (workout?.exercises ?? []).find((item: any) => {
+          const storedId: string = item?.exercise_id ?? item?.id ?? '';
+          if (idA && storedId === idA) return true;
+          if (idB && storedId === idB) return true;
+          // Name-based fallback to handle any historic ID mismatches
+          if (exName && (item?.exercise_name ?? item?.name ?? '').toLowerCase() === exName) return true;
+          return false;
+        });
         const previousSets = previousExercise?.sets ?? [];
         if (previousSets.length > 0) {
+          const lookupKey = idA || idB;
           return previousSets.map((set: WorkoutSet, idx: number) => ({
             ...set,
-            set_id: `prefill-${exerciseId}-${Date.now()}-${idx}`,
+            set_id: `prefill-${lookupKey}-${Date.now()}-${idx}`,
             set_number: idx + 1,
             completed: false,
           }));
@@ -94,8 +105,9 @@ const ActiveWorkoutScreen: React.FC = () => {
   };
 
   const handleAddExercise = useCallback(async (ex: any) => {
-    const exerciseId = ex.id || ex.exercise_id;
-    const previousSets = await loadLastSessionSets(exerciseId);
+    // Use exercise_id as the canonical ID (consistent with addExerciseToWorkout in exercises tab)
+    const exerciseId = ex.exercise_id || ex.id;
+    const previousSets = await loadLastSessionSets(ex);
     setExerciseList((prev) => [
       ...prev,
       {
