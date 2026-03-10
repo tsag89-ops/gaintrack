@@ -2,10 +2,15 @@ import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { WorkoutExercise } from '../types';
 
 export const formatDate = (dateString: string): string => {
-  const date = parseISO(dateString);
-  if (isToday(date)) return 'Today';
-  if (isYesterday(date)) return 'Yesterday';
-  return format(date, 'MMM d, yyyy');
+  if (!dateString) return '';
+  try {
+    const date = parseISO(dateString);
+    if (isToday(date)) return 'Today';
+    if (isYesterday(date)) return 'Yesterday';
+    return format(date, 'MMM d, yyyy');
+  } catch {
+    return dateString;
+  }
 };
 
 export const calculateWorkoutVolume = (exercises: WorkoutExercise[]): number => {

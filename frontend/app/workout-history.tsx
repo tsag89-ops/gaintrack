@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,34 +6,65 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useWorkoutStore } from '../src/store/workoutStore';
 import { useNativeAuthState } from '../src/hooks/useAuth';
-import { WorkoutCard } from '../src/components/WorkoutCard';
 import { Workout } from '../src/types';
-import { theme } from '../src/constants/theme';
-import { calculateWorkoutVolume } from '../src/utils/helpers';
+import { useWeightUnit } from '../src/hooks/useWeightUnit';
+import { formatDate, calculateWorkoutVolume, calculateTotalSets, formatVolume } from '../src/utils/helpers';
 
 export default function WorkoutHistoryScreen() {
   const router = useRouter();
   const { uid } = useNativeAuthState();
   const { workouts, loadUserWorkouts, deleteWorkout } = useWorkoutStore();
-  const [refreshing, setRefreshing] = React.useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [localWorkouts, setLocalWorkouts] = useState<Workout[]>([]);
+  const weightUnit = useWeightUnit();
+
+  // Load from both store and AsyncStorage on mount
+  useEffect(() => {
+    const load = async () => {
+      // If store has workouts, use them
+      if (workouts.length > 0) {
+        setLocalWorkouts(workouts);
+        return;
+      }
+      // Fallback: read from AsyncStorage
+      try {
+        const raw = await AsyncStorage.getItem('gaintrack_workouts');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) setLocalWorkouts(parsed);
+        }
+      } catch {}
+      // Also trigger store load
+      if (uid) loadUserWorkouts(uid);
+    };
+    load();
+  }, []);
+
+  // Keep in sync with store
+  useEffect(() => {
+    if (workouts.length > 0) setLocalWorkouts(workouts);
+  }, [workouts]);
 
   const allWorkouts = useMemo(
     () =>
-      [...workouts]
+      localWorkouts
         .filter((w) => {
+          if (!w || !w.date) return false;
           const exercises = w.exercises ?? [];
-          return !(exercises.length === 0 && calculateWorkoutVolume(exercises) === 0);
+          return exercises.length > 0;
         })
-        .sort((a, b) => b.date.localeCompare(a.date)),
-    [workouts],
+        .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')),
+    [localWorkouts],
   );
 
   const onRefresh = async () => {
@@ -45,13 +76,85 @@ export default function WorkoutHistoryScreen() {
 
   const handleWorkoutPress = async (workout: Workout) => {
     await Haptics.selectionAsync();
-    router.push(`/workout/${workout.workout_id}`);
+    router.push(`/workout/${workout.workout_id}` as any);
   };
 
-  const handleDeleteWorkout = async (workout: Workout) => {
-    if (!uid) return;
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    await deleteWorkout(uid, workout.workout_id);
+  const handleDeleteWorkout = (workout: Workout) => {
+    Alert.alert(
+      'Delete Workout',
+      `Delete "${workout.name}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            if (!uid) return;
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            await deleteWorkout(uid, workout.workout_id);
+          },
+        },
+      ],
+    );
+  };
+
+  const renderWorkoutCard = ({ item }: { item: Workout }) => {
+    const exercises = item.exercises ?? [];
+    const volume = calculateWorkoutVolume(exercises);
+    const totalSets = calculateTotalSets(exercises);
+
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => handleWorkoutPress(item)}
+        onLongPress={() => handleDeleteWorkout(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.cardHeader}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardDate}>{formatDate(item.date)}</Text>
+            <Text style={styles.cardName}>{item.name || 'Untitled Workout'}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+        </View>
+
+        <View style={styles.cardStats}>
+          <View style={styles.statPill}>
+            <Ionicons name="barbell-outline" size={14} color="#4CAF50" />
+            <Text style={styles.statPillText}>{exercises.length} exercises</Text>
+          </View>
+          <View style={styles.statPill}>
+            <Ionicons name="layers-outline" size={14} color="#2196F3" />
+            <Text style={styles.statPillText}>{totalSets} sets</Text>
+          </View>
+          <View style={styles.statPill}>
+            <Ionicons name="trending-up-outline" size={14} color="#FFC107" />
+            <Text style={styles.statPillText}>{formatVolume(volume)} {weightUnit}</Text>
+          </View>
+        </View>
+
+        {exercises.length > 0 && (
+          <View style={styles.exerciseList}>
+            {exercises.slice(0, 4).map((ex, idx) => (
+              <View key={idx} style={styles.exerciseRow}>
+                <View style={styles.exerciseDot} />
+                <Text style={styles.exerciseName} numberOfLines={1}>
+                  {ex.exercise_name}
+                </Text>
+                <Text style={styles.exerciseSets}>
+                  {(ex.sets ?? []).filter(s => !s.is_warmup).length} sets
+                </Text>
+              </View>
+            ))}
+            {exercises.length > 4 && (
+              <Text style={styles.moreExercises}>
+                +{exercises.length - 4} more exercises
+              </Text>
+            )}
+          </View>
+        )}
+      </TouchableOpacity>
+    );
   };
 
   return (
@@ -61,24 +164,20 @@ export default function WorkoutHistoryScreen() {
           <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>All Workouts</Text>
-        <Text style={styles.headerCount}>{allWorkouts.length}</Text>
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>{allWorkouts.length}</Text>
+        </View>
       </View>
 
       <FlatList
         data={allWorkouts}
         keyExtractor={(item) => item.workout_id}
-        renderItem={({ item }) => (
-          <WorkoutCard
-            workout={item}
-            onPress={() => handleWorkoutPress(item)}
-            onDelete={() => handleDeleteWorkout(item)}
-          />
-        )}
+        renderItem={renderWorkoutCard}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="barbell-outline" size={56} color={theme.charcoal} />
+            <Ionicons name="barbell-outline" size={56} color="#2D2D2D" />
             <Text style={styles.emptyTitle}>No workouts yet</Text>
             <Text style={styles.emptySubtitle}>
               Complete a workout to see it here.
@@ -89,7 +188,7 @@ export default function WorkoutHistoryScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={theme.primary}
+            tintColor="#FF6200"
           />
         }
       />
@@ -100,37 +199,116 @@ export default function WorkoutHistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.background,
+    backgroundColor: '#1A1A1A',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2D2D2D',
   },
   backButton: {
     padding: 4,
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#FFFFFF',
     flex: 1,
   },
-  headerCount: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: theme.primary,
-    backgroundColor: theme.primary + '20',
+  countBadge: {
+    backgroundColor: 'rgba(255,98,0,0.15)',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
-    overflow: 'hidden',
+  },
+  countText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FF6200',
   },
   listContent: {
-    paddingHorizontal: 20,
+    padding: 16,
     paddingBottom: 40,
+  },
+  card: {
+    backgroundColor: '#252525',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#303030',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  cardDate: {
+    fontSize: 12,
+    color: '#FF6200',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  cardName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  cardStats: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  statPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#1A1A1A',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statPillText: {
+    fontSize: 12,
+    color: '#B0B0B0',
+    fontWeight: '600',
+  },
+  exerciseList: {
+    borderTopWidth: 1,
+    borderTopColor: '#303030',
+    paddingTop: 10,
+    gap: 6,
+  },
+  exerciseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exerciseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FF6200',
+  },
+  exerciseName: {
+    flex: 1,
+    fontSize: 14,
+    color: '#FFFFFF',
+  },
+  exerciseSets: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  moreExercises: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+    marginLeft: 14,
   },
   emptyState: {
     alignItems: 'center',

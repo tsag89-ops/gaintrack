@@ -14,8 +14,9 @@ interface WorkoutCardProps {
 }
 
 export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDelete }) => {
-  const volume = calculateWorkoutVolume(workout.exercises);
-  const totalSets = calculateTotalSets(workout.exercises);
+  const exercises = workout.exercises ?? [];
+  const volume = calculateWorkoutVolume(exercises);
+  const totalSets = calculateTotalSets(exercises);
   const weightUnit = useWeightUnit();
   const swipeRef = useRef<Swipeable>(null);
 
@@ -59,7 +60,7 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDe
       <View style={styles.stats}>
         <View style={styles.statItem}>
           <Ionicons name="barbell-outline" size={18} color="#4CAF50" />
-          <Text style={styles.statValue}>{workout.exercises.length}</Text>
+          <Text style={styles.statValue}>{exercises.length}</Text>
           <Text style={styles.statLabel}>Exercises</Text>
         </View>
         <View style={styles.statItem}>
@@ -74,16 +75,16 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDe
         </View>
       </View>
 
-      {workout.exercises.length > 0 && (
+      {exercises.length > 0 && (
         <View style={styles.exerciseList}>
-          {workout.exercises.slice(0, 3).map((ex, idx) => (
+          {exercises.slice(0, 3).map((ex, idx) => (
             <Text key={idx} style={styles.exerciseName} numberOfLines={1}>
               {ex.exercise_name}
             </Text>
           ))}
-          {workout.exercises.length > 3 && (
+          {exercises.length > 3 && (
             <Text style={styles.moreExercises}>
-              +{workout.exercises.length - 3} more
+              +{exercises.length - 3} more
             </Text>
           )}
         </View>
