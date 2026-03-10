@@ -135,17 +135,28 @@ export default function WorkoutHistoryScreen() {
 
         {exercises.length > 0 && (
           <View style={styles.exerciseList}>
-            {exercises.slice(0, 4).map((ex, idx) => (
-              <View key={idx} style={styles.exerciseRow}>
-                <View style={styles.exerciseDot} />
-                <Text style={styles.exerciseName} numberOfLines={1}>
-                  {ex.exercise_name}
-                </Text>
-                <Text style={styles.exerciseSets}>
-                  {(ex.sets ?? []).filter(s => !s.is_warmup).length} sets
-                </Text>
-              </View>
-            ))}
+            {exercises.slice(0, 4).map((ex, idx) => {
+              const workingSets = (ex.sets ?? []).filter(s => !s.is_warmup);
+              return (
+                <View key={idx} style={styles.exerciseBlock}>
+                  <View style={styles.exerciseRow}>
+                    <View style={styles.exerciseDot} />
+                    <Text style={styles.exerciseName} numberOfLines={1}>
+                      {ex.exercise_name}
+                    </Text>
+                  </View>
+                  {workingSets.length > 0 && (
+                    <View style={styles.setDetails}>
+                      {workingSets.map((s, si) => (
+                        <Text key={si} style={styles.setDetailText}>
+                          {s.reps}×{s.weight}{weightUnit}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
             {exercises.length > 4 && (
               <Text style={styles.moreExercises}>
                 +{exercises.length - 4} more exercises
@@ -281,7 +292,10 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#303030',
     paddingTop: 10,
-    gap: 6,
+    gap: 8,
+  },
+  exerciseBlock: {
+    gap: 3,
   },
   exerciseRow: {
     flexDirection: 'row',
@@ -299,10 +313,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FFFFFF',
   },
-  exerciseSets: {
+  setDetails: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginLeft: 14,
+  },
+  setDetailText: {
     fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '600',
+    color: '#B0B0B0',
+    backgroundColor: '#1A1A1A',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
   },
   moreExercises: {
     fontSize: 12,
