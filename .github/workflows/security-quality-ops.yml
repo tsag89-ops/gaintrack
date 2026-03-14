@@ -84,6 +84,57 @@ jobs:
       - name: Run npm audit (high severity gate)
         run: npm audit --omit=dev --audit-level=high
 
+  frontend-quality:
+    name: Frontend Quality Gate
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package.json
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Run frontend lint
+        run: npm run lint
+
+      - name: Run TypeScript typecheck
+        run: npx tsc --noEmit
+
+  backend-health-gate:
+    name: Backend Health Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check backend health endpoint (if configured)
+        env:
+          BACKEND_HEALTHCHECK_URL: ${{ secrets.BACKEND_HEALTHCHECK_URL }}
+        run: |
+          if [ -z "$BACKEND_HEALTHCHECK_URL" ]; then
+            echo "BACKEND_HEALTHCHECK_URL secret is not set; skipping health check gate."
+            exit 0
+          fi
+
+          status=$(curl -sS -o /tmp/health-response.json -w "%{http_code}" "$BACKEND_HEALTHCHECK_URL")
+          echo "Health endpoint status: $status"
+          cat /tmp/health-response.json || true
+
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "Backend health gate failed"
+            exit 1
+          fi
+
   backend-sca:
     name: Backend SCA Gate
     runs-on: ubuntu-latest

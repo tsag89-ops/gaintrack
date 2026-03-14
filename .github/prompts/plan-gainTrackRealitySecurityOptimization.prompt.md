@@ -246,3 +246,13 @@ Legend: `P0 NOW`, `P1 NEXT`, `P2 LATER`
 	- `frontend`: `npm audit --omit=dev --audit-level=high` PASS for high/critical; remaining advisories are moderate-only (`markdown-it` via `react-native-markdown-display`, no upstream fix).
 	- `frontend`: `npm run lint` still reports pre-existing repository lint errors outside the P0-P2 backlog acceptance scope; compile-breaking TypeScript errors in `frontend/app/(auth)/login.tsx` and `frontend/app/(tabs)/profile.tsx` were fixed in this pass.
 - KPI monitoring + release gate cadence remains active after OTA publish.
+
+### Progress Note (2026-03-14 - completion check + next step)
+- Completion check performed across plan phases and post-plan backlog: all tracked steps remain `COMPLETED` (Phase 0-4 and backlog items #1-#6, including #4 Health sync to coaching loop).
+- Follow-up conversion hardening delivered after backlog closure:
+	- Exercise library now enforces Free tier top-50 cap with Pro upsell path in `frontend/src/components/ExercisePicker.tsx`.
+	- Pro-gated empty-state UX added for filtered/search cases where results exist only in Pro, with direct paywall CTA in `frontend/src/components/ExercisePicker.tsx`.
+- OTA evidence for this follow-up track:
+	- Update group `505553e0-14ed-4513-88b7-00352c7aaea4` (exercise library cap + upsell banner).
+	- Update group `431c4963-a660-467e-b401-7899c8ec8b3a` (Pro-gated empty-state messaging + CTA).
+- Next active step (proceeded): KPI monitoring and release validation gate cadence for retention/conversion impact on these Pro-surface changes.

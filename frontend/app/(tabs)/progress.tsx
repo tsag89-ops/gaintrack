@@ -28,6 +28,7 @@ import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, radii } from '../../src/constants/theme';
 import { usePro } from '../../src/hooks/usePro';
 import { calc1RM } from '../../src/utils/fitness';
+import { sendPaywallTelemetry } from '../../src/services/notifications';
 import { GOAL_KEY, type BodyCompositionGoal } from '../body-composition-goal';
 import { useWorkoutVolume } from '../../src/hooks/useWorkoutVolume';
 
@@ -560,6 +561,12 @@ export default function ProgressScreen() {
 
   const handleExport = async () => {
     if (!isPro) { // [PRO]
+      sendPaywallTelemetry({
+        feature: 'progress',
+        placement: 'progress_csv_export',
+        eventType: 'view',
+        context: 'csv_export_blocked',
+      }).catch(() => null);
       Alert.alert('Pro Feature', 'Upgrade to Pro to export your workout data as CSV.');
       return;
     }
@@ -608,6 +615,18 @@ export default function ProgressScreen() {
   // ExerciseSelector, EmptyState and StatBox are module-level React.memo components.
   // Stable callback for the ExerciseSelector onPress:
   const openExercisePicker = useCallback(() => setShowPicker(true), []);
+
+  const handleTabPress = useCallback((tab: Tab) => {
+    if (!isPro) {
+      sendPaywallTelemetry({
+        feature: 'progress',
+        placement: 'progress_tab_gate',
+        eventType: 'view',
+        context: `tab_${tab}`,
+      }).catch(() => null);
+    }
+    setActiveTab(tab);
+  }, [isPro]);
 
   if (loading) {
     return (
@@ -664,7 +683,7 @@ export default function ProgressScreen() {
           <TouchableOpacity
             key={tab}
             style={[styles.tabItem, activeTab === tab && styles.tabItemActive]}
-            onPress={() => setActiveTab(tab)}
+            onPress={() => handleTabPress(tab)}
             activeOpacity={0.75}
           >
             <Text style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}>
@@ -688,6 +707,12 @@ export default function ProgressScreen() {
             activeOpacity={0.85}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              sendPaywallTelemetry({
+                feature: 'progress',
+                placement: 'progress_gate_upgrade_button',
+                eventType: 'cta_click',
+                context: activeTab,
+              }).catch(() => null);
               router.push('/pro-paywall' as any);
             }}
           >

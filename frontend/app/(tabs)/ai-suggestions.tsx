@@ -34,6 +34,7 @@ import type { BodyCompositionGoals } from '../../src/types/bodyGoals';
 import { AISuggestionCard } from '../../src/components/AISuggestionCard';
 import { useAISuggestions } from '../../src/hooks/useAISuggestions'; // [PRO]
 import { storage } from '../../src/utils/storage';
+import { sendEngagementTelemetry, sendPaywallTelemetry } from '../../src/services/notifications';
 import {
   type HealthProvider,
   getHealthSyncSettings,
@@ -621,6 +622,11 @@ Always give specific, personalized advice referencing the user's actual data, cu
           style={[styles.segment, activeTab === 'suggestions' && styles.segmentActive]}
           onPress={() => {
             if (Platform.OS !== 'web') Haptics.selectionAsync();
+            sendEngagementTelemetry({
+              feature: 'ai_suggestions',
+              action: 'tab_opened',
+              context: 'suggestions',
+            }).catch(() => null);
             setActiveTab('suggestions');
           }}
           activeOpacity={0.8}
@@ -638,7 +644,20 @@ Always give specific, personalized advice referencing the user's actual data, cu
           style={[styles.segment, activeTab === 'chat' && styles.segmentActive]}
           onPress={() => {
             if (Platform.OS !== 'web') Haptics.selectionAsync();
+            if (!isPro) {
+              sendPaywallTelemetry({
+                feature: 'ai_chat',
+                placement: 'ai_chat_tab_lock',
+                eventType: 'view',
+                context: 'chat_tab_tap',
+              }).catch(() => null);
+            }
             if (!consentGiven) { setConsentGiven(false); return; }
+            sendEngagementTelemetry({
+              feature: 'ai_suggestions',
+              action: 'tab_opened',
+              context: 'chat',
+            }).catch(() => null);
             setActiveTab('chat');
           }}
           activeOpacity={0.8}
@@ -722,7 +741,15 @@ Always give specific, personalized advice referencing the user's actual data, cu
               title={s.title}
               description={s.description}
               isProLocked={s.isProLocked && !isPro}
-              onPressUpgrade={() => router.push('/pro-paywall')}
+              onPressUpgrade={() => {
+                sendPaywallTelemetry({
+                  feature: 'ai_suggestions',
+                  placement: 'suggestion_card_lock',
+                  eventType: 'cta_click',
+                  context: s.id,
+                }).catch(() => null);
+                router.push('/pro-paywall');
+              }}
             />
           ))}
           {!isPro && (
@@ -734,7 +761,15 @@ Always give specific, personalized advice referencing the user's actual data, cu
               </Text>
               <TouchableOpacity
                 style={styles.goProBtn}
-                onPress={() => router.push('/pro-paywall')}
+                onPress={() => {
+                  sendPaywallTelemetry({
+                    feature: 'ai_suggestions',
+                    placement: 'tips_upgrade_card',
+                    eventType: 'cta_click',
+                    context: 'tips_upgrade',
+                  }).catch(() => null);
+                  router.push('/pro-paywall');
+                }}
               >
                 <Text style={styles.goProBtnText}>Go Pro — $4.99 / year</Text>
               </TouchableOpacity>
@@ -753,7 +788,15 @@ Always give specific, personalized advice referencing the user's actual data, cu
           </Text>
           <TouchableOpacity
             style={[styles.goProBtn, { marginTop: 20 }]}
-            onPress={() => router.push('/pro-paywall')}
+            onPress={() => {
+              sendPaywallTelemetry({
+                feature: 'ai_chat',
+                placement: 'chat_paywall_screen',
+                eventType: 'cta_click',
+                context: 'chat_upgrade',
+              }).catch(() => null);
+              router.push('/pro-paywall');
+            }}
           >
             <Text style={styles.goProBtnText}>Go Pro — $4.99 / year</Text>
           </TouchableOpacity>

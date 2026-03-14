@@ -21,6 +21,7 @@ import * as Sharing from 'expo-sharing';
 import { useAuthStore } from '../../src/store/authStore';
 import { userApi } from '../../src/services/api';
 import { deleteUserCloudData } from '../../src/services/firestore';
+import { sendOnboardingTelemetry } from '../../src/services/notifications';
 import { getEquipmentLabel } from '../../src/utils/helpers';
 import { useAuth } from '../../src/hooks/useAuth';
 import { deleteAccount, signOut as nativeSignOut, REQUIRES_RECENT_LOGIN } from '../../src/services/authBridge';
@@ -573,6 +574,10 @@ const handleExportMyData = async () => {
       if (user) {
         setUser({ ...user, goals });
       }
+      sendOnboardingTelemetry({
+        milestone: 'goals_set',
+        context: `calories_${goals.daily_calories}`,
+      }).catch(() => null);
       setShowGoalsModal(false);
       Alert.alert('Success', 'Goals updated successfully!');
     } catch (error) {
@@ -598,6 +603,10 @@ const handleExportMyData = async () => {
       if (user) {
         setUser({ ...user, equipment: selectedEquipment });
       }
+      sendOnboardingTelemetry({
+        milestone: 'equipment_selected',
+        context: `count_${selectedEquipment.length}`,
+      }).catch(() => null);
       setShowEquipmentModal(false);
       Alert.alert('Success', 'Equipment updated! Exercise suggestions will be filtered accordingly.');
     } catch (error) {

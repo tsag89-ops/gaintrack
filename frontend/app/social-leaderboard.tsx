@@ -15,6 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { usePro } from '../src/hooks/usePro'; // [PRO]
 import { socialApi, LeaderboardEntry, FriendProfile, FriendInvite } from '../src/services/social'; // [PRO]
+import { sendPaywallTelemetry, sendSocialEventTelemetry } from '../src/services/notifications';
 
 const INVITE_REMINDER_MIN_HOURS = 24;
 
@@ -104,6 +105,10 @@ export default function SocialLeaderboardScreen() {
       Alert.alert('Invite failed', 'Could not send invite right now.');
       return;
     }
+    sendSocialEventTelemetry({
+      eventType: 'friend_invite_sent',
+      context: userId,
+    }).catch(() => null);
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await loadLeaderboard();
   };
@@ -115,6 +120,10 @@ export default function SocialLeaderboardScreen() {
       Alert.alert('Action failed', 'Could not update invite status.');
       return;
     }
+    sendSocialEventTelemetry({
+      eventType: action === 'accept' ? 'friend_invite_accepted' : 'friend_invite_declined',
+      context: inviteId,
+    }).catch(() => null);
     await loadLeaderboard();
   };
 
@@ -158,7 +167,18 @@ export default function SocialLeaderboardScreen() {
           <Ionicons name="lock-closed-outline" size={52} color="#6B7280" />
           <Text style={styles.emptyTitle}>Pro Feature</Text>
           <Text style={styles.emptySubtitle}>Upgrade to GainTrack Pro to access private friends leaderboard.</Text>
-          <TouchableOpacity style={styles.goProButton} onPress={() => router.push('/pro-paywall')}>
+          <TouchableOpacity
+            style={styles.goProButton}
+            onPress={() => {
+              sendPaywallTelemetry({
+                feature: 'social_leaderboard',
+                placement: 'social_leaderboard_gate',
+                eventType: 'cta_click',
+                context: 'go_pro',
+              }).catch(() => null);
+              router.push('/pro-paywall');
+            }}
+          >
             <Text style={styles.goProText}>Go Pro</Text>
           </TouchableOpacity>
         </View>

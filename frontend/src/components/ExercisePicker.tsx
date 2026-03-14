@@ -37,6 +37,7 @@ import {
   getFavoriteIds,
   toggleFavoriteExercise,
 } from '../services/storage';
+import { sendPaywallTelemetry } from '../services/notifications';
 import { Input } from './ui/Input';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
@@ -671,7 +672,15 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
               </Text>
               <TouchableOpacity
                 style={styles.gatedEmptyBtn}
-                onPress={() => router.push('/pro-paywall' as any)}
+                onPress={() => {
+                  sendPaywallTelemetry({
+                    feature: 'exercise_library',
+                    placement: 'gated_empty_state',
+                    eventType: 'cta_click',
+                    context: `${activeMuscle}_${activeEquipment}`,
+                  }).catch(() => null);
+                  router.push('/pro-paywall' as any);
+                }}
                 activeOpacity={0.85}
               >
                 <Text style={styles.gatedEmptyBtnText}>Unlock Pro</Text>
@@ -715,7 +724,15 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
             !isPro ? ( // [PRO]
               <TouchableOpacity
                 style={styles.proUpsellBanner}
-                onPress={() => router.push('/pro-paywall' as any)}
+                onPress={() => {
+                  sendPaywallTelemetry({
+                    feature: 'exercise_library',
+                    placement: 'list_footer_banner',
+                    eventType: 'cta_click',
+                    context: 'unlock_full_library',
+                  }).catch(() => null);
+                  router.push('/pro-paywall' as any);
+                }}
                 activeOpacity={0.85}
               >
                 <View style={styles.proUpsellInner}>

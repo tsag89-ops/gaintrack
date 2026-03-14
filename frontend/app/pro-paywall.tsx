@@ -5,7 +5,7 @@
 // you configured in the RevenueCat dashboard. No extra code needed for pricing
 // — design the paywall entirely from the RevenueCat dashboard UI.
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Text,
   StyleSheet,
@@ -17,10 +17,20 @@ import { Ionicons } from '@expo/vector-icons';
 import RevenueCatUI from 'react-native-purchases-ui';
 import type { PurchasesError } from 'react-native-purchases';
 import type { CustomerInfo } from 'react-native-purchases';
+import { sendPaywallTelemetry } from '../src/services/notifications';
 
 export default function ProPaywallScreen() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    sendPaywallTelemetry({
+      feature: 'pro_paywall',
+      placement: 'full_screen_paywall',
+      eventType: 'view',
+      context: 'screen_mount',
+    }).catch(() => null);
+  }, []);
 
   function handleDismiss() {
     router.back();
@@ -29,6 +39,12 @@ export default function ProPaywallScreen() {
   function handlePurchaseCompleted({ customerInfo }: { customerInfo: CustomerInfo }) {
     // customerInfo already has the updated entitlements — no extra fetch needed.
     // Navigating back triggers useFocusEffect in profile.tsx which calls refresh().
+    sendPaywallTelemetry({
+      feature: 'pro_paywall',
+      placement: 'full_screen_paywall',
+      eventType: 'purchase_completed',
+      context: Object.keys(customerInfo?.entitlements?.active ?? {}).join(',') || 'unknown',
+    }).catch(() => null);
     router.back();
   }
 

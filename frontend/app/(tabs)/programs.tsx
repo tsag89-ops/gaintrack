@@ -26,6 +26,7 @@ import Animated, {
 import { usePrograms } from '../../src/hooks/usePrograms';
 import { usePro } from '../../src/hooks/usePro';
 import { ProgramCard } from '../../src/components/programs/ProgramCard';
+import { sendEngagementTelemetry, sendPaywallTelemetry } from '../../src/services/notifications';
 import { WorkoutProgram } from '../../src/types';
 import { colors, typography, radii, spacing, shadows } from '../../src/constants/theme';
 
@@ -59,9 +60,26 @@ export default function ProgramsScreen() {
 
     if (!isPro && programs.length >= FREE_PROGRAM_LIMIT) {
       // [PRO] Free tier: max 1 program
+      sendPaywallTelemetry({
+        feature: 'programs',
+        placement: 'program_limit_gate',
+        eventType: 'view',
+        context: `count_${programs.length}`,
+      }).catch(() => null);
+      sendPaywallTelemetry({
+        feature: 'programs',
+        placement: 'program_limit_gate',
+        eventType: 'cta_click',
+        context: 'fab_create_program',
+      }).catch(() => null);
       router.push('/pro-paywall' as any);
       return;
     }
+    sendEngagementTelemetry({
+      feature: 'programs',
+      action: 'builder_opened',
+      context: 'fab',
+    }).catch(() => null);
     router.push('/programs/builder' as any);
   }, [isPro, programs.length, router, fabScale]);
 
@@ -155,6 +173,12 @@ export default function ProgramsScreen() {
             style={styles.proBadge}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              sendPaywallTelemetry({
+                feature: 'programs',
+                placement: 'programs_header_badge',
+                eventType: 'cta_click',
+                context: 'header_go_pro',
+              }).catch(() => null);
               router.push('/pro-paywall' as any);
             }}
           >

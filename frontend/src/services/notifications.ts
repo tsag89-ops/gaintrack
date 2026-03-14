@@ -142,6 +142,150 @@ export async function sendSupersetTelemetry(payload: {
   }
 }
 
+type TelemetryEventType = 'view' | 'cta_click' | 'purchase_completed' | 'dismiss';
+
+export async function sendPaywallTelemetry(payload: {
+  feature: string;
+  placement: string;
+  eventType: TelemetryEventType;
+  context?: string;
+}): Promise<void> {
+  if (!BACKEND_URL) {
+    return;
+  }
+
+  try {
+    const sessionToken = await storage.getItem('sessionToken');
+    if (!sessionToken) {
+      return;
+    }
+
+    const response = await fetch(`${BACKEND_URL}/api/telemetry/paywall`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        feature: payload.feature,
+        placement: payload.placement,
+        event_type: payload.eventType,
+        context: payload.context,
+      }),
+    });
+
+    if (!response.ok) {
+      console.log('Failed to send paywall telemetry:', response.status);
+    }
+  } catch (error) {
+    console.log('Failed to send paywall telemetry:', error);
+  }
+}
+
+export async function sendEngagementTelemetry(payload: {
+  feature: string;
+  action: string;
+  context?: string;
+}): Promise<void> {
+  if (!BACKEND_URL) {
+    return;
+  }
+
+  try {
+    const sessionToken = await storage.getItem('sessionToken');
+    if (!sessionToken) {
+      return;
+    }
+
+    const response = await fetch(`${BACKEND_URL}/api/telemetry/engagement`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        feature: payload.feature,
+        action: payload.action,
+        context: payload.context,
+      }),
+    });
+
+    if (!response.ok) {
+      console.log('Failed to send engagement telemetry:', response.status);
+    }
+  } catch (error) {
+    console.log('Failed to send engagement telemetry:', error);
+  }
+}
+
+export async function sendSocialEventTelemetry(payload: {
+  eventType: string;
+  context?: string;
+}): Promise<void> {
+  if (!BACKEND_URL) {
+    return;
+  }
+
+  try {
+    const sessionToken = await storage.getItem('sessionToken');
+    if (!sessionToken) {
+      return;
+    }
+
+    const response = await fetch(`${BACKEND_URL}/api/telemetry/social-event`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        event_type: payload.eventType,
+        context: payload.context,
+      }),
+    });
+
+    if (!response.ok) {
+      console.log('Failed to send social telemetry:', response.status);
+    }
+  } catch (error) {
+    console.log('Failed to send social telemetry:', error);
+  }
+}
+
+export async function sendOnboardingTelemetry(payload: {
+  milestone: string;
+  context?: string;
+}): Promise<void> {
+  if (!BACKEND_URL) {
+    return;
+  }
+
+  try {
+    const sessionToken = await storage.getItem('sessionToken');
+    if (!sessionToken) {
+      return;
+    }
+
+    const response = await fetch(`${BACKEND_URL}/api/telemetry/onboarding`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        milestone: payload.milestone,
+        context: payload.context,
+      }),
+    });
+
+    if (!response.ok) {
+      console.log('Failed to send onboarding telemetry:', response.status);
+    }
+  } catch (error) {
+    console.log('Failed to send onboarding telemetry:', error);
+  }
+}
+
 async function initNotifications() {
   try {
     // Dynamically import to avoid crashes in Expo Go
