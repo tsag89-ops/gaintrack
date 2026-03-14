@@ -256,3 +256,11 @@ Legend: `P0 NOW`, `P1 NEXT`, `P2 LATER`
 	- Update group `505553e0-14ed-4513-88b7-00352c7aaea4` (exercise library cap + upsell banner).
 	- Update group `431c4963-a660-467e-b401-7899c8ec8b3a` (Pro-gated empty-state messaging + CTA).
 - Next active step (proceeded): KPI monitoring and release validation gate cadence for retention/conversion impact on these Pro-surface changes.
+
+### Progress Note (2026-03-14 - AI coach cost guardrail)
+- Implemented hard daily usage cap for AI Coach chat requests: max 2 messages/day per Pro user session/client path.
+- Server-side enforcement added in `frontend/app/api/ai-chat+api.ts` using client/day usage buckets for `usageType: 'coach_chat'` requests.
+- Frontend UX + local guard added in `frontend/app/(tabs)/ai-suggestions.tsx`:
+	- Displays daily usage (`used/2`, remaining count) in chat tab.
+	- Disables send button once daily quota is exhausted.
+	- Surfaces daily-cap message when API returns 429 daily-limit response.

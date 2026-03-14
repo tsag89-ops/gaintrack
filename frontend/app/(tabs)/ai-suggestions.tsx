@@ -55,6 +55,7 @@ const NUTRITION_KEY    = 'gaintrack_nutrition';
 const MAX_CONTEXT      = 10;
 const MAX_HISTORY      = 20;
 const AI_REQUEST_TIMEOUT_MS = 12000;
+const PRO_DAILY_AI_CHAT_LIMIT = 2; // [PRO]
 
 // ── Static coaching suggestions (free = first 4, pro-locked = rest) ──────────
 const STATIC_SUGGESTIONS = [
@@ -258,7 +259,10 @@ export default function AISuggestions() {
 
   const scrollRef    = useRef<ScrollView>(null);
   const today        = format(new Date(), 'yyyy-MM-dd');
-  const canSend      = isPro && consentGiven === true;
+  const isTodayUsage = dailyUsage.date === today;
+  const usedToday = isTodayUsage ? dailyUsage.count : 0;
+  const remainingToday = Math.max(0, PRO_DAILY_AI_CHAT_LIMIT - usedToday);
+  const canSend      = isPro && consentGiven === true && remainingToday > 0;
   const chipsVisible = messages.length === 0 && !isLoading;
 
   // ── Load consent state on mount and on every tab focus ───────────────────────
@@ -458,13 +462,6 @@ Always give specific, personalized advice referencing the user's actual data, cu
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
 
-    // Track usage for free users
-    if (!isPro) {
-      const newUsage: DailyUsage = { date: today, count: dailyUsage.count + 1 };
-      setDailyUsage(newUsage);
-      storage.setItem(AI_USAGE_KEY, JSON.stringify(newUsage)).catch(() => {});
-    }
-
     setIsLoading(true);
 
     // Build API context (last MAX_CONTEXT non-error messages)
@@ -479,6 +476,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
         system: buildSystemPrompt(),
         messages: context,
         prompt: text,
+        usageType: 'coach_chat', // [PRO] consumed by API daily cap guard
       });
 
       if (!serverUrl) {
@@ -491,8 +489,27 @@ Always give specific, personalized advice referencing the user's actual data, cu
         body,
       });
 
+      // [PRO] Keep local counter in sync for successful/processable requests.
+      if (isPro && res.status !== 429) {
+        const newUsage: DailyUsage = { date: today, count: usedToday + 1 };
+        setDailyUsage(newUsage);
+        storage.setItem(AI_USAGE_KEY, JSON.stringify(newUsage)).catch(() => {});
+      }
+
       if (res.status === 429) {
-        throw Object.assign(new Error('rate_limit'), { errorType: 'rate_limit' as const });
+        let detail = '';
+        try {
+          const rateBody = await res.json();
+          if (rateBody?.code === 'daily_limit_exceeded') {
+            detail = `Daily cap reached: ${PRO_DAILY_AI_CHAT_LIMIT} messages/day.`;
+          }
+        } catch {
+          detail = '';
+        }
+        throw Object.assign(new Error('rate_limit'), {
+          errorType: 'rate_limit' as const,
+          detail,
+        });
       }
       if (res.status === 401 || res.status === 403) {
         throw Object.assign(new Error('no_api_key'), { errorType: 'no_api_key' as const });
@@ -812,6 +829,12 @@ Always give specific, personalized advice referencing the user's actual data, cu
       {/* ──── CHAT TAB — Pro users: full chat ──── */}
       {activeTab === 'chat' && isPro && (
         <>
+          <View style={styles.usageBar}>
+            <Text style={styles.usageText}>
+              AI Coach: {usedToday}/{PRO_DAILY_AI_CHAT_LIMIT} messages used today ({remainingToday} left)
+            </Text>
+          </View>
+
           <ScrollView
             ref={scrollRef}
             style={styles.messages}
@@ -920,9 +943,9 @@ Always give specific, personalized advice referencing the user's actual data, cu
                 returnKeyType="default"
               />
               <TouchableOpacity
-                style={[styles.sendBtn, (!input.trim() || isLoading) && styles.sendBtnDisabled]}
+                style={[styles.sendBtn, (!input.trim() || isLoading || !canSend) && styles.sendBtnDisabled]}
                 onPress={() => sendMessage()}
-                disabled={!input.trim() || isLoading}
+                disabled={!input.trim() || isLoading || !canSend}
               >
                 <Ionicons name="send" size={18} color="#FFFFFF" />
               </TouchableOpacity>

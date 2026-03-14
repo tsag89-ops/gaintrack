@@ -12,13 +12,45 @@ const WINDOW_MS = 10 * 60 * 1000;
 const MAX_REQUESTS_PER_WINDOW = 30;
 const MAX_PROMPT_CHARS = 4000;
 const MAX_SYSTEM_CHARS = 1500;
+const PRO_COACH_DAILY_LIMIT = 2;
 
 type RateBucket = {
   count: number;
   resetAt: number;
 };
 
+type DailyUsageBucket = {
+  dateKey: string;
+  count: number;
+};
+
 const rateBuckets = new Map<string, RateBucket>();
+const dailyCoachUsageBuckets = new Map<string, DailyUsageBucket>();
+
+function getUtcDateKey(now = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+function consumeCoachDailyQuota(clientId: string): {
+  ok: boolean;
+  remaining: number;
+} {
+  const dateKey = getUtcDateKey();
+  const existing = dailyCoachUsageBuckets.get(clientId);
+
+  if (!existing || existing.dateKey !== dateKey) {
+    dailyCoachUsageBuckets.set(clientId, { dateKey, count: 1 });
+    return { ok: true, remaining: PRO_COACH_DAILY_LIMIT - 1 };
+  }
+
+  if (existing.count >= PRO_COACH_DAILY_LIMIT) {
+    return { ok: false, remaining: 0 };
+  }
+
+  existing.count += 1;
+  dailyCoachUsageBuckets.set(clientId, existing);
+  return { ok: true, remaining: PRO_COACH_DAILY_LIMIT - existing.count };
+}
 
 function getClientId(request: Request): string {
   const forwardedFor = request.headers.get('x-forwarded-for') ?? '';
@@ -66,7 +98,7 @@ export async function POST(request: Request): Promise<Response> {
       return json({ error: 'Too many requests. Try again in a few minutes.' }, 429);
     }
 
-    let body: { prompt?: unknown; system?: unknown };
+    let body: { prompt?: unknown; system?: unknown; usageType?: unknown };
     try {
       body = await request.json();
     } catch {
@@ -75,6 +107,24 @@ export async function POST(request: Request): Promise<Response> {
 
     const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
     const system = typeof body.system === 'string' ? body.system.trim() : '';
+    const usageType = typeof body.usageType === 'string' ? body.usageType.trim() : '';
+
+    // [PRO] Economic guardrail: max 2 AI coach chat messages per client/day.
+    // Applied only to explicit coach chat requests so other route use-cases are unaffected.
+    if (usageType === 'coach_chat') {
+      const quota = consumeCoachDailyQuota(clientId);
+      if (!quota.ok) {
+        return json(
+          {
+            error: `Daily AI Coach limit reached (${PRO_COACH_DAILY_LIMIT}/${PRO_COACH_DAILY_LIMIT}).`,
+            code: 'daily_limit_exceeded',
+            remaining: quota.remaining,
+            dailyLimit: PRO_COACH_DAILY_LIMIT,
+          },
+          429,
+        );
+      }
+    }
 
     if (!prompt) return json({ error: 'Missing prompt' }, 400);
     if (prompt.length > MAX_PROMPT_CHARS) {
