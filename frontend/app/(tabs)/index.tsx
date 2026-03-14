@@ -6,6 +6,7 @@ import {
   View,
   Text,
   StyleSheet,
+  Alert,
   FlatList,
   TouchableOpacity,
   RefreshControl,
@@ -90,6 +91,16 @@ function calcStreak(workouts: Workout[]): number {
   return streak;
 }
 
+const MILESTONE_STEPS = [1, 5, 10, 25, 50, 100, 200];
+
+function getMilestoneProgress(totalWorkouts: number) {
+  const next = MILESTONE_STEPS.find((step) => totalWorkouts < step) ?? MILESTONE_STEPS[MILESTONE_STEPS.length - 1];
+  const previous = [...MILESTONE_STEPS].reverse().find((step) => step <= totalWorkouts) ?? 0;
+  const span = Math.max(next - previous, 1);
+  const progress = Math.min(Math.max((totalWorkouts - previous) / span, 0), 1);
+  return { previous, next, progress };
+}
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
@@ -100,6 +111,7 @@ export default function HomeScreen() {
   const { isPro } = usePro();
   const [refreshing, setRefreshing] = useState(false);
   const [resumeWorkoutName, setResumeWorkoutName] = useState<string | null>(null);
+  const [nutritionTrackedDays, setNutritionTrackedDays] = useState(0);
 
   // ── Check for persisted in-progress workout on every focus ────────────────
   useFocusEffect(
@@ -160,7 +172,63 @@ export default function HomeScreen() {
     () => chartData.reduce((s, v) => s + v, 0),
     [chartData],
   );
+  const workoutDaysThisWeek = useMemo(
+    () => chartData.filter((value) => value > 0).length,
+    [chartData],
+  );
   const hasActiveWorkout = Boolean(resumeWorkoutName);
+  const completedWorkoutsCount = useMemo(
+    () => workouts.filter((w) => calculateWorkoutVolume(w.exercises ?? []) > 0).length,
+    [workouts],
+  );
+  const milestone = useMemo(
+    () => getMilestoneProgress(completedWorkoutsCount),
+    [completedWorkoutsCount],
+  );
+  const weeklyConsistencyScore = useMemo(
+    () => workoutDaysThisWeek + nutritionTrackedDays,
+    [workoutDaysThisWeek, nutritionTrackedDays],
+  );
+  const workedOutToday = useMemo(() => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    return workouts.some((workout) => {
+      const date = workout?.date ? format(new Date(workout.date), 'yyyy-MM-dd') : '';
+      return date === today && calculateWorkoutVolume(workout.exercises ?? []) > 0;
+    });
+  }, [workouts]);
+  const streakAtRisk = streak > 0 && !workedOutToday;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadNutritionConsistency = async () => {
+      try {
+        const rawNutrition = await AsyncStorage.getItem('gaintrack_nutrition');
+        const parsed = rawNutrition ? JSON.parse(rawNutrition) : [];
+        if (!Array.isArray(parsed)) {
+          if (!cancelled) setNutritionTrackedDays(0);
+          return;
+        }
+
+        const days = Array.from({ length: 7 }, (_, i) => format(subDays(new Date(), i), 'yyyy-MM-dd'));
+        const tracked = parsed.filter((entry: any) => {
+          const day = typeof entry?.date === 'string' ? entry.date : '';
+          if (!days.includes(day)) return false;
+          return Number(entry?.total_calories ?? 0) > 0;
+        });
+
+        const uniqueDays = new Set(tracked.map((entry: any) => entry.date));
+        if (!cancelled) setNutritionTrackedDays(uniqueDays.size);
+      } catch {
+        if (!cancelled) setNutritionTrackedDays(0);
+      }
+    };
+
+    loadNutritionConsistency();
+    return () => {
+      cancelled = true;
+    };
+  }, [workouts]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleNewWorkout = async () => {
@@ -211,6 +279,21 @@ export default function HomeScreen() {
   const handleBodyGoalPress = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/body-composition-goal' as any);
+  };
+
+  const handleWeeklyRecapPress = async () => {
+    await Haptics.selectionAsync();
+    Alert.alert(
+      'Weekly Recap',
+      `Workout days: ${workoutDaysThisWeek}/7\nNutrition days: ${nutritionTrackedDays}/7\nTotal volume: ${formatVolume(totalVolumeThisWeek)}\nCurrent streak: ${streak} day${streak === 1 ? '' : 's'}`,
+      [
+        { text: 'Close', style: 'cancel' },
+        {
+          text: 'Open Full Progress',
+          onPress: () => router.push('/(tabs)/progress'),
+        },
+      ],
+    );
   };
 
   // ── Greeting ──────────────────────────────────────────────────────────────
@@ -309,6 +392,66 @@ export default function HomeScreen() {
         <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
       </TouchableOpacity>
 
+      <Card style={styles.engagementCard}>
+        <View style={styles.engagementHeader}>
+          <Text style={styles.sectionTitle}>This Week Momentum</Text>
+          <Badge
+            label={`${weeklyConsistencyScore}/14 consistency`}
+            variant="neutral"
+          />
+        </View>
+
+        <View style={styles.momentumStatsRow}>
+          <View style={styles.momentumStatChip}>
+            <Text style={styles.momentumStatValue}>{workoutDaysThisWeek}</Text>
+            <Text style={styles.momentumStatLabel}>Workout days</Text>
+          </View>
+          <View style={styles.momentumStatChip}>
+            <Text style={styles.momentumStatValue}>{nutritionTrackedDays}</Text>
+            <Text style={styles.momentumStatLabel}>Nutrition days</Text>
+          </View>
+          <View style={styles.momentumStatChip}>
+            <Text style={styles.momentumStatValue}>{streak}</Text>
+            <Text style={styles.momentumStatLabel}>Current streak</Text>
+          </View>
+        </View>
+
+        <View style={styles.milestoneRow}>
+          <View>
+            <Text style={styles.milestoneLabel}>Next milestone badge</Text>
+            <Text style={styles.milestoneTitle}>🏅 {milestone.next} workouts</Text>
+          </View>
+          <Text style={styles.milestoneMeta}>{completedWorkoutsCount}/{milestone.next}</Text>
+        </View>
+        <View style={styles.milestoneTrack}>
+          <View style={[styles.milestoneFill, { width: `${Math.max(8, milestone.progress * 100)}%` }]} />
+        </View>
+
+        {streakAtRisk ? (
+          <TouchableOpacity
+            style={styles.streakWarningCard}
+            onPress={handleNewWorkout}
+            activeOpacity={0.88}
+          >
+            <Ionicons name="flame" size={16} color={theme.warning} />
+            <View style={styles.streakWarningContent}>
+              <Text style={styles.streakWarningTitle}>Streak at risk today</Text>
+              <Text style={styles.streakWarningSubtitle}>Log even one set to keep your streak alive.</Text>
+            </View>
+            <Text style={styles.streakWarningAction}>Protect</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        <TouchableOpacity
+          style={styles.weeklyRecapButton}
+          onPress={handleWeeklyRecapPress}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.weeklyRecapText}>Open Weekly Recap</Text>
+          <Ionicons name="chevron-forward" size={16} color={theme.primary} />
+        </TouchableOpacity>
+      </Card>
+
       {/* ── Weekly volume chart ── */}
       <Card style={styles.chartCard} noPadding>
         <View style={styles.chartHeader}>
@@ -367,7 +510,29 @@ export default function HomeScreen() {
         </View>
       )}
     </View>
-  ), [greeting, firstName, streak, resumeWorkoutName, hasActiveWorkout, chartLabels, chartData, chartMax, totalVolumeThisWeek, handleNewWorkout, handleResumeWorkout, handleDismissResume, router]);
+  ), [
+    greeting,
+    firstName,
+    streak,
+    resumeWorkoutName,
+    hasActiveWorkout,
+    chartLabels,
+    chartData,
+    chartMax,
+    totalVolumeThisWeek,
+    handleNewWorkout,
+    handleResumeWorkout,
+    handleDismissResume,
+    workoutDaysThisWeek,
+    nutritionTrackedDays,
+    weeklyConsistencyScore,
+    milestone.next,
+    milestone.progress,
+    completedWorkoutsCount,
+    streakAtRisk,
+    handleWeeklyRecapPress,
+    router,
+  ]);
 
   const EmptyWorkouts = useCallback(() => (
     <View style={styles.emptyState}>
@@ -549,6 +714,117 @@ const styles = StyleSheet.create({
     color: theme.textSecondary,
     fontSize: 12,
     marginTop: 1,
+  },
+  engagementCard: {
+    marginBottom: 16,
+    gap: 12,
+  },
+  engagementHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  momentumStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  momentumStatChip: {
+    flex: 1,
+    backgroundColor: theme.charcoal,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  momentumStatValue: {
+    color: theme.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  momentumStatLabel: {
+    color: theme.textSecondary,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  milestoneRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  milestoneLabel: {
+    color: theme.textSecondary,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  milestoneTitle: {
+    color: theme.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  milestoneMeta: {
+    color: theme.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  milestoneTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: theme.charcoal,
+    overflow: 'hidden',
+  },
+  milestoneFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: theme.primary,
+  },
+  weeklyRecapButton: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+  },
+  weeklyRecapText: {
+    color: theme.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  streakWarningCard: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 186, 92, 0.35)',
+    backgroundColor: 'rgba(255, 186, 92, 0.08)',
+  },
+  streakWarningContent: {
+    flex: 1,
+  },
+  streakWarningTitle: {
+    color: theme.warning,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  streakWarningSubtitle: {
+    color: theme.textSecondary,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  streakWarningAction: {
+    color: theme.warning,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
   ctaInner: {
     flexDirection: 'row',

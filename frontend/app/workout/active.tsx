@@ -34,6 +34,7 @@ import { sendFirstWorkoutCompletedTelemetry } from '../../src/services/notificat
 const DEFAULT_REST_SECONDS = 90;
 const REST_DURATION_KEY = 'gaintrack_rest_duration';
 const SUPERSET_COLORS = ['#FF6200', '#4CAF50', '#29B6F6', '#FFB300', '#EF5350', '#AB47BC'];
+const WORKOUT_MILESTONES = [1, 5, 10, 25, 50, 100, 200];
 // Per-exercise last-session cache — written on every finish, read before scanning workout history
 const EXERCISE_HISTORY_KEY = 'gaintrack_exercise_history';
 
@@ -750,6 +751,17 @@ const ActiveWorkoutScreen: React.FC = () => {
           workoutId: savedWorkout.workout_id,
           completedAt: new Date().toISOString(),
         });
+      }
+
+      if (!isOffline) {
+        const completedCount = priorWorkoutCount + 1;
+        if (WORKOUT_MILESTONES.includes(completedCount)) {
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert(
+            'Milestone unlocked',
+            `Great work! You just completed ${completedCount} workout${completedCount > 1 ? 's' : ''}. Keep the streak alive.`,
+          );
+        }
       }
 
       const newPRs = await detectAndSavePRs(validExercises);

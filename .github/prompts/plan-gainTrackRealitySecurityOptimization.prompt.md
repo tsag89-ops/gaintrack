@@ -91,7 +91,11 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Completed: day 1/day 7/day 30 lifecycle job generation rules implemented and covered with additional tests in `tests/test_backend_auth_entitlement.py`.
 	- Completed: lifecycle dispatch now sends through Expo Push API in `backend/server.py` and writes per-job success/failure status.
 	- Completed: frontend onboarding telemetry hook added to first successful workout completion in `frontend/app/workout/active.tsx` and posted via `frontend/src/services/notifications.ts` to `/notifications/lifecycle/first-workout`.
-6. Phase 2 - Engagement loops: NOT STARTED
+6. Phase 2 - Engagement loops: COMPLETED
+	- Completed: Home dashboard engagement block added in `frontend/app/(tabs)/index.tsx` with weekly momentum (workout days + nutrition days + streak), milestone badge progress to next workout threshold, and weekly recap entry CTA.
+	- Completed: milestone unlock prompt + success haptic on workout completion added in `frontend/app/workout/active.tsx` for thresholds (1, 5, 10, 25, 50, 100, 200).
+	- Completed: streak-preservation intervention added on Home momentum card to detect "worked out today" and surface a "Protect" CTA when streak is at risk.
+	- Completed: weekly recap CTA now provides in-app weekly summary (workout days, nutrition days, total volume, streak) before linking to full Progress analytics.
 7. Phase 3 - Competitive integrations: NOT STARTED
 8. Phase 3 - Analytics depth for advanced users: IN PROGRESS
 	- Notes: progression and trend analytics are partially present, but fatigue/deload and periodization views are not fully implemented.
@@ -100,4 +104,4 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Notes: secret scanning now added; OWASP MASVS cadence, SCA gates, and policy regression release gates still pending.
 
 ### Next Active Step
-- Start Phase 2 engagement loops: implement streak preservation UX, milestone badge unlocks, and weekly recap entry points tied to workout and nutrition consistency.
+- Start Phase 3 competitive integrations: implement HealthKit + Google Fit read sync baseline behind Pro-aware controls and explicit permission UX.
