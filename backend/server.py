@@ -72,6 +72,8 @@ LIFECYCLE_TEMPLATES = {
         "body": "Review your progress and set your next milestone today.",
     },
 }
+EXPO_PUSH_API_URL = "https://exp.host/--/api/v2/push/send"
+EXPO_PUSH_MAX_BATCH = 100
 
 
 def _client_identifier(request: Request, user_id: Optional[str] = None) -> str:
@@ -177,6 +179,108 @@ async def require_internal_cron(request: Request) -> None:
     incoming_key = request.headers.get("x-internal-cron-key")
     if incoming_key != CRON_INTERNAL_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized internal cron request")
+
+
+async def send_expo_push_notifications(messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Sends Expo push notifications in batches and returns per-message results
+    preserving input order.
+    """
+    if not messages:
+        return []
+
+    results: List[Dict[str, Any]] = []
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        for idx in range(0, len(messages), EXPO_PUSH_MAX_BATCH):
+            chunk = messages[idx : idx + EXPO_PUSH_MAX_BATCH]
+            try:
+                response = await client.post(
+                    EXPO_PUSH_API_URL,
+                    headers={"Content-Type": "application/json", "Accept": "application/json"},
+                    json=chunk,
+                )
+            except Exception as exc:
+                logger.error(f"Expo push request failed: {exc}")
+                results.extend(
+                    [
+                        {
+                            "status": "error",
+                            "details": "request_failed",
+                            "message": str(exc),
+                        }
+                        for _ in chunk
+                    ]
+                )
+                continue
+
+            if response.status_code >= 400:
+                body_preview = response.text[:500]
+                logger.error(f"Expo push non-2xx response {response.status_code}: {body_preview}")
+                results.extend(
+                    [
+                        {
+                            "status": "error",
+                            "details": "http_error",
+                            "http_status": response.status_code,
+                            "message": body_preview,
+                        }
+                        for _ in chunk
+                    ]
+                )
+                continue
+
+            try:
+                payload = response.json()
+                data = payload.get("data", []) if isinstance(payload, dict) else []
+            except Exception as exc:
+                logger.error(f"Expo push response parse failed: {exc}")
+                results.extend(
+                    [
+                        {
+                            "status": "error",
+                            "details": "invalid_response",
+                            "message": str(exc),
+                        }
+                        for _ in chunk
+                    ]
+                )
+                continue
+
+            if not isinstance(data, list) or len(data) != len(chunk):
+                results.extend(
+                    [
+                        {
+                            "status": "error",
+                            "details": "mismatched_response_length",
+                        }
+                        for _ in chunk
+                    ]
+                )
+                continue
+
+            for item in data:
+                if isinstance(item, dict):
+                    status = item.get("status", "error")
+                    details = item.get("details")
+                    message = item.get("message")
+                    ticket_id = item.get("id")
+                    results.append(
+                        {
+                            "status": status,
+                            "details": details,
+                            "message": message,
+                            "ticket_id": ticket_id,
+                        }
+                    )
+                else:
+                    results.append(
+                        {
+                            "status": "error",
+                            "details": "invalid_result_item",
+                        }
+                    )
+
+    return results
 
 # ============== Models ==============
 
@@ -312,6 +416,11 @@ class PushTokenUpsert(BaseModel):
 class LifecycleDispatchRequest(BaseModel):
     dry_run: bool = True
     user_limit: int = Field(default=500, ge=1, le=5000)
+
+
+class FirstWorkoutTelemetry(BaseModel):
+    workout_id: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    completed_at: Optional[datetime] = None
 
 # ============== Auth Helpers ==============
 
@@ -1815,6 +1924,8 @@ async def dispatch_lifecycle_jobs(
 
     queued_jobs: List[Dict[str, Any]] = []
     sent_updates = 0
+    jobs_sent = 0
+    jobs_failed = 0
 
     for profile in profiles:
         user_id = profile.get("user_id")
@@ -1845,8 +1956,9 @@ async def dispatch_lifecycle_jobs(
         if not jobs:
             continue
 
+        profile_jobs: List[Dict[str, Any]] = []
         for job in jobs:
-            queued_jobs.append(
+            profile_jobs.append(
                 {
                     **job,
                     "expo_push_token": profile.get("expo_push_token"),
@@ -1855,16 +1967,65 @@ async def dispatch_lifecycle_jobs(
                 }
             )
 
+        queued_jobs.extend(profile_jobs)
+
         if not payload.dry_run:
-            await db.notification_jobs.insert_many(queued_jobs[-len(jobs):])
-            sent_keys = [job["day_key"] for job in jobs]
-            await db.notification_profiles.update_one(
-                {"user_id": user_id},
-                {
-                    "$addToSet": {"lifecycle_sent_days": {"$each": sent_keys}},
-                    "$set": {"last_dispatch_at": now},
-                },
-            )
+            valid_jobs = [job for job in profile_jobs if isinstance(job.get("expo_push_token"), str) and job.get("expo_push_token")]
+            invalid_jobs = [job for job in profile_jobs if job not in valid_jobs]
+
+            sent_day_keys: List[str] = []
+            records_to_store: List[Dict[str, Any]] = []
+
+            if valid_jobs:
+                messages = [
+                    {
+                        "to": job["expo_push_token"],
+                        "title": job["title"],
+                        "body": job["body"],
+                        "sound": "default",
+                        "data": {"user_id": job["user_id"], "day_key": job["day_key"], "source": "lifecycle"},
+                    }
+                    for job in valid_jobs
+                ]
+                send_results = await send_expo_push_notifications(messages)
+                for job, send_result in zip(valid_jobs, send_results):
+                    status = send_result.get("status")
+                    was_sent = status == "ok"
+                    if was_sent:
+                        sent_day_keys.append(job["day_key"])
+                        jobs_sent += 1
+                    else:
+                        jobs_failed += 1
+
+                    records_to_store.append(
+                        {
+                            **job,
+                            "status": "sent" if was_sent else "failed",
+                            "provider": "expo",
+                            "provider_response": send_result,
+                            "dispatched_at": now,
+                        }
+                    )
+
+            for job in invalid_jobs:
+                jobs_failed += 1
+                records_to_store.append(
+                    {
+                        **job,
+                        "status": "failed",
+                        "provider": "expo",
+                        "provider_response": {"status": "error", "details": "missing_push_token"},
+                        "dispatched_at": now,
+                    }
+                )
+
+            if records_to_store:
+                await db.notification_jobs.insert_many(records_to_store)
+
+            update_doc: Dict[str, Any] = {"$set": {"last_dispatch_at": now}}
+            if sent_day_keys:
+                update_doc["$addToSet"] = {"lifecycle_sent_days": {"$each": sent_day_keys}}
+            await db.notification_profiles.update_one({"user_id": user_id}, update_doc)
             sent_updates += 1
 
     return {
@@ -1872,7 +2033,58 @@ async def dispatch_lifecycle_jobs(
         "users_scanned": len(profiles),
         "jobs_generated": len(queued_jobs),
         "profiles_updated": sent_updates,
+        "jobs_sent": jobs_sent,
+        "jobs_failed": jobs_failed,
         "generated_at": now.isoformat(),
+    }
+
+
+@api_router.post("/notifications/lifecycle/first-workout")
+async def track_first_workout_completion(
+    payload: FirstWorkoutTelemetry,
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    """
+    Records first-workout completion telemetry so lifecycle onboarding can
+    branch based on activation state.
+    """
+    await enforce_mutation_rate_limit(request, "notifications.lifecycle.first-workout", user.user_id, limit=20, window_seconds=60)
+
+    now = datetime.now(timezone.utc)
+    completed_at = payload.completed_at or now
+
+    existing_profile = await db.notification_profiles.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "first_workout_completed_at": 1},
+    )
+
+    is_first_workout = not existing_profile or not existing_profile.get("first_workout_completed_at")
+
+    update_fields: Dict[str, Any] = {
+        "last_workout_completed_at": completed_at,
+        "last_workout_id": payload.workout_id,
+        "last_telemetry_at": now,
+    }
+    if is_first_workout:
+        update_fields["first_workout_completed_at"] = completed_at
+
+    await db.notification_profiles.update_one(
+        {"user_id": user.user_id},
+        {
+            "$set": update_fields,
+            "$setOnInsert": {
+                "created_at": now,
+                "lifecycle_sent_days": [],
+            },
+        },
+        upsert=True,
+    )
+
+    return {
+        "tracked": True,
+        "is_first_workout": is_first_workout,
+        "recorded_at": now.isoformat(),
     }
 
 # ============== Health Check ==============

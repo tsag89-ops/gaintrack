@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import { storage } from '../utils/storage';
 
 const NOTIFICATION_SETTINGS_KEY = 'notification_settings';
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL?.trim() || '';
 
 export interface NotificationSettings {
   workoutReminder: boolean;
@@ -26,6 +27,71 @@ const DEFAULT_SETTINGS: NotificationSettings = {
 let Notifications: any = null;
 let Device: any = null;
 let isNotificationsAvailable = false;
+
+async function upsertPushTokenToBackend(token: string): Promise<void> {
+  if (!BACKEND_URL) {
+    return;
+  }
+
+  try {
+    const sessionToken = await storage.getItem('sessionToken');
+    if (!sessionToken) {
+      return;
+    }
+
+    const response = await fetch(`${BACKEND_URL}/api/notifications/push-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        expo_push_token: token,
+        platform: Platform.OS,
+      }),
+    });
+
+    if (!response.ok) {
+      console.log('Failed to upsert push token to backend:', response.status);
+    }
+  } catch (error) {
+    console.log('Failed to upsert push token to backend:', error);
+  }
+}
+
+export async function sendFirstWorkoutCompletedTelemetry(payload: {
+  workoutId?: string;
+  completedAt?: string;
+}): Promise<void> {
+  if (!BACKEND_URL) {
+    return;
+  }
+
+  try {
+    const sessionToken = await storage.getItem('sessionToken');
+    if (!sessionToken) {
+      return;
+    }
+
+    const response = await fetch(`${BACKEND_URL}/api/notifications/lifecycle/first-workout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        workout_id: payload.workoutId,
+        completed_at: payload.completedAt,
+      }),
+    });
+
+    if (!response.ok) {
+      console.log('Failed to send first-workout telemetry:', response.status);
+    }
+  } catch (error) {
+    console.log('Failed to send first-workout telemetry:', error);
+  }
+}
 
 async function initNotifications() {
   try {
@@ -97,6 +163,9 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
           Constants.expoConfig?.extra?.projectId,
       });
       token = tokenData.data;
+      if (token) {
+        await upsertPushTokenToBackend(token);
+      }
     } catch (e) {
       console.log('Error getting push token:', e);
     }

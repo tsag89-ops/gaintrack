@@ -86,10 +86,11 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 4. Phase 1 - Compliance artifacts and user rights: COMPLETED
 	- Completed: Privacy Policy and Terms screens exist; in-app links are wired from login/profile; account deletion and full JSON export are available in `frontend/app/(tabs)/profile.tsx`.
 
-5. Phase 2 - Retention infrastructure: IN PROGRESS
+5. Phase 2 - Retention infrastructure: COMPLETED
 	- Completed: backend lifecycle notification infrastructure added in `backend/server.py` with internal cron-protected preview/dispatch endpoints and push token upsert (`/notifications/push-token`, `/notifications/lifecycle/jobs`, `/notifications/lifecycle/dispatch`).
 	- Completed: day 1/day 7/day 30 lifecycle job generation rules implemented and covered with additional tests in `tests/test_backend_auth_entitlement.py`.
-	- Remaining: connect dispatch path to provider send worker (Expo push API) and trigger onboarding hooks from first-workout flow.
+	- Completed: lifecycle dispatch now sends through Expo Push API in `backend/server.py` and writes per-job success/failure status.
+	- Completed: frontend onboarding telemetry hook added to first successful workout completion in `frontend/app/workout/active.tsx` and posted via `frontend/src/services/notifications.ts` to `/notifications/lifecycle/first-workout`.
 6. Phase 2 - Engagement loops: NOT STARTED
 7. Phase 3 - Competitive integrations: NOT STARTED
 8. Phase 3 - Analytics depth for advanced users: IN PROGRESS
@@ -99,4 +100,4 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Notes: secret scanning now added; OWASP MASVS cadence, SCA gates, and policy regression release gates still pending.
 
 ### Next Active Step
-- Continue Phase 2 retention infrastructure: integrate Expo push send worker for queued lifecycle jobs and wire first-workout onboarding trigger telemetry from the frontend.
+- Start Phase 2 engagement loops: implement streak preservation UX, milestone badge unlocks, and weekly recap entry points tied to workout and nutrition consistency.

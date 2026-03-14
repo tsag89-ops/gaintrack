@@ -29,6 +29,7 @@ import { useWeightUnit } from '../../src/hooks/useWeightUnit';
 import { seedExercises } from '../../src/data/seedData';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
+import { sendFirstWorkoutCompletedTelemetry } from '../../src/services/notifications';
 
 const DEFAULT_REST_SECONDS = 90;
 const REST_DURATION_KEY = 'gaintrack_rest_duration';
@@ -726,12 +727,31 @@ const ActiveWorkoutScreen: React.FC = () => {
     setSaving(true);
     cancelRestNotif();
     try {
+      let priorWorkoutCount = 0;
+      try {
+        const rawWorkouts = await AsyncStorage.getItem('gaintrack_workouts');
+        const parsed = rawWorkouts ? JSON.parse(rawWorkouts) : [];
+        if (Array.isArray(parsed)) {
+          priorWorkoutCount = parsed.filter((w: any) => typeof w?.workout_id === 'string').length;
+        }
+      } catch {
+        priorWorkoutCount = 0;
+      }
+
       // Calculate duration excluding paused time
       const totalPausedTime = timerPaused ? pausedTimeRef.current + (Date.now() - pauseStartRef.current) : pausedTimeRef.current;
       const durationSeconds = Math.floor((Date.now() - startedAtRef.current - totalPausedTime) / 1000);
       const updatedWorkout = { ...currentWorkout, exercises: validExercises, duration: durationSeconds };
       const savedWorkout = await createWorkout(uid, updatedWorkout);
       const isOffline = savedWorkout.workout_id.startsWith('offline_');
+
+      if (!isOffline && priorWorkoutCount === 0) {
+        await sendFirstWorkoutCompletedTelemetry({
+          workoutId: savedWorkout.workout_id,
+          completedAt: new Date().toISOString(),
+        });
+      }
+
       const newPRs = await detectAndSavePRs(validExercises);
       await clearInProgress();
 

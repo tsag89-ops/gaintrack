@@ -233,3 +233,70 @@ def test_generate_lifecycle_jobs_skips_sent_and_recent_activity(backend_server):
 
     assert jobs == []
 
+
+@pytest.mark.asyncio
+async def test_send_expo_push_notifications_maps_results(backend_server, monkeypatch):
+    class _FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {
+                "data": [
+                    {"status": "ok", "id": "ticket-1"},
+                    {"status": "error", "details": "DeviceNotRegistered", "message": "invalid token"},
+                ]
+            }
+
+    class _FakeAsyncClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return None
+
+        async def post(self, *_args, **_kwargs):
+            return _FakeResponse()
+
+    monkeypatch.setattr(backend_server.httpx, "AsyncClient", _FakeAsyncClient)
+
+    results = await backend_server.send_expo_push_notifications(
+        [
+            {"to": "ExponentPushToken[abc]", "title": "t1", "body": "b1"},
+            {"to": "ExponentPushToken[def]", "title": "t2", "body": "b2"},
+        ]
+    )
+
+    assert len(results) == 2
+    assert results[0]["status"] == "ok"
+    assert results[0]["ticket_id"] == "ticket-1"
+    assert results[1]["status"] == "error"
+    assert results[1]["details"] == "DeviceNotRegistered"
+
+
+@pytest.mark.asyncio
+async def test_track_first_workout_completion_sets_first_flag(backend_server):
+    request = _make_request()
+    user = backend_server.User(
+        user_id="u-first-1",
+        email="first@example.com",
+        name="First User",
+        created_at=backend_server.datetime.now(backend_server.timezone.utc),
+    )
+
+    notification_profiles = SimpleNamespace(
+        find_one=AsyncMock(return_value=None),
+        update_one=AsyncMock(return_value=None),
+    )
+    backend_server.db = SimpleNamespace(notification_profiles=notification_profiles)
+
+    payload = backend_server.FirstWorkoutTelemetry(workout_id="wk_123")
+    result = await backend_server.track_first_workout_completion(payload, request, user)
+
+    assert result["tracked"] is True
+    assert result["is_first_workout"] is True
+    notification_profiles.update_one.assert_awaited()
+
