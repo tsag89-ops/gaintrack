@@ -10,6 +10,10 @@
     "android": "cd frontend && npx expo run:android",
     "ios": "cd frontend && npx expo run:ios"
   },
+  "overrides": {
+    "tar": "^7.5.11",
+    "undici": "^6.24.0"
+  },
   "version": "1.0.0",
   "dependencies": {
     "axios": "^1.13.6",

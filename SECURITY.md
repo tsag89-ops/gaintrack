@@ -105,3 +105,9 @@ First main-branch evidence run (commit `ae39b64b0502a65184fb2b9b4c084791819ed078
 Follow-up required:
 
 - Triage and remediate dependency/SCA failures (frontend npm audit + backend pip-audit) before enabling security-quality run status as a release-pass criterion.
+
+Remediation progress (2026-03-14):
+
+- Frontend SCA: high findings remediated via root workspace overrides in `package.json` (`tar` >= 7.5.11, `undici` >= 6.24.0).
+- Local verification: `frontend` command `npm audit --omit=dev --audit-level=high` now passes with only moderate findings (`markdown-it` via `react-native-markdown-display`, no upstream fix available).
+- Remaining blocker: backend `pip-audit` job still failing in CI and requires dependency triage/upgrade plan.

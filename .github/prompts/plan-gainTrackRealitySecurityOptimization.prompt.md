@@ -118,7 +118,8 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Completed: consolidated CI workflow added at `.github/workflows/security-quality-ops.yml` with MASVS cadence gate, policy regression gate, frontend SCA gate (`npm audit --omit=dev --audit-level=high`), and backend SCA gate (`pip-audit -r backend/requirements.txt`).
 	- Completed: policy regression tests added at `tests/test_policy_regression_gates.py` to enforce Privacy Policy/Terms route availability from login/profile and artifact coverage validation.
 	- Completed: first `Security Quality Operations` workflow evidence captured on `main` (run: `23094523822`, commit `ae39b64b0502a65184fb2b9b4c084791819ed078`) with MASVS/policy gates passing and SCA gates failing.
+	- Completed: frontend SCA high findings remediated by workspace root dependency overrides in `package.json` (`tar` >= 7.5.11, `undici` >= 6.24.0); local `npm audit --omit=dev --audit-level=high` now passes with no high/critical findings.
 	- Note: local execution of new Python tests is blocked in current shell due missing Python runtime; CI gates are configured to enforce verification on PR/push/schedule.
 
 ### Next Active Step
-- Triage and remediate `Security Quality Operations` SCA failures (frontend npm audit + backend pip-audit), then rerun workflow and attach passing evidence URLs/artifacts.
+- Triage and remediate remaining backend `pip-audit` failures, rerun `Security Quality Operations`, and attach fully passing run/artifact evidence.
