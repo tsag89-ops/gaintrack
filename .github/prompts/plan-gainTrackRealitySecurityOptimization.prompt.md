@@ -264,3 +264,8 @@ Legend: `P0 NOW`, `P1 NEXT`, `P2 LATER`
 	- Displays daily usage (`used/2`, remaining count) in chat tab.
 	- Disables send button once daily quota is exhausted.
 	- Surfaces daily-cap message when API returns 429 daily-limit response.
+
+### Progress Note (2026-03-14 - paywall typing hotfix)
+- Fixed TypeScript handler mismatch in `frontend/app/pro-paywall.tsx` by binding `Go Back` to a no-arg callback (`onPress={() => handleDismiss('dismiss')}`).
+- Validation: file diagnostics clear and `frontend` type-check no longer reports the paywall handler signature error.
+- OTA evidence: update group `b378af28-5f21-4b72-9ff8-82ba0ecaef51` (branch: `production`, commit: `7c9fe43274b58d88bbc7c7a59d59178f18b8bd32`).
