@@ -97,7 +97,7 @@ export default function ProPaywallScreen() {
         <TouchableOpacity style={styles.retryButton} onPress={() => setError(null)}>
           <Text style={styles.retryText}>Try Again</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.backButton} onPress={handleDismiss}>
+        <TouchableOpacity style={styles.backButton} onPress={() => handleDismiss('dismiss')}>
           <Text style={styles.backText}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
