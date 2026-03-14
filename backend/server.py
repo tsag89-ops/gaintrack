@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, Query
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -691,8 +691,8 @@ async def delete_workout(workout_id: str, request: Request, user: User = Depends
 @api_router.post("/workouts/warmup-sets")
 async def calculate_warmup_sets(
     request: Request,
-    working_weight: float = Field(ge=0, le=2000),
-    exercise_name: str = Field(min_length=1, max_length=120),
+    working_weight: float = Query(..., ge=0, le=2000),
+    exercise_name: str = Query(..., min_length=1, max_length=120),
 ):
     """Calculate warm-up sets based on working weight"""
     await enforce_mutation_rate_limit(request, "workouts.warmup", limit=60, window_seconds=60)

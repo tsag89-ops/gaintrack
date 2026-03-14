@@ -34,7 +34,8 @@ jobs:
             motor==3.3.1 \
             pymongo==4.5.0 \
             python-dotenv==1.2.1 \
-            pytest==9.0.2
+            pytest==9.0.2 \
+            pytest-asyncio==0.23.8
 
       - name: Run auth and entitlement tests
         run: |
