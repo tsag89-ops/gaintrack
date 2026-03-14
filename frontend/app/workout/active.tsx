@@ -695,6 +695,15 @@ const ActiveWorkoutScreen: React.FC = () => {
       ),
     );
 
+    // Incomplete sessions should not trigger template save/update prompts.
+    const hasIncompleteExercise = validExercises.some((exercise) => {
+      const meaningfulSets = exercise.sets.filter(
+        (set) => !set.is_warmup && ((Number(set.reps) || 0) > 0 || (Number(set.weight) || 0) > 0),
+      );
+      if (meaningfulSets.length === 0) return false;
+      return meaningfulSets.some((set) => !set.completed);
+    });
+
     if (!hasValidSets || validExercises.length === 0) {
       Alert.alert(
         'Empty Workout',
@@ -818,6 +827,14 @@ const ActiveWorkoutScreen: React.FC = () => {
 
       if (isOffline) {
         Alert.alert('📥 Saved offline', "No connection — your workout is stored locally and will sync when you're back online.", [{ text: 'OK', style: 'cancel' }]);
+      } else if (hasIncompleteExercise) {
+        if (newPRs.length > 0) {
+          Alert.alert(
+            `🏆 ${newPRs.length} new PR${newPRs.length > 1 ? 's' : ''}!`,
+            `Records broken: ${newPRs.join(', ')}`,
+            [{ text: 'OK' }],
+          );
+        }
       } else if (templateId) {
         // Workout was loaded from a template — ask to update it instead of saving a new one
         const tmplRaw = await AsyncStorage.getItem('gaintrack_templates');

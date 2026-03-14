@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import {
   View,
@@ -11,6 +10,9 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Modal,
+  Clipboard,
+  Share,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -19,83 +21,462 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
 import { useWorkoutStore } from '../../src/store/workoutStore';
+import { useNativeAuthState } from '../../src/hooks/useAuth';
 import { useWeightUnit } from '../../src/hooks/useWeightUnit';
-import { Workout } from '../../src/types';
-import { calculateTotalSets, calculateWorkoutVolume, formatDate, formatVolume } from '../../src/utils/helpers';
+import { Workout, WorkoutSet } from '../../src/types';
+import {
+  calculateTotalSets,
+  calculateWorkoutVolume,
+  formatDate,
+  formatVolume,
+} from '../../src/utils/helpers';
 
 const NOTES_PREFIX = 'workout_notes_';
+const ACTIVE_WORKOUT_KEY = 'gaintrack_active_workout';
+
+type InProgressDecision = 'replace' | 'resume' | 'cancel';
+
+type SetIssue = {
+  key: string;
+  message: string;
+  level: 'invalid' | 'suspicious';
+};
 
 export default function WorkoutDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
-  const { workouts } = useWorkoutStore();
+  const { workouts, setWorkouts, setCurrentWorkout, persistInProgress, clearInProgress, updateWorkout } = useWorkoutStore();
+  const { uid } = useNativeAuthState();
   const weightUnit = useWeightUnit();
+  const workoutId = Array.isArray(id) ? id[0] : id;
 
   const [localWorkout, setLocalWorkout] = useState<Workout | null>(null);
   const [notes, setNotes] = useState('');
-  const [showNotesEditor, setShowNotesEditor] = useState(false);
+  const [showNotesModal, setShowNotesModal] = useState(false);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [hasAutoPromptedNotes, setHasAutoPromptedNotes] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [collapsedExerciseKeys, setCollapsedExerciseKeys] = useState<Set<string>>(new Set());
+  const [showExerciseEditorModal, setShowExerciseEditorModal] = useState(false);
+  const [editingExerciseIndex, setEditingExerciseIndex] = useState<number | null>(null);
+  const [editingExerciseNotes, setEditingExerciseNotes] = useState('');
+  const [savingExerciseEdit, setSavingExerciseEdit] = useState(false);
+  const [editingSets, setEditingSets] = useState<
+    Array<{
+      set_id: string;
+      set_number: number;
+      reps: string;
+      weight: string;
+      rpe: string;
+      is_warmup: boolean;
+    }>
+  >([]);
 
   const workout = useMemo(() => {
-    if (!id) return null;
-    return workouts.find((w) => w.workout_id === id) ?? localWorkout;
-  }, [id, workouts, localWorkout]);
+    if (!workoutId) return null;
+    return workouts.find((w) => w.workout_id === workoutId) ?? localWorkout;
+  }, [workoutId, workouts, localWorkout]);
 
   const exercises = workout?.exercises ?? [];
   const totalSets = calculateTotalSets(exercises);
   const totalVolume = calculateWorkoutVolume(exercises);
 
-  // Load workout + notes for this specific workout on mount.
+  const summaryText = useMemo(() => {
+    if (!workout) return '';
+    const lines: string[] = [];
+    lines.push(`${workout.name || 'Workout'} - ${formatDate(workout.date)}`);
+    lines.push(
+      `Stats: ${exercises.length} exercises, ${totalSets} sets, ${formatVolume(totalVolume)} ${weightUnit} volume`,
+    );
+    lines.push('');
+
+    exercises.forEach((exercise, exerciseIndex) => {
+      lines.push(`${exerciseIndex + 1}. ${exercise.exercise_name}`);
+      (exercise.sets ?? []).forEach((set, setIndex) => {
+        const rpePart = typeof set.rpe === 'number' ? `, RPE ${set.rpe}` : '';
+        const warmupPart = set.is_warmup ? ' [Warm-up]' : '';
+        lines.push(
+          `   Set ${set.set_number || setIndex + 1}: ${set.reps} reps x ${set.weight} ${weightUnit}${rpePart}${warmupPart}`,
+        );
+      });
+      if (exercise.notes?.trim()) lines.push(`   Notes: ${exercise.notes.trim()}`);
+      lines.push('');
+    });
+
+    if (notes.trim()) {
+      lines.push('Workout Notes:');
+      lines.push(notes.trim());
+      lines.push('');
+    }
+
+    return lines.join('\n');
+  }, [workout, exercises, totalSets, totalVolume, weightUnit, notes]);
+
+  const setIssues = useMemo(() => {
+    const issues: SetIssue[] = [];
+    const suspiciousWeightLimit = weightUnit === 'kg' ? 400 : 900;
+
+    exercises.forEach((exercise, exerciseIndex) => {
+      (exercise.sets ?? []).forEach((set, setIndex) => {
+        const key = `${exercise.exercise_id}_${exerciseIndex}_${set.set_id || setIndex}`;
+        const reps = Number(set.reps);
+        const weight = Number(set.weight);
+        const rpe = set.rpe === undefined || set.rpe === null ? null : Number(set.rpe);
+
+        if (!Number.isFinite(reps) || !Number.isFinite(weight) || reps < 0 || weight < 0) {
+          issues.push({
+            key,
+            message: 'Invalid values detected (negative or non-numeric).',
+            level: 'invalid',
+          });
+          return;
+        }
+
+        if (rpe !== null && (!Number.isFinite(rpe) || rpe < 0 || rpe > 10)) {
+          issues.push({
+            key,
+            message: 'RPE is out of range (expected 0-10).',
+            level: 'invalid',
+          });
+          return;
+        }
+
+        if (reps > 50 || weight > suspiciousWeightLimit) {
+          issues.push({
+            key,
+            message: 'Suspiciously high entry. Please verify this set.',
+            level: 'suspicious',
+          });
+        }
+      });
+    });
+
+    return issues;
+  }, [exercises, weightUnit]);
+
+  const invalidCount = setIssues.filter((issue) => issue.level === 'invalid').length;
+  const suspiciousCount = setIssues.filter((issue) => issue.level === 'suspicious').length;
+
+  const setIssueMap = useMemo(() => {
+    const map = new Map<string, SetIssue>();
+    setIssues.forEach((issue) => map.set(issue.key, issue));
+    return map;
+  }, [setIssues]);
+
   React.useEffect(() => {
-    if (!id) return;
+    if (!workoutId) return;
 
     const bootstrap = async () => {
       try {
-        // Notes are stored independently so they remain editable post-sync.
-        const saved = await AsyncStorage.getItem(NOTES_PREFIX + id);
+        const saved = await AsyncStorage.getItem(NOTES_PREFIX + workoutId);
         if (saved) setNotes(saved);
 
-        // If the store is empty (cold start), load workout history from cache.
-        if (!workouts.some((w) => w.workout_id === id)) {
+        if (!workouts.some((w) => w.workout_id === workoutId)) {
           const rawWorkouts = await AsyncStorage.getItem('gaintrack_workouts');
           if (rawWorkouts) {
             const parsed = JSON.parse(rawWorkouts);
             if (Array.isArray(parsed)) {
-              const found = parsed.find((w: Workout) => w.workout_id === id);
+              const found = parsed.find((w: Workout) => w.workout_id === workoutId);
               if (found) setLocalWorkout(found);
             }
           }
         }
-      } catch (e) {
-        // ignore
+      } catch {
+        // ignore bootstrap errors
       } finally {
         setIsBootstrapping(false);
       }
     };
 
     bootstrap();
-  }, [id, workouts]);
+  }, [workoutId, workouts]);
 
   const saveNotes = async () => {
-    if (!id) return;
+    if (!workoutId) return;
     setLoading(true);
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await AsyncStorage.setItem(NOTES_PREFIX + id, notes);
+      await AsyncStorage.setItem(NOTES_PREFIX + workoutId, notes);
       Alert.alert('Saved', 'Workout notes updated.');
-      setShowNotesEditor(false);
-    } catch (e) {
+      setShowNotesModal(false);
+    } catch {
       Alert.alert('Error saving notes');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleNotes = async () => {
+  const handleOpenNotes = async () => {
     await Haptics.selectionAsync();
-    setShowNotesEditor((prev) => !prev);
+    setShowNotesModal(true);
   };
+
+  const handleCloseNotes = async () => {
+    await Haptics.selectionAsync();
+    setShowNotesModal(false);
+  };
+
+  const askInProgressDecision = async (): Promise<InProgressDecision> => {
+    try {
+      const raw = await AsyncStorage.getItem(ACTIVE_WORKOUT_KEY);
+      if (!raw) return 'replace';
+
+      const parsed = JSON.parse(raw) as { workout?: { name?: string } };
+      const draftName = parsed?.workout?.name?.trim() || 'your current draft';
+
+      return await new Promise<InProgressDecision>((resolve) => {
+        Alert.alert(
+          'Replace in-progress workout?',
+          `You already have an in-progress workout (${draftName}). Replacing it will discard the current draft.`,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
+            {
+              text: 'Resume Current',
+              onPress: () => {
+                router.push({ pathname: '/workout/active', params: { name: draftName } });
+                resolve('resume');
+              },
+            },
+            { text: 'Replace', style: 'destructive', onPress: () => resolve('replace') },
+          ],
+        );
+      });
+    } catch {
+      return 'replace';
+    }
+  };
+
+  const buildDraftWorkout = (source: Workout, nameOverride?: string): Workout => {
+    const ts = Date.now();
+    return {
+      workout_id: `draft_${source.workout_id}_${ts}`,
+      name: nameOverride || source.name || 'Workout',
+      date: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      exercises: source.exercises.map((exercise, exerciseIndex) => ({
+        ...exercise,
+        sets: (exercise.sets ?? []).map((set, setIndex) => ({
+          ...set,
+          set_id: `draft_set_${exerciseIndex}_${setIndex}_${ts}`,
+          set_number: set.set_number || setIndex + 1,
+          completed: false,
+        })),
+      })),
+    };
+  };
+
+  const startDraftWorkout = async (source: Workout, nameOverride?: string) => {
+    const decision = await askInProgressDecision();
+    if (decision !== 'replace') return;
+
+    const draft = buildDraftWorkout(source, nameOverride);
+    await clearInProgress();
+    setCurrentWorkout(draft);
+    await persistInProgress(draft, draft.exercises, Date.now());
+    router.push({ pathname: '/workout/active', params: { name: draft.name } });
+  };
+
+  const handleEditWorkout = async () => {
+    if (!workout) return;
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await startDraftWorkout(workout);
+  };
+
+  const openExerciseEditor = async (exerciseIndex: number) => {
+    const exercise = exercises[exerciseIndex];
+    if (!exercise) return;
+    await Haptics.selectionAsync();
+    setEditingExerciseIndex(exerciseIndex);
+    setEditingExerciseNotes(exercise.notes ?? '');
+    setEditingSets(
+      (exercise.sets ?? []).map((set, idx) => ({
+        set_id: set.set_id || `set_${exerciseIndex}_${idx}_${Date.now()}`,
+        set_number: set.set_number || idx + 1,
+        reps: String(set.reps ?? 0),
+        weight: String(set.weight ?? 0),
+        rpe: set.rpe === undefined || set.rpe === null ? '' : String(set.rpe),
+        is_warmup: Boolean(set.is_warmup),
+      })),
+    );
+    setShowExerciseEditorModal(true);
+  };
+
+  const closeExerciseEditor = async () => {
+    await Haptics.selectionAsync();
+    setShowExerciseEditorModal(false);
+    setEditingExerciseIndex(null);
+    setEditingExerciseNotes('');
+    setEditingSets([]);
+  };
+
+  const updateEditingSetField = (
+    setIndex: number,
+    field: 'reps' | 'weight' | 'rpe' | 'is_warmup',
+    value: string | boolean,
+  ) => {
+    setEditingSets((prev) =>
+      prev.map((set, idx) =>
+        idx === setIndex
+          ? {
+              ...set,
+              [field]: value,
+            }
+          : set,
+      ),
+    );
+  };
+
+  const addEditingSet = async () => {
+    await Haptics.selectionAsync();
+    setEditingSets((prev) => [
+      ...prev,
+      {
+        set_id: `set_new_${Date.now()}_${prev.length}`,
+        set_number: prev.length + 1,
+        reps: '0',
+        weight: '0',
+        rpe: '',
+        is_warmup: false,
+      },
+    ]);
+  };
+
+  const removeEditingSet = async (setIndex: number) => {
+    await Haptics.selectionAsync();
+    setEditingSets((prev) =>
+      prev
+        .filter((_, idx) => idx !== setIndex)
+        .map((set, idx) => ({ ...set, set_number: idx + 1 })),
+    );
+  };
+
+  const saveExerciseEdits = async () => {
+    if (!workout || editingExerciseIndex === null) return;
+
+    const parsedSets: WorkoutSet[] = [];
+    for (let i = 0; i < editingSets.length; i++) {
+      const row = editingSets[i];
+      const reps = Number(row.reps);
+      const weight = Number(row.weight);
+      const rpe = row.rpe.trim() === '' ? undefined : Number(row.rpe);
+
+      if (!Number.isFinite(reps) || reps < 0 || !Number.isFinite(weight) || weight < 0) {
+        Alert.alert('Invalid set values', `Set ${i + 1} has invalid reps/weight.`);
+        return;
+      }
+      if (rpe !== undefined && (!Number.isFinite(rpe) || rpe < 0 || rpe > 10)) {
+        Alert.alert('Invalid RPE', `Set ${i + 1} has RPE outside 0-10.`);
+        return;
+      }
+
+      parsedSets.push({
+        set_id: row.set_id,
+        set_number: i + 1,
+        reps,
+        weight,
+        rpe,
+        completed: false,
+        is_warmup: row.is_warmup,
+      });
+    }
+
+    const updatedExercises = exercises.map((exercise, idx) =>
+      idx === editingExerciseIndex
+        ? {
+            ...exercise,
+            notes: editingExerciseNotes.trim() || undefined,
+            sets: parsedSets,
+          }
+        : exercise,
+    );
+
+    setSavingExerciseEdit(true);
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      const updatedWorkout = { ...workout, exercises: updatedExercises };
+      const updatedStoreWorkouts = workouts.map((w) =>
+        w.workout_id === workout.workout_id ? updatedWorkout : w,
+      );
+      setWorkouts(updatedStoreWorkouts);
+      setLocalWorkout((prev) =>
+        prev && prev.workout_id === workout.workout_id
+          ? { ...prev, exercises: updatedExercises }
+          : prev,
+      );
+
+      const rawWorkouts = await AsyncStorage.getItem('gaintrack_workouts');
+      if (rawWorkouts) {
+        const parsed = JSON.parse(rawWorkouts);
+        if (Array.isArray(parsed)) {
+          const merged = parsed.map((w: Workout) =>
+            w.workout_id === workout.workout_id ? { ...w, exercises: updatedExercises } : w,
+          );
+          await AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(merged));
+        }
+      }
+
+      if (uid && !workout.workout_id.startsWith('offline_')) {
+        await updateWorkout(uid, workout.workout_id, { exercises: updatedExercises });
+      }
+
+      Alert.alert('Saved', 'Exercise updated successfully.');
+      setShowExerciseEditorModal(false);
+      setEditingExerciseIndex(null);
+      setEditingExerciseNotes('');
+      setEditingSets([]);
+    } catch (error) {
+      console.warn('[workout detail] saveExerciseEdits failed:', error);
+      Alert.alert('Saved locally', 'Exercise changes were saved locally, but cloud sync failed.');
+      setShowExerciseEditorModal(false);
+      setEditingExerciseIndex(null);
+      setEditingExerciseNotes('');
+      setEditingSets([]);
+    } finally {
+      setSavingExerciseEdit(false);
+    }
+  };
+
+  const handleDuplicateWorkout = async () => {
+    if (!workout) return;
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await startDraftWorkout(workout, `${workout.name || 'Workout'} Copy`);
+  };
+
+  const handleShareSummary = async () => {
+    if (!summaryText) return;
+    await Haptics.selectionAsync();
+    try {
+      await Share.share({ message: summaryText, title: `${workout?.name || 'Workout'} Summary` });
+    } catch {
+      Alert.alert('Share failed', 'Unable to share workout summary.');
+    }
+  };
+
+  const handleCopySummary = async () => {
+    if (!summaryText) return;
+    await Haptics.selectionAsync();
+    Clipboard.setString(summaryText);
+    Alert.alert('Copied', 'Workout summary copied as plain text.');
+  };
+
+  const toggleExerciseCollapsed = async (exerciseKey: string) => {
+    await Haptics.selectionAsync();
+    setCollapsedExerciseKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(exerciseKey)) next.delete(exerciseKey);
+      else next.add(exerciseKey);
+      return next;
+    });
+  };
+
+  React.useEffect(() => {
+    if (!workout || isBootstrapping || hasAutoPromptedNotes) return;
+    if (!notes.trim()) {
+      setShowNotesModal(true);
+      setHasAutoPromptedNotes(true);
+    }
+  }, [workout, notes, isBootstrapping, hasAutoPromptedNotes]);
 
   if (isBootstrapping) {
     return (
@@ -128,10 +509,7 @@ export default function WorkoutDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
@@ -140,44 +518,176 @@ export default function WorkoutDetailScreen() {
           <View style={styles.headerSpacer} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.metaCard}>
-            <Text style={styles.workoutDate}>{formatDate(workout.date)}</Text>
-            <Text style={styles.workoutName}>{workout.name || 'Untitled Workout'}</Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          stickyHeaderIndices={[0]}
+        >
+          <View style={styles.stickyContainer}>
+            <View style={styles.metaCard}>
+              <Text style={styles.workoutDate}>{formatDate(workout.date)}</Text>
+              <Text style={styles.workoutName}>{workout.name || 'Untitled Workout'}</Text>
 
-            <View style={styles.statsRow}>
-              <View style={styles.statChip}>
-                <Ionicons name="barbell-outline" size={15} color="#4CAF50" />
-                <Text style={styles.statText}>{exercises.length} exercises</Text>
+              <View style={styles.statsRow}>
+                <View style={styles.statChip}>
+                  <Ionicons name="barbell-outline" size={15} color="#4CAF50" />
+                  <Text style={styles.statText}>{exercises.length} exercises</Text>
+                </View>
+                <View style={styles.statChip}>
+                  <Ionicons name="layers-outline" size={15} color="#2196F3" />
+                  <Text style={styles.statText}>{totalSets} sets</Text>
+                </View>
+                <View style={styles.statChip}>
+                  <Ionicons name="trending-up-outline" size={15} color="#FFC107" />
+                  <Text style={styles.statText}>{formatVolume(totalVolume)} {weightUnit}</Text>
+                </View>
               </View>
-              <View style={styles.statChip}>
-                <Ionicons name="layers-outline" size={15} color="#2196F3" />
-                <Text style={styles.statText}>{totalSets} sets</Text>
+
+              <View style={styles.actionRow}>
+                <TouchableOpacity style={styles.primaryActionButton} onPress={handleEditWorkout} activeOpacity={0.82}>
+                  <Ionicons name="refresh-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Redo Workout</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.secondaryActionButton} onPress={handleDuplicateWorkout} activeOpacity={0.82}>
+                  <Ionicons name="copy-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Duplicate</Text>
+                </TouchableOpacity>
               </View>
-              <View style={styles.statChip}>
-                <Ionicons name="trending-up-outline" size={15} color="#FFC107" />
-                <Text style={styles.statText}>{formatVolume(totalVolume)} {weightUnit}</Text>
+
+              <View style={styles.actionRow}>
+                <TouchableOpacity style={styles.secondaryActionButton} onPress={handleShareSummary} activeOpacity={0.82}>
+                  <Ionicons name="share-social-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Share</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.secondaryActionButton} onPress={handleCopySummary} activeOpacity={0.82}>
+                  <Ionicons name="clipboard-outline" size={16} color="#FFFFFF" />
+                  <Text style={styles.actionButtonText}>Copy Text</Text>
+                </TouchableOpacity>
               </View>
+
+              <TouchableOpacity style={styles.notesToggleButton} onPress={handleOpenNotes} activeOpacity={0.82}>
+                <View style={styles.notesToggleLeft}>
+                  <Ionicons name="document-text-outline" size={18} color="#FF6200" />
+                  <Text style={styles.notesToggleText}>Workout Notes</Text>
+                </View>
+                <Text style={styles.notesButtonLabel}>{notes.trim() ? 'Edit' : 'Add'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.notesPreview} numberOfLines={2}>
+                {notes.trim() || 'No notes yet. Add context for next time.'}
+              </Text>
             </View>
+          </View>
 
-            <TouchableOpacity
-              style={styles.notesToggleButton}
-              onPress={handleToggleNotes}
-              activeOpacity={0.82}
-            >
-              <View style={styles.notesToggleLeft}>
-                <Ionicons name="document-text-outline" size={18} color="#FF6200" />
-                <Text style={styles.notesToggleText}>Workout Notes</Text>
+          {(invalidCount > 0 || suspiciousCount > 0) && (
+            <View style={styles.guardrailsCard}>
+              <Text style={styles.guardrailsTitle}>Validation Checks</Text>
+              {invalidCount > 0 && (
+                <Text style={styles.guardrailsErrorText}>
+                  {invalidCount} invalid set{invalidCount > 1 ? 's' : ''} detected.
+                </Text>
+              )}
+              {suspiciousCount > 0 && (
+                <Text style={styles.guardrailsWarningText}>
+                  {suspiciousCount} suspicious set{ suspiciousCount > 1 ? 's' : '' } flagged for review.
+                </Text>
+              )}
+            </View>
+          )}
+
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Exercises</Text>
+          </View>
+
+          {exercises.map((exercise, exerciseIndex) => {
+            const sets = exercise.sets ?? [];
+            const exerciseKey = `${exercise.exercise_id}_${exerciseIndex}`;
+            const isCollapsed = collapsedExerciseKeys.has(exerciseKey);
+
+            return (
+              <View key={exerciseKey} style={styles.exerciseCard}>
+                <View style={styles.exerciseHeaderRow}>
+                  <TouchableOpacity
+                    style={styles.exerciseHeaderButton}
+                    onPress={() => toggleExerciseCollapsed(exerciseKey)}
+                    activeOpacity={0.82}
+                  >
+                    <Text style={styles.exerciseName}>{exercise.exercise_name}</Text>
+                    <Ionicons name={isCollapsed ? 'chevron-down' : 'chevron-up'} size={18} color="#B0B0B0" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.exerciseEditButton}
+                    onPress={() => openExerciseEditor(exerciseIndex)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="create-outline" size={14} color="#FFFFFF" />
+                    <Text style={styles.exerciseEditButtonText}>Edit</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {exercise.notes ? <Text style={styles.exerciseNotes}>{exercise.notes}</Text> : null}
+
+                {isCollapsed ? (
+                  <Text style={styles.collapsedMeta}>{sets.length} sets hidden</Text>
+                ) : (
+                  <>
+                    <View style={styles.tableHeader}>
+                      <Text style={[styles.tableHeaderText, styles.colSet]}>Set</Text>
+                      <Text style={[styles.tableHeaderText, styles.colReps]}>Reps</Text>
+                      <Text style={[styles.tableHeaderText, styles.colWeight]}>Weight ({weightUnit})</Text>
+                      <Text style={[styles.tableHeaderText, styles.colRpe]}>RPE</Text>
+                    </View>
+
+                    {sets.map((set: WorkoutSet, setIndex: number) => {
+                      const issueKey = `${exercise.exercise_id}_${exerciseIndex}_${set.set_id || setIndex}`;
+                      const issue = setIssueMap.get(issueKey);
+
+                      return (
+                        <View key={`${set.set_id || setIndex}_row`}>
+                          <View style={[styles.setRow, issue?.level === 'invalid' && styles.setRowInvalid, issue?.level === 'suspicious' && styles.setRowSuspicious]}>
+                            <Text style={[styles.cellText, styles.colSet]}>
+                              {set.set_number || setIndex + 1}
+                              {set.is_warmup ? ' W' : ''}
+                            </Text>
+                            <Text style={[styles.cellText, styles.colReps]}>{set.reps}</Text>
+                            <Text style={[styles.cellText, styles.colWeight]}>{set.weight}</Text>
+                            <Text style={[styles.cellText, styles.colRpe]}>{typeof set.rpe === 'number' ? set.rpe : '-'}</Text>
+                          </View>
+                          {issue ? (
+                            <Text style={[styles.issueText, issue.level === 'invalid' ? styles.issueTextInvalid : styles.issueTextSuspicious]}>
+                              {issue.message}
+                            </Text>
+                          ) : null}
+                        </View>
+                      );
+                    })}
+                  </>
+                )}
               </View>
-              <Ionicons
-                name={showNotesEditor ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color="#B0B0B0"
-              />
-            </TouchableOpacity>
+            );
+          })}
 
-            {showNotesEditor && (
-              <View style={styles.notesCard}>
+          {exercises.length === 0 && (
+            <View style={styles.emptyExercisesCard}>
+              <Text style={styles.emptyExercisesText}>No exercises recorded for this workout yet.</Text>
+              <Text style={styles.emptyExercisesHint}>Use Duplicate or Edit to add your first set entries quickly.</Text>
+            </View>
+          )}
+        </ScrollView>
+
+        <Modal visible={showNotesModal} animationType="slide" transparent onRequestClose={handleCloseNotes}>
+          <View style={styles.modalBackdrop}>
+            <KeyboardAvoidingView
+              style={styles.modalKeyboardWrap}
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+              <View style={styles.modalCard}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Workout Notes</Text>
+                  <TouchableOpacity onPress={handleCloseNotes} style={styles.modalCloseButton}>
+                    <Ionicons name="close" size={20} color="#B0B0B0" />
+                  </TouchableOpacity>
+                </View>
+
                 <TextInput
                   style={styles.notesInput}
                   placeholder="Add your notes here..."
@@ -186,52 +696,131 @@ export default function WorkoutDetailScreen() {
                   onChangeText={setNotes}
                   multiline
                 />
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={saveNotes}
-                  disabled={loading}
-                >
-                  <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Notes'}</Text>
-                </TouchableOpacity>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={handleCloseNotes} disabled={loading}>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.saveButton} onPress={saveNotes} disabled={loading}>
+                    <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Notes'}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            )}
+            </KeyboardAvoidingView>
           </View>
+        </Modal>
 
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Exercises</Text>
-          </View>
+        <Modal
+          visible={showExerciseEditorModal}
+          animationType="slide"
+          transparent
+          onRequestClose={closeExerciseEditor}
+        >
+          <View style={styles.modalBackdrop}>
+            <KeyboardAvoidingView
+              style={styles.modalKeyboardWrap}
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+              <View style={styles.modalCardTall}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>
+                    Edit {editingExerciseIndex !== null ? exercises[editingExerciseIndex]?.exercise_name : 'Exercise'}
+                  </Text>
+                  <TouchableOpacity onPress={closeExerciseEditor} style={styles.modalCloseButton}>
+                    <Ionicons name="close" size={20} color="#B0B0B0" />
+                  </TouchableOpacity>
+                </View>
 
-          {exercises.map((exercise, exerciseIndex) => {
-            const sets = exercise.sets ?? [];
-            return (
-              <View key={`${exercise.exercise_id}_${exerciseIndex}`} style={styles.exerciseCard}>
-                <Text style={styles.exerciseName}>{exercise.exercise_name}</Text>
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.exerciseEditContent}>
+                  {editingSets.map((set, setIndex) => (
+                    <View key={`${set.set_id}_${setIndex}`} style={styles.editSetCard}>
+                      <View style={styles.editSetHeader}>
+                        <Text style={styles.editSetTitle}>Set {setIndex + 1}</Text>
+                        <TouchableOpacity
+                          onPress={() => removeEditingSet(setIndex)}
+                          style={styles.removeSetButton}
+                          disabled={editingSets.length <= 1}
+                        >
+                          <Ionicons
+                            name="trash-outline"
+                            size={16}
+                            color={editingSets.length <= 1 ? '#666' : '#F44336'}
+                          />
+                        </TouchableOpacity>
+                      </View>
 
-                {exercise.notes ? (
-                  <Text style={styles.exerciseNotes}>{exercise.notes}</Text>
-                ) : null}
+                      <View style={styles.editInputRow}>
+                        <View style={styles.editInputGroup}>
+                          <Text style={styles.editInputLabel}>Reps</Text>
+                          <TextInput
+                            style={styles.editInput}
+                            value={set.reps}
+                            onChangeText={(value) => updateEditingSetField(setIndex, 'reps', value)}
+                            keyboardType="numeric"
+                          />
+                        </View>
+                        <View style={styles.editInputGroup}>
+                          <Text style={styles.editInputLabel}>Weight ({weightUnit})</Text>
+                          <TextInput
+                            style={styles.editInput}
+                            value={set.weight}
+                            onChangeText={(value) => updateEditingSetField(setIndex, 'weight', value)}
+                            keyboardType="numeric"
+                          />
+                        </View>
+                        <View style={styles.editInputGroup}>
+                          <Text style={styles.editInputLabel}>RPE</Text>
+                          <TextInput
+                            style={styles.editInput}
+                            value={set.rpe}
+                            onChangeText={(value) => updateEditingSetField(setIndex, 'rpe', value)}
+                            keyboardType="numeric"
+                          />
+                        </View>
+                      </View>
 
-                {sets.map((set, setIndex) => (
-                  <View key={`${set.set_id ?? setIndex}`} style={styles.setRow}>
-                    <View style={styles.setLeft}>
-                      <Text style={styles.setNumber}>Set {set.set_number || setIndex + 1}</Text>
-                      {set.is_warmup ? <Text style={styles.warmupTag}>Warm-up</Text> : null}
+                      <TouchableOpacity
+                        style={styles.warmupToggleButton}
+                        onPress={() => updateEditingSetField(setIndex, 'is_warmup', !set.is_warmup)}
+                      >
+                        <Ionicons
+                          name={set.is_warmup ? 'checkbox' : 'square-outline'}
+                          size={18}
+                          color={set.is_warmup ? '#FF6200' : '#B0B0B0'}
+                        />
+                        <Text style={styles.warmupToggleText}>Warm-up set</Text>
+                      </TouchableOpacity>
                     </View>
-                    <Text style={styles.setValue}>
-                      {set.reps} reps x {set.weight} {weightUnit}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            );
-          })}
+                  ))}
 
-          {exercises.length === 0 && (
-            <View style={styles.emptyExercisesCard}>
-              <Text style={styles.emptyExercisesText}>No exercises recorded for this workout.</Text>
-            </View>
-          )}
-        </ScrollView>
+                  <TouchableOpacity style={styles.addSetButton} onPress={addEditingSet} activeOpacity={0.85}>
+                    <Ionicons name="add" size={18} color="#FFFFFF" />
+                    <Text style={styles.addSetButtonText}>Add Set</Text>
+                  </TouchableOpacity>
+
+                  <Text style={styles.editInputLabel}>Exercise Notes</Text>
+                  <TextInput
+                    style={styles.notesInput}
+                    placeholder="Exercise-specific notes..."
+                    placeholderTextColor="#B0B0B0"
+                    value={editingExerciseNotes}
+                    onChangeText={setEditingExerciseNotes}
+                    multiline
+                  />
+                </ScrollView>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={styles.cancelButton} onPress={closeExerciseEditor} disabled={savingExerciseEdit}>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.saveButton} onPress={saveExerciseEdits} disabled={savingExerciseEdit}>
+                    <Text style={styles.saveButtonText}>{savingExerciseEdit ? 'Saving...' : 'Save Exercise'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </KeyboardAvoidingView>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -276,13 +865,17 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     gap: 12,
   },
+  stickyContainer: {
+    backgroundColor: '#1A1A1A',
+    paddingBottom: 8,
+  },
   metaCard: {
     backgroundColor: '#252525',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#303030',
     padding: 14,
-    gap: 12,
+    gap: 10,
   },
   workoutDate: {
     color: '#FF6200',
@@ -294,7 +887,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 20,
     fontWeight: '800',
-    marginTop: -6,
+    marginTop: -4,
   },
   statsRow: {
     flexDirection: 'row',
@@ -317,6 +910,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  primaryActionButton: {
+    flex: 1,
+    backgroundColor: '#FF6200',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  secondaryActionButton: {
+    flex: 1,
+    backgroundColor: '#2D2D2D',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#3A3A3A',
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   notesToggleButton: {
     backgroundColor: '#1A1A1A',
     borderRadius: 10,
@@ -327,6 +953,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginTop: 2,
   },
   notesToggleLeft: {
     flexDirection: 'row',
@@ -338,31 +965,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  notesCard: {
+  notesButtonLabel: {
+    color: '#FF6200',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  notesPreview: {
+    color: '#B0B0B0',
+    fontSize: 13,
     marginTop: -4,
   },
-  notesInput: {
-    color: '#FFFFFF',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 10,
-    padding: 12,
-    minHeight: 100,
+  guardrailsCard: {
+    backgroundColor: '#252525',
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#303030',
-    marginBottom: 10,
-    fontSize: 15,
-    textAlignVertical: 'top',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
   },
-  saveButton: {
-    backgroundColor: '#FF6200',
-    paddingVertical: 11,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  saveButtonText: {
+  guardrailsTitle: {
     color: '#FFFFFF',
-    fontWeight: '800',
-    fontSize: 15,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  guardrailsErrorText: {
+    color: '#F44336',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  guardrailsWarningText: {
+    color: '#FFB37A',
+    fontSize: 12,
+    fontWeight: '600',
   },
   sectionHeaderRow: {
     marginTop: 2,
@@ -381,10 +1016,39 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 8,
   },
+  exerciseHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exerciseHeaderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    flex: 1,
+  },
+  exerciseEditButton: {
+    backgroundColor: '#2D2D2D',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3A3A3A',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  exerciseEditButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   exerciseName: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+    flex: 1,
   },
   exerciseNotes: {
     color: '#B0B0B0',
@@ -392,42 +1056,111 @@ const styles = StyleSheet.create({
     marginTop: -2,
     marginBottom: 2,
   },
-  setRow: {
+  collapsedMeta: {
+    color: '#B0B0B0',
+    fontSize: 12,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#1A1A1A',
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#303030',
+    paddingVertical: 8,
     paddingHorizontal: 10,
-    paddingVertical: 9,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
   },
-  setLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  setNumber: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  warmupTag: {
-    color: '#FFB37A',
+  tableHeaderText: {
+    color: '#B0B0B0',
     fontSize: 11,
     fontWeight: '700',
-    backgroundColor: 'rgba(255, 98, 0, 0.12)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    overflow: 'hidden',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
-  setValue: {
-    color: '#B0B0B0',
+  setRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#303030',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginTop: 6,
+  },
+  setRowInvalid: {
+    borderColor: '#F44336',
+  },
+  setRowSuspicious: {
+    borderColor: '#FFB37A',
+  },
+  colSet: {
+    flex: 1,
+  },
+  colReps: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  colWeight: {
+    flex: 2,
+    textAlign: 'center',
+  },
+  colRpe: {
+    flex: 1,
+    textAlign: 'right',
+  },
+  cellText: {
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
+  },
+  issueText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  issueTextInvalid: {
+    color: '#F44336',
+  },
+  issueTextSuspicious: {
+    color: '#FFB37A',
+  },
+  notesInput: {
+    color: '#FFFFFF',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 10,
+    padding: 12,
+    minHeight: 100,
+    borderWidth: 1,
+    borderColor: '#303030',
+    marginBottom: 10,
+    fontSize: 15,
+    textAlignVertical: 'top',
+  },
+  saveButton: {
+    backgroundColor: '#FF6200',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    flex: 1,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+    fontSize: 15,
+  },
+  cancelButton: {
+    backgroundColor: '#2D2D2D',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    flex: 1,
+  },
+  cancelButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
   },
   emptyContainer: {
     flex: 1,
@@ -453,9 +1186,147 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#303030',
     padding: 14,
+    gap: 6,
   },
   emptyExercisesText: {
     color: '#B0B0B0',
     fontSize: 13,
+  },
+  emptyExercisesHint: {
+    color: '#FFB37A',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalKeyboardWrap: {
+    width: '100%',
+  },
+  modalCard: {
+    backgroundColor: '#252525',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderColor: '#303030',
+  },
+  modalCardTall: {
+    backgroundColor: '#252525',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderColor: '#303030',
+    maxHeight: '88%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  modalCloseButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 15,
+    backgroundColor: '#1A1A1A',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  exerciseEditContent: {
+    gap: 10,
+    paddingBottom: 12,
+  },
+  editSetCard: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: '#303030',
+    borderRadius: 10,
+    padding: 10,
+    gap: 8,
+  },
+  editSetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  editSetTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  removeSetButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#252525',
+  },
+  editInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editInputGroup: {
+    flex: 1,
+    gap: 4,
+  },
+  editInputLabel: {
+    color: '#B0B0B0',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  editInput: {
+    backgroundColor: '#252525',
+    borderWidth: 1,
+    borderColor: '#303030',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  warmupToggleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  warmupToggleText: {
+    color: '#B0B0B0',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  addSetButton: {
+    backgroundColor: '#2D2D2D',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#3A3A3A',
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  addSetButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
