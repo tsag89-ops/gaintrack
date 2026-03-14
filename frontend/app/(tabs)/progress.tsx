@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart, BarChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
 import { format, addWeeks } from 'date-fns';
@@ -449,10 +449,8 @@ export default function ProgressScreen() {
       }
 
       // Native: write to file system and share
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const FS = FileSystem as any;
-      const path: string = (FS.documentDirectory ?? '') + 'gaintrack_workouts.csv';
-      await FS.writeAsStringAsync(path, csv, { encoding: 'utf8' });
+      const path: string = (FileSystem.documentDirectory ?? '') + 'gaintrack_workouts.csv';
+      await FileSystem.writeAsStringAsync(path, csv, { encoding: 'utf8' });
       await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export GainTrack Data' });
     } catch (e) {
       Alert.alert('Export failed', String(e));

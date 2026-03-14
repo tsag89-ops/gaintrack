@@ -23,7 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { format, addDays, subDays, parseISO, isToday } from 'date-fns';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, typography, spacing, radii } from '../src/constants/theme';
@@ -41,7 +41,7 @@ import { PhysiquePhoto, PhysiqueWorkoutSummary } from '../src/types';
 const { width: SCREEN_W } = Dimensions.get('window');
 const THUMB_SIZE = (SCREEN_W - spacing[4] * 2 - spacing[3] * 4) / 5;
 const WORKOUTS_KEY = 'gaintrack_workouts';
-const PHYSIQUE_DIR = (FileSystem as any).documentDirectory + 'physique_photos/';
+const PHYSIQUE_DIR = (FileSystem.documentDirectory ?? '') + 'physique_photos/';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
