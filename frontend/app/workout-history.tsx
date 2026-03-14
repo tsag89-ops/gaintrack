@@ -104,19 +104,69 @@ export default function WorkoutHistoryScreen() {
     const volume = calculateWorkoutVolume(exercises);
     const totalSets = calculateTotalSets(exercises);
 
-    const shared = await shareWorkoutCard({
-      workoutName: workout.name || 'Workout',
-      date: formatDate(workout.date),
-      totalVolume: `${formatVolume(volume)} ${weightUnit}`,
-      totalSets,
-      exerciseCount: exercises.length,
-    });
-
-    if (shared) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else {
-      Alert.alert('Share unavailable', 'Could not share this workout card right now.');
-    }
+    Alert.alert(
+      'Share Workout Card',
+      'Choose a card format to share.',
+      [
+        {
+          text: 'Compact',
+          onPress: async () => {
+            const shared = await shareWorkoutCard({
+              workoutName: workout.name || 'Workout',
+              date: formatDate(workout.date),
+              totalVolume: `${formatVolume(volume)} ${weightUnit}`,
+              totalSets,
+              exerciseCount: exercises.length,
+              template: 'compact',
+            });
+            if (shared) {
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } else {
+              Alert.alert('Share unavailable', 'Could not share this workout card right now.');
+            }
+          },
+        },
+        {
+          text: 'Detailed',
+          onPress: async () => {
+            const shared = await shareWorkoutCard({
+              workoutName: workout.name || 'Workout',
+              date: formatDate(workout.date),
+              totalVolume: `${formatVolume(volume)} ${weightUnit}`,
+              totalSets,
+              exerciseCount: exercises.length,
+              topExercises: exercises.map((ex) => ex.exercise_name).filter(Boolean),
+              template: 'detailed',
+            });
+            if (shared) {
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } else {
+              Alert.alert('Share unavailable', 'Could not share this workout card right now.');
+            }
+          },
+        },
+        {
+          text: 'Milestone',
+          onPress: async () => {
+            const shared = await shareWorkoutCard({
+              workoutName: workout.name || 'Workout',
+              date: formatDate(workout.date),
+              totalVolume: `${formatVolume(volume)} ${weightUnit}`,
+              totalSets,
+              exerciseCount: exercises.length,
+              topExercises: exercises.map((ex) => ex.exercise_name).filter(Boolean),
+              template: 'milestone',
+            });
+            if (shared) {
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } else {
+              Alert.alert('Share unavailable', 'Could not share this workout card right now.');
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
   };
 
   const renderWorkoutCard = ({ item }: { item: Workout }) => {

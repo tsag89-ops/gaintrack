@@ -467,6 +467,15 @@ class FriendConnectRequest(BaseModel):
         return value.strip()
 
 
+class FriendInviteRequest(BaseModel):
+    target_user_id: str = Field(min_length=2, max_length=120)
+
+    @field_validator("target_user_id")
+    @classmethod
+    def validate_target_user_id(cls, value: str) -> str:
+        return value.strip()
+
+
 def evaluate_strava_wearable_scope(
     adoption_rate_percent: float,
     avg_sync_events_per_adopted_user: float,
@@ -2342,6 +2351,181 @@ async def connect_friend(
     return {
         "connected": True,
         "friend_user_id": friend_user_id,
+        "recorded_at": now.isoformat(),
+    }
+
+
+@api_router.get("/social/friends/discover")
+async def discover_friends(
+    request: Request,
+    user: User = Depends(get_current_user),
+    q: str = Query(default="", min_length=1, max_length=80),
+):
+    await enforce_mutation_rate_limit(request, "social.friends.discover", user.user_id, limit=40, window_seconds=60)
+
+    query = q.strip()
+    if not query:
+        return {"results": []}
+
+    # Build exclusion set: self + already-connected friends
+    friendships = await db.user_friendships.find(
+        {"members": user.user_id, "status": "accepted"},
+        {"_id": 0, "members": 1},
+    ).to_list(length=1000)
+
+    exclude_ids = {user.user_id}
+    for friendship in friendships:
+        for member_id in friendship.get("members", []):
+            exclude_ids.add(member_id)
+
+    regex = {"$regex": query, "$options": "i"}
+    candidates = await db.users.find(
+        {
+            "user_id": {"$nin": list(exclude_ids)},
+            "$or": [
+                {"name": regex},
+                {"email": regex},
+                {"user_id": regex},
+            ],
+        },
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1},
+    ).to_list(length=20)
+
+    return {"results": candidates}
+
+
+@api_router.post("/social/friends/invite")
+async def send_friend_invite(
+    payload: FriendInviteRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    await enforce_mutation_rate_limit(request, "social.friends.invite", user.user_id, limit=30, window_seconds=60)
+
+    target_user_id = payload.target_user_id.strip()
+    if target_user_id == user.user_id:
+        raise HTTPException(status_code=422, detail="Cannot invite yourself")
+
+    target_user = await db.users.find_one(
+        {"user_id": target_user_id},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1},
+    )
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Target user not found")
+
+    existing_friendship = await db.user_friendships.find_one(
+        {"members": sorted([user.user_id, target_user_id]), "status": "accepted"},
+        {"_id": 0, "members": 1},
+    )
+    if existing_friendship:
+        return {"invited": False, "already_friends": True}
+
+    now = datetime.now(timezone.utc)
+    invite_id = f"fri_{uuid.uuid4().hex[:16]}"
+
+    existing_pending = await db.user_friend_invites.find_one(
+        {
+            "status": "pending",
+            "$or": [
+                {"from_user_id": user.user_id, "to_user_id": target_user_id},
+                {"from_user_id": target_user_id, "to_user_id": user.user_id},
+            ],
+        },
+        {"_id": 0, "invite_id": 1},
+    )
+
+    if existing_pending:
+        return {
+            "invited": False,
+            "already_pending": True,
+            "invite_id": existing_pending.get("invite_id"),
+        }
+
+    await db.user_friend_invites.insert_one(
+        {
+            "invite_id": invite_id,
+            "from_user_id": user.user_id,
+            "to_user_id": target_user_id,
+            "status": "pending",
+            "created_at": now,
+            "updated_at": now,
+        }
+    )
+
+    return {
+        "invited": True,
+        "invite_id": invite_id,
+        "recorded_at": now.isoformat(),
+    }
+
+
+@api_router.get("/social/friends/invites")
+async def list_friend_invites(
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    await enforce_mutation_rate_limit(request, "social.friends.invites", user.user_id, limit=60, window_seconds=60)
+
+    incoming = await db.user_friend_invites.find(
+        {"to_user_id": user.user_id, "status": "pending"},
+        {"_id": 0, "invite_id": 1, "from_user_id": 1, "to_user_id": 1, "status": 1, "created_at": 1},
+    ).to_list(length=200)
+
+    outgoing = await db.user_friend_invites.find(
+        {"from_user_id": user.user_id, "status": "pending"},
+        {"_id": 0, "invite_id": 1, "from_user_id": 1, "to_user_id": 1, "status": 1, "created_at": 1},
+    ).to_list(length=200)
+
+    return {
+        "incoming": incoming,
+        "outgoing": outgoing,
+    }
+
+
+@api_router.post("/social/friends/invites/{invite_id}/respond")
+async def respond_friend_invite(
+    invite_id: str,
+    request: Request,
+    user: User = Depends(get_current_user),
+    action: str = Query(default="accept", pattern="^(accept|decline)$"),
+):
+    await enforce_mutation_rate_limit(request, "social.friends.invites.respond", user.user_id, limit=40, window_seconds=60)
+
+    invite = await db.user_friend_invites.find_one(
+        {"invite_id": invite_id, "to_user_id": user.user_id, "status": "pending"},
+        {"_id": 0},
+    )
+    if not invite:
+        raise HTTPException(status_code=404, detail="Pending invite not found")
+
+    now = datetime.now(timezone.utc)
+    next_status = "accepted" if action == "accept" else "declined"
+
+    await db.user_friend_invites.update_one(
+        {"invite_id": invite_id},
+        {"$set": {"status": next_status, "updated_at": now, "resolved_at": now}},
+    )
+
+    if action == "accept":
+        members = sorted([invite.get("from_user_id"), invite.get("to_user_id")])
+        await db.user_friendships.update_one(
+            {"members": members},
+            {
+                "$set": {
+                    "members": members,
+                    "updated_at": now,
+                    "status": "accepted",
+                },
+                "$setOnInsert": {
+                    "created_at": now,
+                },
+            },
+            upsert=True,
+        )
+
+    return {
+        "updated": True,
+        "status": next_status,
         "recorded_at": now.isoformat(),
     }
 

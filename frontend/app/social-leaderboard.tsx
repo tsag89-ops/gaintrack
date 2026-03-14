@@ -14,20 +14,29 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { usePro } from '../src/hooks/usePro'; // [PRO]
-import { socialApi, LeaderboardEntry } from '../src/services/social'; // [PRO]
+import { socialApi, LeaderboardEntry, FriendProfile, FriendInvite } from '../src/services/social'; // [PRO]
 
 export default function SocialLeaderboardScreen() {
   const router = useRouter();
   const { isPro } = usePro(); // [PRO]
   const [friendIdInput, setFriendIdInput] = useState('');
+  const [discoverInput, setDiscoverInput] = useState('');
+  const [discoverResults, setDiscoverResults] = useState<FriendProfile[]>([]);
+  const [incomingInvites, setIncomingInvites] = useState<FriendInvite[]>([]);
+  const [outgoingInvites, setOutgoingInvites] = useState<FriendInvite[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadLeaderboard = useCallback(async () => {
     setLoading(true);
-    const payload = await socialApi.getPrivateLeaderboard(30);
-    setLeaderboard(payload?.leaderboard ?? []);
+    const [leaderboardPayload, invitePayload] = await Promise.all([
+      socialApi.getPrivateLeaderboard(30),
+      socialApi.getFriendInvites(),
+    ]);
+    setLeaderboard(leaderboardPayload?.leaderboard ?? []);
+    setIncomingInvites(invitePayload.incoming ?? []);
+    setOutgoingInvites(invitePayload.outgoing ?? []);
     setLoading(false);
   }, []);
 
@@ -66,6 +75,40 @@ export default function SocialLeaderboardScreen() {
 
     setFriendIdInput('');
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await loadLeaderboard();
+  };
+
+  const handleDiscover = async () => {
+    if (!isPro) return;
+    const q = discoverInput.trim();
+    if (!q) {
+      setDiscoverResults([]);
+      return;
+    }
+
+    await Haptics.selectionAsync();
+    const results = await socialApi.discoverFriends(q);
+    setDiscoverResults(results);
+  };
+
+  const handleSendInvite = async (userId: string) => {
+    await Haptics.selectionAsync();
+    const ok = await socialApi.inviteFriend(userId);
+    if (!ok) {
+      Alert.alert('Invite failed', 'Could not send invite right now.');
+      return;
+    }
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await loadLeaderboard();
+  };
+
+  const handleRespondInvite = async (inviteId: string, action: 'accept' | 'decline') => {
+    await Haptics.selectionAsync();
+    const ok = await socialApi.respondToInvite(inviteId, action);
+    if (!ok) {
+      Alert.alert('Action failed', 'Could not update invite status.');
+      return;
+    }
     await loadLeaderboard();
   };
 
@@ -108,6 +151,80 @@ export default function SocialLeaderboardScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
+          <View style={styles.connectCard}>
+            <Text style={styles.cardTitle}>Discover Athletes</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="Search name, email, or user ID"
+                placeholderTextColor="#6B7280"
+                value={discoverInput}
+                onChangeText={setDiscoverInput}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity style={styles.addButton} onPress={handleDiscover}>
+                <Ionicons name="search-outline" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            {discoverResults.map((candidate) => (
+              <View key={candidate.user_id} style={styles.discoveryRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nameText}>{candidate.name || 'Athlete'}</Text>
+                  <Text style={styles.metaText}>{candidate.user_id}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.inviteButton}
+                  onPress={() => handleSendInvite(candidate.user_id)}
+                >
+                  <Text style={styles.inviteButtonText}>Invite</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+
+          {incomingInvites.length > 0 ? (
+            <View style={styles.connectCard}>
+              <Text style={styles.cardTitle}>Incoming Invites</Text>
+              {incomingInvites.map((invite) => (
+                <View key={invite.invite_id} style={styles.discoveryRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.nameText}>{invite.from_user_id}</Text>
+                    <Text style={styles.metaText}>Pending invite</Text>
+                  </View>
+                  <View style={styles.inviteActionRow}>
+                    <TouchableOpacity
+                      style={styles.acceptButton}
+                      onPress={() => handleRespondInvite(invite.invite_id, 'accept')}
+                    >
+                      <Text style={styles.inviteButtonText}>Accept</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.declineButton}
+                      onPress={() => handleRespondInvite(invite.invite_id, 'decline')}
+                    >
+                      <Text style={styles.inviteButtonText}>Decline</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {outgoingInvites.length > 0 ? (
+            <View style={styles.connectCard}>
+              <Text style={styles.cardTitle}>Outgoing Invites</Text>
+              {outgoingInvites.map((invite) => (
+                <View key={invite.invite_id} style={styles.discoveryRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.nameText}>{invite.to_user_id}</Text>
+                    <Text style={styles.metaText}>Waiting for response</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
 
           <FlatList
             data={leaderboard}
@@ -176,6 +293,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF6200',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  discoveryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+    backgroundColor: '#111827',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#374151',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  inviteButton: {
+    backgroundColor: '#FF6200',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  inviteButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
+  inviteActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  acceptButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  declineButton: {
+    backgroundColor: '#F44336',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
   listContent: { paddingHorizontal: 16, paddingBottom: 28 },
   row: {

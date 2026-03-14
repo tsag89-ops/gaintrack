@@ -106,13 +106,15 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Completed: fatigue scoring and deload recommendation signals added in `frontend/app/progression.tsx` based on recent RPE and progression velocity.
 	- Completed: periodization guidance card added in `frontend/app/progression.tsx` with 4-week phase rotation messaging (base/build/peak/deload).
 	- Completed: progression insights now surface high-strain exercises to reduce advanced-user churn risk.
-9. Phase 4 - Network effects: IN PROGRESS
+9. Phase 4 - Network effects: COMPLETED
 	- Completed: backend social baseline added in `backend/server.py` with friend connection endpoint and private leaderboard endpoint (`/social/friends/connect`, `/social/friends`, `/social/leaderboard/private`).
 	- Completed: shareable workout card flow added in `frontend/app/workout-history.tsx` via `frontend/src/services/social.ts`.
 	- Completed: private leaderboard screen added in `frontend/app/social-leaderboard.tsx` and linked from `frontend/app/(tabs)/profile.tsx`.
-	- Pending: fuller friend discovery/invites and richer share card formats.
+	- Completed: friend discovery + invite lifecycle APIs added in `backend/server.py` (`/social/friends/discover`, `/social/friends/invite`, `/social/friends/invites`, `/social/friends/invites/{invite_id}/respond`) and surfaced in `frontend/app/social-leaderboard.tsx` via `frontend/src/services/social.ts`.
+	- Completed: richer workout share card templates (compact/detailed/milestone) added in `frontend/src/services/social.ts` and selectable from `frontend/app/workout-history.tsx`.
+	- Scope note: full community feed remains excluded for now; lightweight social baseline target is complete.
 10. Phase 4 - Security and quality operations: IN PROGRESS
 	- Notes: secret scanning now added; OWASP MASVS cadence, SCA gates, and policy regression release gates still pending.
 
 ### Next Active Step
-- Continue Phase 4 network effects: add friend discovery/invite flow and richer share card formats before community feed rollout.
+- Continue Phase 4 security and quality operations: add OWASP MASVS cadence artifacts, dependency/SCA checks, and policy regression release gates.

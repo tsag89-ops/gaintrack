@@ -417,3 +417,69 @@ async def test_connect_friend_rejects_self_reference(backend_server):
     assert exc.value.status_code == 422
     assert exc.value.detail == "Cannot add yourself as a friend"
 
+
+@pytest.mark.asyncio
+async def test_discover_friends_excludes_self_and_existing_friend(backend_server):
+    request = _make_request()
+    user = backend_server.User(
+        user_id="u-social-2",
+        email="social2@example.com",
+        name="Social User Two",
+        created_at=backend_server.datetime.now(backend_server.timezone.utc),
+    )
+
+    friendships_cursor = SimpleNamespace(
+        to_list=AsyncMock(
+            return_value=[
+                {"members": ["u-social-2", "u-friend-existing"]},
+            ]
+        )
+    )
+    users_cursor = SimpleNamespace(
+        to_list=AsyncMock(
+            return_value=[
+                {"user_id": "u-candidate-1", "name": "Candidate", "email": "c@example.com"},
+            ]
+        )
+    )
+
+    backend_server.db = SimpleNamespace(
+        user_friendships=SimpleNamespace(find=lambda *_args, **_kwargs: friendships_cursor),
+        users=SimpleNamespace(find=lambda *_args, **_kwargs: users_cursor),
+    )
+
+    result = await backend_server.discover_friends(request, user, q="cand")
+    assert len(result["results"]) == 1
+    assert result["results"][0]["user_id"] == "u-candidate-1"
+
+
+@pytest.mark.asyncio
+async def test_respond_friend_invite_accept_creates_friendship(backend_server):
+    request = _make_request()
+    user = backend_server.User(
+        user_id="u-social-target",
+        email="target@example.com",
+        name="Target User",
+        created_at=backend_server.datetime.now(backend_server.timezone.utc),
+    )
+
+    invite_doc = {
+        "invite_id": "fri_test123",
+        "from_user_id": "u-social-source",
+        "to_user_id": "u-social-target",
+        "status": "pending",
+    }
+
+    backend_server.db = SimpleNamespace(
+        user_friend_invites=SimpleNamespace(
+            find_one=AsyncMock(return_value=invite_doc),
+            update_one=AsyncMock(return_value=None),
+        ),
+        user_friendships=SimpleNamespace(update_one=AsyncMock(return_value=None)),
+    )
+
+    result = await backend_server.respond_friend_invite("fri_test123", request, user, action="accept")
+
+    assert result["updated"] is True
+    assert result["status"] == "accepted"
+
