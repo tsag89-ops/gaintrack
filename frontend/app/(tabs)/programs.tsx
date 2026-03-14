@@ -1,7 +1,7 @@
 // app/(tabs)/programs.tsx
 // GainTrack — Programs tab: local program list dashboard with FAB
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -32,9 +33,25 @@ const FREE_PROGRAM_LIMIT = 1;
 
 export default function ProgramsScreen() {
   const router = useRouter();
-  const { programs, isLoading, reload, removeOne } = usePrograms();
+  const { programs, isLoading, reload, removeOne, saveOne } = usePrograms();
   const { isPro } = usePro();
   const fabScale = useSharedValue(1);
+  const [recentlyDeleted, setRecentlyDeleted] = useState<WorkoutProgram | null>(null);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) {
+        clearTimeout(undoTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      reload();
+    }, [reload]),
+  );
 
   const handleFabPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -77,6 +94,16 @@ export default function ProgramsScreen() {
                   onPress: async () => {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                     await removeOne(program.id);
+                    setRecentlyDeleted(program);
+
+                    if (undoTimeoutRef.current) {
+                      clearTimeout(undoTimeoutRef.current);
+                    }
+
+                    undoTimeoutRef.current = setTimeout(() => {
+                      setRecentlyDeleted(null);
+                      undoTimeoutRef.current = null;
+                    }, 5000);
                   },
                 },
               ]);
@@ -88,6 +115,21 @@ export default function ProgramsScreen() {
     },
     [router, removeOne],
   );
+
+  const handleUndoDelete = useCallback(async () => {
+    if (!recentlyDeleted) {
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await saveOne(recentlyDeleted);
+    setRecentlyDeleted(null);
+
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+  }, [recentlyDeleted, saveOne]);
 
   const fabStyle = useAnimatedStyle(() => ({
     transform: [{ scale: fabScale.value }],
@@ -151,6 +193,17 @@ export default function ProgramsScreen() {
           <Ionicons name="add" size={28} color={colors.textPrimary} />
         </TouchableOpacity>
       </Animated.View>
+
+      {recentlyDeleted && (
+        <View style={styles.undoBar}>
+          <Text style={styles.undoText} numberOfLines={1}>
+            Deleted {recentlyDeleted.name}
+          </Text>
+          <TouchableOpacity onPress={handleUndoDelete} hitSlop={8}>
+            <Text style={styles.undoAction}>UNDO</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -225,5 +278,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  undoBar: {
+    position: 'absolute',
+    left: spacing[4],
+    right: spacing[4],
+    bottom: 92,
+    minHeight: 48,
+    backgroundColor: colors.charcoal,
+    borderWidth: 1,
+    borderColor: colors.surface,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...shadows.md,
+  },
+  undoText: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: typography.fontSize.sm,
+    marginRight: spacing[3],
+  },
+  undoAction: {
+    color: colors.accent,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: 0.5,
   },
 });
