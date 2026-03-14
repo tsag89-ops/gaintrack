@@ -7,6 +7,7 @@ import {
   doc,
   getDoc,
   setDoc,
+  deleteDoc,
   getDocs,
   writeBatch,
   enableNetwork,
@@ -347,5 +348,54 @@ export const getAllNutritionFromFirestore = async (
   } catch (err) {
     console.warn('[Firestore] getAllNutritionFromFirestore error:', err);
     return [];
+  }
+};
+
+// ─── Account Deletion Helpers ────────────────────────────────────────────────
+
+const deleteCollectionDocs = async (
+  userId: string,
+  root: 'Users' | 'users',
+  subcollection: string,
+): Promise<void> => {
+  if (!db) return;
+
+  const snap = await getDocs(collection(db, root, userId, subcollection));
+  if (snap.empty) return;
+
+  const CHUNK = 400;
+  const docs = snap.docs;
+  for (let i = 0; i < docs.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    docs.slice(i, i + CHUNK).forEach((item) => {
+      batch.delete(item.ref);
+    });
+    await batch.commit();
+  }
+};
+
+/**
+ * Deletes user-scoped Firestore data before account removal.
+ * Best effort across both `Users` and `users` roots for legacy compatibility.
+ */
+export const deleteUserCloudData = async (userId: string): Promise<void> => {
+  if (!db || !userId) return;
+
+  const subcollections = ['workouts', 'exercises', 'progress', 'nutrition', 'programs', 'macros'];
+
+  for (const root of ['Users', 'users'] as const) {
+    for (const subcollection of subcollections) {
+      try {
+        await deleteCollectionDocs(userId, root, subcollection);
+      } catch (err) {
+        console.warn(`[Firestore] delete collection ${root}/${userId}/${subcollection} failed:`, err);
+      }
+    }
+
+    try {
+      await deleteDoc(doc(db, root, userId));
+    } catch (err) {
+      console.warn(`[Firestore] delete profile ${root}/${userId} failed:`, err);
+    }
   }
 };

@@ -143,6 +143,10 @@ const CHIPS = [
 // Returns null in native production builds where the Expo server route is gone.
 function getApiUrl(): string | null {
   if (Platform.OS === 'web') return '/api/ai-chat';
+  const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  if (apiBase) {
+    return `${apiBase.replace(/\/$/, '')}/api/ai-chat`;
+  }
   const host =
     Constants.expoConfig?.hostUri ??
     (Constants as any).manifest2?.extra?.expoClient?.hostUri;
@@ -407,46 +411,15 @@ Always give specific, personalized advice referencing the user's actual data, cu
         prompt: text,
       });
 
-      let res: Response | undefined;
-
-      // Attempt 1: Expo server route (web + native dev)
-      if (serverUrl) {
-        try {
-          res = await fetchWithTimeout(serverUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body,
-          });
-        } catch {
-          res = undefined;
-        }
+      if (!serverUrl) {
+        throw Object.assign(new Error('no_api_key'), { errorType: 'no_api_key' as const, detail: 'AI endpoint not configured' });
       }
 
-      // Attempt 2: direct OpenRouter fallback (native production)
-      if (!res || !res.ok) {
-        const apiKey = process.env.EXPO_PUBLIC_AI_API_KEY;
-        if (!apiKey) throw Object.assign(new Error('no_api_key'), { errorType: 'no_api_key' as const });
-        const model = process.env.EXPO_PUBLIC_AI_MODEL ?? 'meta-llama/llama-3.1-8b-instruct:free';
-        res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://gaintrack.app',
-            'X-Title': 'GainTrack',
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: 'system', content: buildSystemPrompt() },
-              ...context,
-            ],
-            temperature: 0.7,
-            max_tokens: 800,
-            provider: { data_collection: 'allow', allow_fallbacks: true },
-          }),
-        });
-      }
+      const res = await fetchWithTimeout(serverUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
 
       if (res.status === 429) {
         throw Object.assign(new Error('rate_limit'), { errorType: 'rate_limit' as const });

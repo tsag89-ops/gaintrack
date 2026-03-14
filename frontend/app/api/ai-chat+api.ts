@@ -8,6 +8,42 @@ const json = (body: unknown, status = 200): Response =>
   });
 
 const AI_ROUTE_TIMEOUT_MS = 12000;
+const WINDOW_MS = 10 * 60 * 1000;
+const MAX_REQUESTS_PER_WINDOW = 30;
+const MAX_PROMPT_CHARS = 4000;
+const MAX_SYSTEM_CHARS = 1500;
+
+type RateBucket = {
+  count: number;
+  resetAt: number;
+};
+
+const rateBuckets = new Map<string, RateBucket>();
+
+function getClientId(request: Request): string {
+  const forwardedFor = request.headers.get('x-forwarded-for') ?? '';
+  const realIp = request.headers.get('x-real-ip') ?? '';
+  const candidate = forwardedFor.split(',')[0]?.trim() || realIp.trim() || 'unknown';
+  return candidate || 'unknown';
+}
+
+function checkRateLimit(clientId: string): boolean {
+  const now = Date.now();
+  const bucket = rateBuckets.get(clientId);
+
+  if (!bucket || now >= bucket.resetAt) {
+    rateBuckets.set(clientId, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
+  }
+
+  if (bucket.count >= MAX_REQUESTS_PER_WINDOW) {
+    return false;
+  }
+
+  bucket.count += 1;
+  rateBuckets.set(clientId, bucket);
+  return true;
+}
 
 async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
   const controller = new AbortController();
@@ -25,15 +61,28 @@ async function fetchWithTimeout(url: string, options: RequestInit): Promise<Resp
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    let body: { prompt?: string; system?: string };
+    const clientId = getClientId(request);
+    if (!checkRateLimit(clientId)) {
+      return json({ error: 'Too many requests. Try again in a few minutes.' }, 429);
+    }
+
+    let body: { prompt?: unknown; system?: unknown };
     try {
       body = await request.json();
     } catch {
       return json({ error: 'Invalid JSON body' }, 400);
     }
 
-    const { prompt, system } = body;
+    const prompt = typeof body.prompt === 'string' ? body.prompt.trim() : '';
+    const system = typeof body.system === 'string' ? body.system.trim() : '';
+
     if (!prompt) return json({ error: 'Missing prompt' }, 400);
+    if (prompt.length > MAX_PROMPT_CHARS) {
+      return json({ error: `Prompt too long. Max ${MAX_PROMPT_CHARS} characters.` }, 413);
+    }
+    if (system.length > MAX_SYSTEM_CHARS) {
+      return json({ error: `System prompt too long. Max ${MAX_SYSTEM_CHARS} characters.` }, 413);
+    }
 
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) return json({ error: 'API key not configured' }, 500);
@@ -54,7 +103,7 @@ export async function POST(request: Request): Promise<Response> {
         ],
         temperature: 0.7,
         max_tokens: 800,
-        provider: { data_collection: 'allow', allow_fallbacks: true },
+        provider: { data_collection: 'deny', allow_fallbacks: false },
       }),
     });
 
@@ -76,7 +125,7 @@ export async function POST(request: Request): Promise<Response> {
 
     return json(data, res.status);
   } catch (e: any) {
-    return json({ error: e.message ?? 'Internal error' }, 500);
+    return json({ error: 'Internal error' }, 500);
   }
 }
 

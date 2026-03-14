@@ -195,6 +195,8 @@ export default function RootLayout() {
           <Stack.Screen name="body-composition-goal" options={{ presentation: 'card' }} />
           <Stack.Screen name="body-goals" options={{ presentation: 'card' }} />
           <Stack.Screen name="pro-paywall" options={{ presentation: 'modal', headerShown: false }} />
+          <Stack.Screen name="privacy-policy" options={{ presentation: 'card' }} />
+          <Stack.Screen name="terms" options={{ presentation: 'card' }} />
         </Stack>
         </ErrorBoundary>
         {/* AuthSplash overlays on top while auth is still resolving, preventing

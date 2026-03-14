@@ -342,7 +342,15 @@ export default function LoginScreen() {
           ) : null}
 
           <Text style={styles.terms}>
-            Your data is synced securely via Firebase.
+            By continuing, you agree to our{' '}
+            <Text style={styles.termsLink} onPress={() => router.push('/terms')}>
+              Terms
+            </Text>{' '}
+            and{' '}
+            <Text style={styles.termsLink} onPress={() => router.push('/privacy-policy')}>
+              Privacy Policy
+            </Text>
+            .
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -483,6 +491,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  termsLink: {
+    color: '#FF6200',
+    fontWeight: '700',
   },
   divider: {
     flexDirection: 'row',

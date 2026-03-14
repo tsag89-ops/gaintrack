@@ -104,7 +104,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             ...user,
             equipment: prev.equipment ?? user.equipment,
             goals: prev.goals ?? user.goals,
-            isPro: prev.isPro ?? user.isPro, // preserve cached Pro status as fallback
+            isPro: user.isPro ?? false,
           };
         }
       }
@@ -158,8 +158,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await storage.setItem('user', JSON.stringify(finalUser));
       await storage.setItem('sessionToken', token);
-      // Keep gaintrack_pro_status in sync so usePro() native fallback is correct
-      await storage.setItem('gaintrack_pro_status', String(isPro));
     } catch (e) {
       console.warn('setSession storage save error:', e);
     }
@@ -174,7 +172,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       await Promise.all([
         storage.removeItem('sessionToken'),
         storage.removeItem('user'),
-        storage.removeItem('gaintrack_pro_status'),
       ]);
       await resetRevenueCatUser(); // Reset to anonymous RC identity on logout
       await auth.signOut();
@@ -193,8 +190,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       ]);
       if (userStr && token) {
         const user = JSON.parse(userStr) as User;
+        const restoredUser = { ...user, isPro: false };
         // Restore immediately from cache so the UI is not blocked
-        set({ user, sessionToken: token, isAuthenticated: true, isLoading: false, authReady: true });
+        set({ user: restoredUser, sessionToken: token, isAuthenticated: true, isLoading: false, authReady: true });
         // Then refresh isPro from Firestore in the background
         fetchIsPro(user.id).then((isPro) => {
           set((state) => ({

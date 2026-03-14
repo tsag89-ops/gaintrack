@@ -16,8 +16,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { useAuthStore } from '../../src/store/authStore';
 import { userApi } from '../../src/services/api';
+import { deleteUserCloudData } from '../../src/services/firestore';
 import { getEquipmentLabel } from '../../src/utils/helpers';
 import { useAuth } from '../../src/hooks/useAuth';
 import { deleteAccount, signOut as nativeSignOut, REQUIRES_RECENT_LOGIN } from '../../src/services/authBridge';
@@ -144,6 +147,42 @@ export default function ProfileScreen() {
     }
   };
 
+  const clearLocalUserData = async () => {
+    const explicitKeys = [
+      'user',
+      'gaintrack_pro_status',
+      'workouts',
+      'programs_v1',
+      'progress',
+      'foods',
+      'exercises',
+      'favorite_exercises',
+      'recently_used_exercises',
+      'gaintrack_physique_photos',
+      'gaintrack_body_goal',
+      'gaintrack_body_goals',
+      'gaintrack_notification_settings',
+      'gaintrack_auto_rest_timer',
+      'gaintrack_rest_duration',
+      'gaintrack_ai_consent',
+      'gaintrack_weight_unit',
+      'gaintrack_height_unit',
+      'gaintrack_distance_unit',
+    ];
+
+    const allKeys = await AsyncStorage.getAllKeys();
+    const prefixedKeys = allKeys.filter((key) =>
+      key.startsWith('gaintrack_') ||
+      key.startsWith('workout_') ||
+      key.startsWith('program_')
+    );
+
+    const keysToRemove = Array.from(new Set([...explicitKeys, ...prefixedKeys]));
+    if (keysToRemove.length > 0) {
+      await AsyncStorage.multiRemove(keysToRemove);
+    }
+  };
+
 const handleDeleteAccount = async () => {
   // Step 1: initial confirmation
   const confirmed = await new Promise<boolean>((resolve) =>
@@ -158,8 +197,20 @@ const handleDeleteAccount = async () => {
   );
   if (!confirmed) return;
 
+  const userId = user?.id ?? user?.user_id;
+
   try {
     await deleteAccount();
+
+    if (userId) {
+      try {
+        await deleteUserCloudData(userId);
+      } catch (cloudErr) {
+        console.warn('[Profile] deleteUserCloudData failed after deleteAccount:', cloudErr);
+      }
+    }
+
+    await clearLocalUserData();
     // onAuthStateChanged fires automatically — no manual navigation needed
   } catch (error: any) {
     if (error?.code === REQUIRES_RECENT_LOGIN) {
@@ -175,6 +226,7 @@ const handleDeleteAccount = async () => {
             onPress: async () => {
               try {
                 await nativeSignOut();
+                await clearLocalUserData();
                 // onAuthStateChanged navigates to login automatically
               } catch (signOutErr) {
                 console.error('[Profile] sign-out after re-auth prompt failed:', signOutErr);
@@ -207,9 +259,80 @@ const handleLogout = async () => {
   try {
     console.log('[Profile] Logging out...');
     await logout();
+    await clearLocalUserData();
     router.replace('/login');
   } catch (error) {
     console.error('Logout error:', error);
+  }
+};
+
+const handleExportMyData = async () => {
+  try {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const exportKeys = [
+      'user',
+      'gaintrack_pro_status',
+      'workouts',
+      'programs_v1',
+      'progress',
+      'foods',
+      'exercises',
+      'favorite_exercises',
+      'recently_used_exercises',
+      'gaintrack_physique_photos',
+      'gaintrack_body_goal',
+      'gaintrack_body_goals',
+      'gaintrack_notification_settings',
+      'gaintrack_auto_rest_timer',
+      'gaintrack_rest_duration',
+      'gaintrack_ai_consent',
+      'gaintrack_weight_unit',
+      'gaintrack_height_unit',
+      'gaintrack_distance_unit',
+    ];
+
+    const dataEntries = await AsyncStorage.multiGet(exportKeys);
+    const data = dataEntries.reduce<Record<string, unknown>>((acc, [key, value]) => {
+      if (value === null) return acc;
+      try {
+        acc[key] = JSON.parse(value);
+      } catch {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      app: 'GainTrack',
+      schemaVersion: 1,
+      userId: user?.id ?? user?.user_id ?? null,
+      data,
+    };
+
+    const jsonString = JSON.stringify(payload, null, 2);
+    const filename = `gaintrack_export_${new Date().toISOString().slice(0, 10)}.json`;
+
+    if (Platform.OS === 'web') {
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    const path = `${FileSystem.documentDirectory ?? ''}${filename}`;
+    await FileSystem.writeAsStringAsync(path, jsonString, { encoding: FileSystem.EncodingType.UTF8 });
+    await Sharing.shareAsync(path, {
+      mimeType: 'application/json',
+      dialogTitle: 'Export GainTrack Data',
+    });
+  } catch (error: any) {
+    Alert.alert('Export failed', error?.message ?? 'Could not export your data.');
   }
 };
 
@@ -604,11 +727,47 @@ const handleLogout = async () => {
           <Text style={styles.hint}>
             When enabled, your AI prompts and replies are shared with OpenRouter for processing. See the AI tab for the full data &amp; health notice.
           </Text>
+          <TouchableOpacity
+            style={[styles.settingItem, { marginTop: 8 }]}
+            onPress={() => router.push('/privacy-policy')}
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons name="document-text-outline" size={22} color="#FF6200" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Privacy Policy</Text>
+                <Text style={styles.settingValue}>View data use and rights</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => router.push('/terms')}
+          >
+            <View style={styles.settingLeft}>
+              <Ionicons name="document-outline" size={22} color="#FF6200" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Terms of Service</Text>
+                <Text style={styles.settingValue}>Review app terms</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+          </TouchableOpacity>
         </View>
 
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
+          <TouchableOpacity style={styles.settingItem} onPress={handleExportMyData}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="download-outline" size={22} color="#FF6200" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Export My Data</Text>
+                <Text style={styles.settingValue}>Download your account data as JSON</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
             <View style={styles.settingLeft}>
               <Ionicons name="log-out-outline" size={22} color="#EF4444" />

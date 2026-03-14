@@ -5,19 +5,13 @@
 //  It is read only by the server-side route (app/api/ai-chat+api.ts).
 //  On web, client code calls /api/ai-chat and NEVER reads the key directly.
 //
-//  On native production (no Expo dev server), the route is unreachable.
-//  Set EXPO_PUBLIC_AI_API_KEY in .env to enable direct OpenRouter calls.
-//
 //  For EAS builds, create the secrets:
 //    eas env:create --scope project --name OPENROUTER_API_KEY --value sk-or-v1-...
-//    eas env:create --scope project --name EXPO_PUBLIC_AI_API_KEY --value sk-or-v1-...
 // -----------------------------------------------------------------------------
 
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-const AI_MODEL = 'openai/gpt-oss-120b:free';
 const AI_REQUEST_TIMEOUT_MS = 12000;
 
 async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
@@ -38,39 +32,15 @@ async function fetchWithTimeout(url: string, options: RequestInit): Promise<Resp
 // Returns null in native production builds where no Expo server is reachable.
 function getServerRouteUrl(): string | null {
   if (Platform.OS === 'web') return '/api/ai-chat';
+  const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+  if (apiBase) {
+    return `${apiBase.replace(/\/$/, '')}/api/ai-chat`;
+  }
   const host =
     Constants.expoConfig?.hostUri ??
     (Constants as any).manifest2?.extra?.expoClient?.hostUri;
   if (host) return `http://${host.split(':')[0]}:8081/api/ai-chat`;
   return null; // production APK/IPA � Expo server route not available
-}
-
-// -- Direct OpenRouter fetch (native production fallback) ---------------------
-async function fetchFromOpenRouterDirect(
-  system: string,
-  prompt: string,
-): Promise<Response> {
-  const apiKey = process.env.EXPO_PUBLIC_AI_API_KEY;
-  if (!apiKey) return new Response(JSON.stringify({ error: 'no_key' }), { status: 503 });
-  return fetchWithTimeout(OPENROUTER_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://gaintrack.app',
-      'X-Title': 'GainTrack',
-    },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user',   content: prompt },
-      ],
-      temperature: 0.7,
-      max_tokens: 800,
-      provider: { data_collection: 'allow', allow_fallbacks: true },
-    }),
-  });
 }
 
 // --- Types --------------------------------------------------------------------
@@ -131,10 +101,8 @@ const MOCK_SUGGESTIONS: AISuggestion[] = [
 /**
  * Fetch AI-generated coaching suggestions.
  * Strategy:
- *   1. Try the Expo server route /api/ai-chat (works on web + native dev server).
- *   2. If unreachable (production APK/IPA), fall back to direct OpenRouter
- *      using EXPO_PUBLIC_AI_API_KEY.
- *   3. If both fail, return static mocks so the UI is never broken.
+ *   1. Try the server route /api/ai-chat (web, native dev, or EXPO_PUBLIC_API_BASE_URL).
+ *   2. If unavailable, return static mocks so the UI is never broken.
  */
 export async function getAISuggestions(context: AIContext): Promise<AISuggestion[]> {
   const system =
@@ -156,16 +124,6 @@ export async function getAISuggestions(context: AIContext): Promise<AISuggestion
       });
     } catch {
       res = undefined;
-    }
-  }
-
-  // Attempt 2: direct OpenRouter (native production fallback)
-  if (!res || !res.ok) {
-    try {
-      res = await fetchFromOpenRouterDirect(system, prompt);
-    } catch (e: any) {
-      console.warn('[aiService] Direct OpenRouter failed:', e?.message);
-      return MOCK_SUGGESTIONS;
     }
   }
 

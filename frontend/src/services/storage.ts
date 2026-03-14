@@ -15,7 +15,6 @@ const WORKOUTS_KEY         = 'workouts';
 const RECENTLY_USED_KEY    = 'recently_used_exercises';   // string[] of exercise ids
 const FAVORITES_KEY        = 'favorite_exercises';        // string[] of exercise ids
 const RECENTLY_USED_LIMIT  = 20;
-const PRO_STATUS_KEY       = 'gaintrack_pro_status';
 const USER_KEY             = 'user';
 const STORAGE_TIMEOUT_MS   = 8000;
 
@@ -45,8 +44,14 @@ const setItem = (key: string, value: string) => withStorageTimeout(AsyncStorage.
 
 /** Reads the stored Pro status without requiring a hook. */
 const _isPro = async (): Promise<boolean> => {
-  const val = await getItem(PRO_STATUS_KEY);
-  return val === 'true';
+  const raw = await getItem(USER_KEY);
+  if (!raw) return false;
+  try {
+    const user = JSON.parse(raw) as { isPro?: boolean };
+    return Boolean(user.isPro);
+  } catch {
+    return false;
+  }
 };
 
 /** Reads the stored user id without requiring a hook. */

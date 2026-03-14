@@ -11,6 +11,7 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
+from jose import jwt, JWTError
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -32,6 +33,10 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
+FIREBASE_CERTS_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
+_firebase_certs_cache: Dict[str, Any] = {"expires_at": datetime.min.replace(tzinfo=timezone.utc), "certs": {}}
 
 # ============== Models ==============
 
@@ -143,15 +148,31 @@ class MealEntryCreate(BaseModel):
 async def get_current_user(request: Request) -> User:
     """Get current user from session token"""
     session_token = request.cookies.get("session_token")
+    bearer_token = None
     if not session_token:
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
-            session_token = auth_header.split(" ")[1]
+            bearer_token = auth_header.split(" ")[1]
+            session_token = bearer_token
     
     if not session_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     
     session = await db.user_sessions.find_one({"session_token": session_token}, {"_id": 0})
+
+    # If no db session exists, treat bearer token as Firebase ID token and
+    # verify server-side before authorizing access.
+    if not session and bearer_token:
+        firebase_user_id = await verify_firebase_id_token(bearer_token)
+        if not firebase_user_id:
+            raise HTTPException(status_code=401, detail="Invalid session")
+
+        user = await db.users.find_one({"user_id": firebase_user_id}, {"_id": 0})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        return User(**user)
+
     if not session:
         raise HTTPException(status_code=401, detail="Invalid session")
     
@@ -168,6 +189,67 @@ async def get_current_user(request: Request) -> User:
         raise HTTPException(status_code=404, detail="User not found")
     
     return User(**user)
+
+
+async def _get_firebase_certs() -> Dict[str, str]:
+    now = datetime.now(timezone.utc)
+    if _firebase_certs_cache["certs"] and _firebase_certs_cache["expires_at"] > now:
+        return _firebase_certs_cache["certs"]
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(FIREBASE_CERTS_URL)
+        response.raise_for_status()
+
+        certs = response.json()
+        cache_control = response.headers.get("Cache-Control", "")
+        max_age_seconds = 3600
+        for part in cache_control.split(","):
+            part = part.strip()
+            if part.startswith("max-age="):
+                try:
+                    max_age_seconds = int(part.split("=", 1)[1])
+                except ValueError:
+                    max_age_seconds = 3600
+
+        _firebase_certs_cache["certs"] = certs
+        _firebase_certs_cache["expires_at"] = now + timedelta(seconds=max_age_seconds)
+        return certs
+
+
+async def verify_firebase_id_token(token: str) -> Optional[str]:
+    if not FIREBASE_PROJECT_ID:
+        logger.warning("FIREBASE_PROJECT_ID not set; cannot verify Firebase ID token")
+        return None
+
+    try:
+        unverified_header = jwt.get_unverified_header(token)
+        kid = unverified_header.get("kid")
+        if not kid:
+            return None
+
+        certs = await _get_firebase_certs()
+        cert = certs.get(kid)
+        if not cert:
+            return None
+
+        payload = jwt.decode(
+            token,
+            cert,
+            algorithms=["RS256"],
+            audience=FIREBASE_PROJECT_ID,
+            issuer=f"https://securetoken.google.com/{FIREBASE_PROJECT_ID}",
+        )
+
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        return user_id
+    except JWTError as e:
+        logger.warning(f"Firebase token verification failed: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Firebase cert/token verification error: {e}")
+        return None
 
 # ============== Auth Endpoints ==============
 
