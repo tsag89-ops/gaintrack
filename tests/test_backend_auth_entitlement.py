@@ -486,3 +486,78 @@ async def test_respond_friend_invite_accept_creates_friendship(backend_server):
     assert result["updated"] is True
     assert result["status"] == "accepted"
 
+
+@pytest.mark.asyncio
+async def test_get_kpi_summary_aggregates_funnel_and_activity(backend_server):
+    request = _make_request()
+
+    paywall_events = [
+        {"event_type": "view", "user_id": "u1", "feature": "progress"},
+        {"event_type": "view", "user_id": "u2", "feature": "progress"},
+        {"event_type": "cta_click", "user_id": "u1", "feature": "progress"},
+        {"event_type": "purchase_completed", "user_id": "u1", "feature": "progress"},
+    ]
+    engagement_events = [
+        {"feature": "nutrition", "action": "screen_view", "user_id": "u1"},
+        {"feature": "nutrition", "action": "screen_view", "user_id": "u2"},
+        {"feature": "workout_history", "action": "workout_shared", "user_id": "u1"},
+    ]
+
+    backend_server.db = SimpleNamespace(
+        paywall_events=SimpleNamespace(
+            find=lambda *_args, **_kwargs: SimpleNamespace(to_list=AsyncMock(return_value=paywall_events))
+        ),
+        engagement_events=SimpleNamespace(
+            find=lambda *_args, **_kwargs: SimpleNamespace(to_list=AsyncMock(return_value=engagement_events))
+        ),
+        social_events=SimpleNamespace(count_documents=AsyncMock(return_value=9)),
+        onboarding_events=SimpleNamespace(count_documents=AsyncMock(return_value=4)),
+        workouts=SimpleNamespace(count_documents=AsyncMock(return_value=27)),
+        daily_nutrition=SimpleNamespace(count_documents=AsyncMock(return_value=18)),
+    )
+
+    result = await backend_server.get_kpi_summary(request, _=None, lookback_days=30)
+
+    assert result["lookback_days"] == 30
+    assert result["paywall"]["events"]["view"] == 2
+    assert result["paywall"]["events"]["cta_click"] == 1
+    assert result["paywall"]["events"]["purchase_completed"] == 1
+    assert result["paywall"]["events"]["cta_rate_percent"] == 50.0
+    assert result["paywall"]["events"]["purchase_rate_from_cta_percent"] == 100.0
+    assert result["paywall"]["unique_users"]["view"] == 2
+    assert result["engagement"]["events"] == 3
+    assert result["engagement"]["unique_users"] == 2
+    assert result["activity"]["workouts_logged"] == 27
+    assert result["activity"]["nutrition_days_logged"] == 18
+    assert result["activity"]["social_events"] == 9
+    assert result["activity"]["onboarding_events"] == 4
+
+
+@pytest.mark.asyncio
+async def test_get_kpi_summary_handles_empty_inputs(backend_server):
+    request = _make_request()
+
+    backend_server.db = SimpleNamespace(
+        paywall_events=SimpleNamespace(
+            find=lambda *_args, **_kwargs: SimpleNamespace(to_list=AsyncMock(return_value=[]))
+        ),
+        engagement_events=SimpleNamespace(
+            find=lambda *_args, **_kwargs: SimpleNamespace(to_list=AsyncMock(return_value=[]))
+        ),
+        social_events=SimpleNamespace(count_documents=AsyncMock(return_value=0)),
+        onboarding_events=SimpleNamespace(count_documents=AsyncMock(return_value=0)),
+        workouts=SimpleNamespace(count_documents=AsyncMock(return_value=0)),
+        daily_nutrition=SimpleNamespace(count_documents=AsyncMock(return_value=0)),
+    )
+
+    result = await backend_server.get_kpi_summary(request, _=None, lookback_days=14)
+
+    assert result["lookback_days"] == 14
+    assert result["paywall"]["events"]["view"] == 0
+    assert result["paywall"]["events"]["cta_click"] == 0
+    assert result["paywall"]["events"]["purchase_completed"] == 0
+    assert result["paywall"]["events"]["cta_rate_percent"] == 0.0
+    assert result["engagement"]["events"] == 0
+    assert result["engagement"]["unique_users"] == 0
+    assert result["engagement"]["top_actions"] == []
+

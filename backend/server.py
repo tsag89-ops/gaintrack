@@ -7,7 +7,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Set
 import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
@@ -482,6 +482,37 @@ class SupersetTelemetry(BaseModel):
         if normalized not in allowed:
             raise ValueError("Unsupported event_type")
         return normalized
+
+
+class PaywallTelemetry(BaseModel):
+    feature: str = Field(min_length=2, max_length=80)
+    placement: str = Field(min_length=2, max_length=120)
+    event_type: str = Field(min_length=2, max_length=40)
+    context: Optional[str] = Field(default=None, max_length=160)
+
+    @field_validator("event_type")
+    @classmethod
+    def validate_event_type(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"view", "cta_click", "purchase_completed", "dismiss"}:
+            raise ValueError("Unsupported event_type")
+        return normalized
+
+
+class EngagementTelemetry(BaseModel):
+    feature: str = Field(min_length=2, max_length=80)
+    action: str = Field(min_length=2, max_length=80)
+    context: Optional[str] = Field(default=None, max_length=160)
+
+
+class SocialEventTelemetry(BaseModel):
+    event_type: str = Field(min_length=2, max_length=80)
+    context: Optional[str] = Field(default=None, max_length=160)
+
+
+class OnboardingTelemetry(BaseModel):
+    milestone: str = Field(min_length=2, max_length=80)
+    context: Optional[str] = Field(default=None, max_length=160)
 
 
 class FriendConnectRequest(BaseModel):
@@ -2284,6 +2315,309 @@ async def ingest_superset_telemetry(
     return {
         "tracked": True,
         "recorded_at": now.isoformat(),
+    }
+
+
+@api_router.post("/telemetry/paywall")
+async def ingest_paywall_telemetry(
+    payload: PaywallTelemetry,
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    await enforce_mutation_rate_limit(request, "telemetry.paywall", user.user_id, limit=180, window_seconds=60)
+
+    now = datetime.now(timezone.utc)
+    await db.paywall_events.insert_one(
+        {
+            "user_id": user.user_id,
+            "feature": payload.feature.strip().lower(),
+            "placement": payload.placement.strip().lower(),
+            "event_type": payload.event_type,
+            "context": payload.context,
+            "created_at": now,
+        }
+    )
+
+    return {"tracked": True, "recorded_at": now.isoformat()}
+
+
+@api_router.post("/telemetry/engagement")
+async def ingest_engagement_telemetry(
+    payload: EngagementTelemetry,
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    await enforce_mutation_rate_limit(request, "telemetry.engagement", user.user_id, limit=240, window_seconds=60)
+
+    now = datetime.now(timezone.utc)
+    await db.engagement_events.insert_one(
+        {
+            "user_id": user.user_id,
+            "feature": payload.feature.strip().lower(),
+            "action": payload.action.strip().lower(),
+            "context": payload.context,
+            "created_at": now,
+        }
+    )
+
+    return {"tracked": True, "recorded_at": now.isoformat()}
+
+
+@api_router.post("/telemetry/social-event")
+async def ingest_social_event_telemetry(
+    payload: SocialEventTelemetry,
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    await enforce_mutation_rate_limit(request, "telemetry.social-event", user.user_id, limit=180, window_seconds=60)
+
+    now = datetime.now(timezone.utc)
+    await db.social_events.insert_one(
+        {
+            "user_id": user.user_id,
+            "event_type": payload.event_type.strip().lower(),
+            "context": payload.context,
+            "created_at": now,
+        }
+    )
+
+    return {"tracked": True, "recorded_at": now.isoformat()}
+
+
+@api_router.post("/telemetry/onboarding")
+async def ingest_onboarding_telemetry(
+    payload: OnboardingTelemetry,
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    await enforce_mutation_rate_limit(request, "telemetry.onboarding", user.user_id, limit=90, window_seconds=60)
+
+    now = datetime.now(timezone.utc)
+    await db.onboarding_events.insert_one(
+        {
+            "user_id": user.user_id,
+            "milestone": payload.milestone.strip().lower(),
+            "context": payload.context,
+            "created_at": now,
+        }
+    )
+
+    return {"tracked": True, "recorded_at": now.isoformat()}
+
+
+@api_router.get("/analytics/funnel/paywall")
+async def get_paywall_funnel(
+    request: Request,
+    _: None = Depends(require_internal_cron),
+    lookback_days: int = Query(default=30, ge=1, le=180),
+    feature: Optional[str] = Query(default=None, min_length=2, max_length=80),
+):
+    now = datetime.now(timezone.utc)
+    lookback_start = now - timedelta(days=lookback_days)
+
+    query: Dict[str, Any] = {"created_at": {"$gte": lookback_start}}
+    normalized_feature = feature.strip().lower() if feature else None
+    if normalized_feature:
+        query["feature"] = normalized_feature
+
+    events = await db.paywall_events.find(query, {"_id": 0, "event_type": 1, "feature": 1}).to_list(length=50000)
+
+    counts = {"view": 0, "cta_click": 0, "purchase_completed": 0, "dismiss": 0}
+    by_feature: Dict[str, Dict[str, int]] = {}
+
+    for event in events:
+        event_type = str(event.get("event_type", "")).lower()
+        feature_key = str(event.get("feature", "unknown")).lower()
+        if event_type in counts:
+            counts[event_type] += 1
+            if feature_key not in by_feature:
+                by_feature[feature_key] = {"view": 0, "cta_click": 0, "purchase_completed": 0, "dismiss": 0}
+            by_feature[feature_key][event_type] += 1
+
+    views = counts["view"]
+    ctas = counts["cta_click"]
+    purchases = counts["purchase_completed"]
+
+    return {
+        "lookback_days": lookback_days,
+        "feature": normalized_feature,
+        "generated_at": now.isoformat(),
+        "totals": {
+            **counts,
+            "cta_rate_percent": round((ctas / max(views, 1)) * 100, 2),
+            "purchase_rate_from_view_percent": round((purchases / max(views, 1)) * 100, 2),
+            "purchase_rate_from_cta_percent": round((purchases / max(ctas, 1)) * 100, 2),
+        },
+        "by_feature": by_feature,
+    }
+
+
+@api_router.get("/analytics/cohort/retention")
+async def get_retention_cohorts(
+    request: Request,
+    _: None = Depends(require_internal_cron),
+    lookback_days: int = Query(default=30, ge=7, le=180),
+    days: str = Query(default="1,7,30", min_length=1, max_length=40),
+):
+    now = datetime.now(timezone.utc)
+    parsed_days: List[int] = sorted({int(part.strip()) for part in days.split(",") if part.strip().isdigit()})
+    parsed_days = [d for d in parsed_days if 1 <= d <= 90]
+    if not parsed_days:
+        parsed_days = [1, 7, 30]
+
+    max_day = max(parsed_days)
+    cohort_start = now - timedelta(days=lookback_days)
+    workout_window_start = cohort_start - timedelta(days=max_day)
+
+    base_profiles = await db.notification_profiles.find(
+        {"first_workout_completed_at": {"$gte": cohort_start}},
+        {"_id": 0, "user_id": 1, "first_workout_completed_at": 1},
+    ).to_list(length=50000)
+
+    if not base_profiles:
+        return {
+            "lookback_days": lookback_days,
+            "days": parsed_days,
+            "generated_at": now.isoformat(),
+            "cohort_size": 0,
+            "retention": {},
+        }
+
+    cohort_users: Dict[str, datetime] = {}
+    for profile in base_profiles:
+        user_id = profile.get("user_id")
+        if not user_id:
+            continue
+        cohort_users[user_id] = _normalize_datetime(profile.get("first_workout_completed_at"))
+
+    workouts = await db.workouts.find(
+        {
+            "user_id": {"$in": list(cohort_users.keys())},
+            "date": {"$gte": workout_window_start},
+        },
+        {"_id": 0, "user_id": 1, "date": 1},
+    ).to_list(length=200000)
+
+    workout_days_by_user: Dict[str, Set[str]] = {}
+    for workout in workouts:
+        user_id = workout.get("user_id")
+        if not user_id:
+            continue
+        day_key = _normalize_datetime(workout.get("date")).date().isoformat()
+        if user_id not in workout_days_by_user:
+            workout_days_by_user[user_id] = set()
+        workout_days_by_user[user_id].add(day_key)
+
+    retained_counts = {day: 0 for day in parsed_days}
+    for user_id, first_workout_at in cohort_users.items():
+        first_day = first_workout_at.date()
+        user_days = workout_days_by_user.get(user_id, set())
+        for day in parsed_days:
+            target_day = (first_day + timedelta(days=day)).isoformat()
+            if target_day in user_days:
+                retained_counts[day] += 1
+
+    cohort_size = len(cohort_users)
+    retention = {
+        str(day): {
+            "retained_users": retained_counts[day],
+            "retention_rate_percent": round((retained_counts[day] / max(cohort_size, 1)) * 100, 2),
+        }
+        for day in parsed_days
+    }
+
+    return {
+        "lookback_days": lookback_days,
+        "days": parsed_days,
+        "generated_at": now.isoformat(),
+        "cohort_size": cohort_size,
+        "retention": retention,
+    }
+
+
+@api_router.get("/analytics/kpi/summary")
+async def get_kpi_summary(
+    request: Request,
+    _: None = Depends(require_internal_cron),
+    lookback_days: int = Query(default=30, ge=1, le=180),
+):
+    now = datetime.now(timezone.utc)
+    lookback_start = now - timedelta(days=lookback_days)
+
+    paywall_events = await db.paywall_events.find(
+        {"created_at": {"$gte": lookback_start}},
+        {"_id": 0, "event_type": 1, "feature": 1, "user_id": 1},
+    ).to_list(length=50000)
+
+    paywall_counts = {"view": 0, "cta_click": 0, "purchase_completed": 0, "dismiss": 0}
+    paywall_users = {"view": set(), "cta_click": set(), "purchase_completed": set()}
+
+    for event in paywall_events:
+        event_type = str(event.get("event_type", "")).lower()
+        user_id = event.get("user_id")
+        if event_type in paywall_counts:
+            paywall_counts[event_type] += 1
+        if event_type in paywall_users and user_id:
+            paywall_users[event_type].add(str(user_id))
+
+    engagement_events = await db.engagement_events.find(
+        {"created_at": {"$gte": lookback_start}},
+        {"_id": 0, "feature": 1, "action": 1, "user_id": 1},
+    ).to_list(length=100000)
+
+    engagement_users: Set[str] = set()
+    actions_rollup: Dict[str, int] = {}
+
+    for event in engagement_events:
+        feature = str(event.get("feature", "unknown")).lower()
+        action = str(event.get("action", "unknown")).lower()
+        key = f"{feature}:{action}"
+        actions_rollup[key] = actions_rollup.get(key, 0) + 1
+        user_id = event.get("user_id")
+        if user_id:
+            engagement_users.add(str(user_id))
+
+    top_actions = [
+        {"key": key, "count": count}
+        for key, count in sorted(actions_rollup.items(), key=lambda item: item[1], reverse=True)[:10]
+    ]
+
+    social_events_count = await db.social_events.count_documents({"created_at": {"$gte": lookback_start}})
+    onboarding_events_count = await db.onboarding_events.count_documents({"created_at": {"$gte": lookback_start}})
+    workouts_logged = await db.workouts.count_documents({"date": {"$gte": lookback_start}})
+    nutrition_days_logged = await db.daily_nutrition.count_documents({"created_at": {"$gte": lookback_start}})
+
+    views = paywall_counts["view"]
+    ctas = paywall_counts["cta_click"]
+    purchases = paywall_counts["purchase_completed"]
+
+    return {
+        "lookback_days": lookback_days,
+        "generated_at": now.isoformat(),
+        "paywall": {
+            "events": {
+                **paywall_counts,
+                "cta_rate_percent": round((ctas / max(views, 1)) * 100, 2),
+                "purchase_rate_from_view_percent": round((purchases / max(views, 1)) * 100, 2),
+                "purchase_rate_from_cta_percent": round((purchases / max(ctas, 1)) * 100, 2),
+            },
+            "unique_users": {
+                "view": len(paywall_users["view"]),
+                "cta_click": len(paywall_users["cta_click"]),
+                "purchase_completed": len(paywall_users["purchase_completed"]),
+            },
+        },
+        "engagement": {
+            "events": len(engagement_events),
+            "unique_users": len(engagement_users),
+            "top_actions": top_actions,
+        },
+        "activity": {
+            "workouts_logged": workouts_logged,
+            "nutrition_days_logged": nutrition_days_logged,
+            "social_events": social_events_count,
+            "onboarding_events": onboarding_events_count,
+        },
     }
 
 

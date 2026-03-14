@@ -1,6 +1,6 @@
 // frontend/app/(tabs)/nutrition.tsx
 // Daily nutrition log — macro summary + per-meal food entries
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import { nutritionApi, foodApi } from '../../src/services/api';
 import { getDailyNutritionFromFirestore, saveDailyNutrition } from '../../src/services/firestore';
 import { useAuthStore } from '../../src/store/authStore';
 import { usePro } from '../../src/hooks/usePro';
+import { sendEngagementTelemetry } from '../../src/services/notifications';
 import { DailyNutrition, MealType } from '../../src/types';
 
 const MEAL_ICONS: Record<MealType, string> = {
@@ -140,6 +141,14 @@ export default function NutritionScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  useEffect(() => {
+    sendEngagementTelemetry({
+      feature: 'nutrition',
+      action: 'screen_view',
+      context: 'nutrition_tab',
+    });
+  }, []);
+
   const meals = nutrition?.meals ?? { breakfast: [], lunch: [], dinner: [], snacks: [] };
   const totals = {
     calories: nutrition?.total_calories ?? 0,
@@ -156,6 +165,11 @@ export default function NutritionScreen() {
     const updated = await foodApi.deleteMealEntry(dateStr, mealType, idx);
     if (updated) {
       setNutrition({ ...updated });
+      sendEngagementTelemetry({
+        feature: 'nutrition',
+        action: 'meal_entry_deleted',
+        context: mealType,
+      });
       // [PRO] Keep Firestore in sync
       if (isPro && userId) {
         saveDailyNutrition(userId, updated).catch(() => {});
@@ -187,6 +201,11 @@ export default function NutritionScreen() {
     const updated = await foodApi.updateMealEntry(dateStr, mealType, idx, updates);
     if (updated) {
       setNutrition({ ...updated });
+      sendEngagementTelemetry({
+        feature: 'nutrition',
+        action: 'meal_entry_updated',
+        context: mealType,
+      });
       if (isPro && userId) saveDailyNutrition(userId, updated).catch(() => {});
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -256,7 +275,14 @@ export default function NutritionScreen() {
                 </View>
                 <TouchableOpacity
                   style={styles.addBtn}
-                  onPress={() => router.push({ pathname: '/add-food', params: { mealType, date: dateStr } })}
+                  onPress={() => {
+                    sendEngagementTelemetry({
+                      feature: 'nutrition',
+                      action: 'add_food_opened',
+                      context: mealType,
+                    });
+                    router.push({ pathname: '/add-food', params: { mealType, date: dateStr } });
+                  }}
                 >
                   <Ionicons name="add" size={20} color="#FF6200" />
                 </TouchableOpacity>
