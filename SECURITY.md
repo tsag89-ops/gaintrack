@@ -111,3 +111,11 @@ Remediation progress (2026-03-14):
 - Frontend SCA: high findings remediated via root workspace overrides in `package.json` (`tar` >= 7.5.11, `undici` >= 6.24.0).
 - Local verification: `frontend` command `npm audit --omit=dev --audit-level=high` now passes with only moderate findings (`markdown-it` via `react-native-markdown-display`, no upstream fix available).
 - Remaining blocker: backend `pip-audit` job still failing in CI and requires dependency triage/upgrade plan.
+
+Latest CI validation after frontend remediation (commit `5ec4442b40f6a0346a96144f8e3a1880e1956a7b`):
+
+- Security Quality Operations: https://github.com/tsag89-ops/gaintrack/actions/runs/23094626097
+	- MASVS Cadence Gate: success
+	- Policy Regression Gate: success
+	- Frontend SCA Gate: success
+	- Backend SCA Gate: failure

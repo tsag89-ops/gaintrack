@@ -119,6 +119,7 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Completed: policy regression tests added at `tests/test_policy_regression_gates.py` to enforce Privacy Policy/Terms route availability from login/profile and artifact coverage validation.
 	- Completed: first `Security Quality Operations` workflow evidence captured on `main` (run: `23094523822`, commit `ae39b64b0502a65184fb2b9b4c084791819ed078`) with MASVS/policy gates passing and SCA gates failing.
 	- Completed: frontend SCA high findings remediated by workspace root dependency overrides in `package.json` (`tar` >= 7.5.11, `undici` >= 6.24.0); local `npm audit --omit=dev --audit-level=high` now passes with no high/critical findings.
+	- Completed: post-remediation CI evidence captured (run: `23094626097`, commit `5ec4442b40f6a0346a96144f8e3a1880e1956a7b`) with MASVS/policy/frontend-SCA gates passing; backend-SCA remains the only failing gate.
 	- Note: local execution of new Python tests is blocked in current shell due missing Python runtime; CI gates are configured to enforce verification on PR/push/schedule.
 
 ### Next Active Step
