@@ -4,13 +4,14 @@
 - App: GainTrack — Expo/React Native workout logger (Hevy/Strong-style, better differentiated)
 - Stack: Expo managed workflow, React Native, TypeScript, expo-router, AsyncStorage, Firestore (free tier), RevenueCat
 - Platform: Android + iOS
-- Dev: Windows local at C:\gaintrack\gaintrack — VS Code + Copilot Chat (Ctrl+Shift+I)
+- Dev: Windows local at C:\gaintrack\gaintrack — VS Code + Copilot Chat 
 - Deploy: EAS OTA updates (`eas update --branch production`) + EAS builds via GitHub Actions
 - Theme: Dark mode only — Orange #FF6200 + Charcoal #2D2D2D
 - Agent Role: GainTrack Dev Agent — KEEP ALL EXISTING FILES INTACT. Enhance only.
 - Task: Implement new features, fix bugs, optimize performance, and maintain code quality across the entire codebase. Follow instructions in this file and any relevant subagent files for specific guidelines and requirements.
 - always use --branch production for fixes you want to test on your real installed app. Use --branch dev only for builds made with the development profile.Ask for clarification if any instruction is unclear or seems contradictory. Always prioritize the user experience and app stability in your implementations.
 - Always assume the source of truth is the agency-agents file in .vscode/subagents/ — if it contradicts this copilot-instructions.md, follow the subagent file and say "following subagent instructions from [filename]". If the subagent file is missing any context that seems relevant, say "subagent instructions in [filename] do not cover [context]. Using best judgment to proceed."
+- provide next enhancements for the app taking into considertion the recently edited files and the overall project structure and goals.
 
 ---
 
@@ -39,7 +40,7 @@ app/
     AiSuggestionsScreen.tsx    ← AI coaching tab (preview free / full PRO)
   workout/
     new.tsx                    ← New workout entry point
-    active.tsx                 ← Active workout screen (640 lines, 0 TS errors ✅)
+    active.tsx                 ← Active workout screen 
   _layout.tsx                  ← Global theme + bottom tabs
   +not-found.tsx
 
