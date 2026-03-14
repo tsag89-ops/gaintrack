@@ -29,7 +29,8 @@ service cloud.firestore {
       allow update: if isOwner(userId) && doesNotModifyProFlag();
       allow delete: if isOwner(userId);
 
-      match /{document=**} {
+      // Restrict owner-only subcollections without overriding root document protections.
+      match /{subCollection}/{document=**} {
         allow read, write: if isOwner(userId);
       }
     }

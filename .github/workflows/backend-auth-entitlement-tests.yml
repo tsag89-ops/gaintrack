@@ -1,0 +1,39 @@
+name: Backend Auth Entitlement Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test-backend-auth-entitlement:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run auth and entitlement tests
+        run: |
+          mkdir -p test_reports/pytest
+          pytest tests/test_backend_auth_entitlement.py -q --junitxml=test_reports/pytest/backend-auth-entitlement.xml
+
+      - name: Upload pytest artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-auth-entitlement-pytest
+          path: test_reports/pytest/backend-auth-entitlement.xml

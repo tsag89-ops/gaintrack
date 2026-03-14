@@ -14,7 +14,9 @@
     "build:android": "expo run:android --variant debug",
     "build:ios": "expo run:ios --configuration Debug",
     "build:android:release": "expo run:android --variant release",
-    "build:ios:release": "expo run:ios --configuration Release"
+    "build:ios:release": "expo run:ios --configuration Release",
+    "test:firestore:rules": "node --test tests/firestore.rules.test.js",
+    "test:firestore:rules:emulator": "firebase emulators:exec --only firestore \"npm run test:firestore:rules\""
   },
   "dependencies": {
     "@babel/runtime": "^7.20.6",
@@ -78,11 +80,13 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.0",
     "@babel/core": "^7.25.2",
     "@types/node": "^25.3.3",
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "firebase-tools": "^14.22.0",
     "typescript": "~5.9.3"
   },
   "private": true,

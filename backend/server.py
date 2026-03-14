@@ -6,7 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -37,6 +37,61 @@ logger = logging.getLogger(__name__)
 FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
 FIREBASE_CERTS_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com"
 _firebase_certs_cache: Dict[str, Any] = {"expires_at": datetime.min.replace(tzinfo=timezone.utc), "certs": {}}
+_mutation_rate_limit_cache: Dict[str, List[datetime]] = {}
+
+ALLOWED_EQUIPMENT = {
+    "dumbbells",
+    "barbell",
+    "pullup_bar",
+    "bench",
+    "cables",
+    "machines",
+    "kettlebells",
+    "bands",
+    "bodyweight",
+}
+ALLOWED_MEAL_TYPES = {"breakfast", "lunch", "dinner", "snacks"}
+
+
+def _client_identifier(request: Request, user_id: Optional[str] = None) -> str:
+    if user_id:
+        return f"user:{user_id}"
+
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return f"ip:{forwarded_for.split(',')[0].strip()}"
+
+    if request.client and request.client.host:
+        return f"ip:{request.client.host}"
+
+    return "ip:unknown"
+
+
+async def enforce_mutation_rate_limit(
+    request: Request,
+    scope: str,
+    user_id: Optional[str] = None,
+    limit: int = 60,
+    window_seconds: int = 60,
+) -> None:
+    now = datetime.now(timezone.utc)
+    key = f"{scope}:{_client_identifier(request, user_id)}"
+    window_start = now - timedelta(seconds=window_seconds)
+
+    hits = [ts for ts in _mutation_rate_limit_cache.get(key, []) if ts >= window_start]
+    if len(hits) >= limit:
+        raise HTTPException(status_code=429, detail="Too many requests")
+
+    hits.append(now)
+    _mutation_rate_limit_cache[key] = hits
+
+
+def validate_date_key(date_value: str) -> str:
+    try:
+        datetime.strptime(date_value, "%Y-%m-%d")
+        return date_value
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Date must be in YYYY-MM-DD format") from exc
 
 # ============== Models ==============
 
@@ -55,14 +110,26 @@ class User(BaseModel):
     equipment: Optional[List[str]] = None
 
 class UserGoals(BaseModel):
-    daily_calories: int = 2000
-    protein_grams: int = 150
-    carbs_grams: int = 200
-    fat_grams: int = 65
-    workouts_per_week: int = 4
+    daily_calories: int = Field(default=2000, ge=800, le=10000)
+    protein_grams: int = Field(default=150, ge=0, le=600)
+    carbs_grams: int = Field(default=200, ge=0, le=1000)
+    fat_grams: int = Field(default=65, ge=0, le=400)
+    workouts_per_week: int = Field(default=4, ge=1, le=14)
 
 class UserEquipment(BaseModel):
-    equipment: List[str]  # ['dumbbells', 'barbell', 'pullup_bar', 'bench', 'cables', 'machines']
+    equipment: List[str] = Field(default_factory=list, min_length=0, max_length=20)
+
+    @field_validator("equipment")
+    @classmethod
+    def validate_equipment(cls, values: List[str]) -> List[str]:
+        normalized = []
+        for item in values:
+            equipment = item.strip().lower()
+            if equipment not in ALLOWED_EQUIPMENT:
+                raise ValueError(f"Unsupported equipment: {item}")
+            if equipment not in normalized:
+                normalized.append(equipment)
+        return normalized
 
 class Exercise(BaseModel):
     exercise_id: str = Field(default_factory=lambda: f"ex_{uuid.uuid4().hex[:12]}")
@@ -73,17 +140,17 @@ class Exercise(BaseModel):
     is_compound: bool = False
 
 class WorkoutSet(BaseModel):
-    set_number: int
-    weight: float
-    reps: int
-    rpe: Optional[int] = None  # Rate of Perceived Exertion 1-10
+    set_number: int = Field(ge=1, le=50)
+    weight: float = Field(ge=0, le=5000)
+    reps: int = Field(ge=1, le=200)
+    rpe: Optional[int] = Field(default=None, ge=1, le=10)  # Rate of Perceived Exertion 1-10
     is_warmup: bool = False
 
 class WorkoutExercise(BaseModel):
-    exercise_id: str
-    exercise_name: str
-    sets: List[WorkoutSet] = []
-    notes: Optional[str] = None
+    exercise_id: str = Field(min_length=1, max_length=64)
+    exercise_name: str = Field(min_length=1, max_length=120)
+    sets: List[WorkoutSet] = Field(default_factory=list, max_length=30)
+    notes: Optional[str] = Field(default=None, max_length=1000)
 
 class Workout(BaseModel):
     workout_id: str = Field(default_factory=lambda: f"wk_{uuid.uuid4().hex[:12]}")
@@ -96,11 +163,11 @@ class Workout(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class WorkoutCreate(BaseModel):
-    name: str = "Workout"
+    name: str = Field(default="Workout", min_length=1, max_length=120)
     date: Optional[datetime] = None
-    exercises: List[WorkoutExercise] = []
-    duration_minutes: Optional[int] = None
-    notes: Optional[str] = None
+    exercises: List[WorkoutExercise] = Field(default_factory=list, max_length=60)
+    duration_minutes: Optional[int] = Field(default=None, ge=1, le=600)
+    notes: Optional[str] = Field(default=None, max_length=3000)
 
 class Food(BaseModel):
     food_id: str = Field(default_factory=lambda: f"fd_{uuid.uuid4().hex[:12]}")
@@ -135,13 +202,21 @@ class DailyNutrition(BaseModel):
 
 class MealEntryCreate(BaseModel):
     meal_type: str  # breakfast, lunch, dinner, snacks
-    food_id: str
-    food_name: str
-    servings: float
-    calories: float
-    protein: float
-    carbs: float
-    fat: float
+    food_id: str = Field(min_length=1, max_length=64)
+    food_name: str = Field(min_length=1, max_length=120)
+    servings: float = Field(gt=0, le=20)
+    calories: float = Field(ge=0, le=5000)
+    protein: float = Field(ge=0, le=500)
+    carbs: float = Field(ge=0, le=1000)
+    fat: float = Field(ge=0, le=500)
+
+    @field_validator("meal_type")
+    @classmethod
+    def validate_meal_type(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in ALLOWED_MEAL_TYPES:
+            raise ValueError("meal_type must be one of: breakfast, lunch, dinner, snacks")
+        return normalized
 
 # ============== Auth Helpers ==============
 
@@ -163,9 +238,12 @@ async def get_current_user(request: Request) -> User:
     # If no db session exists, treat bearer token as Firebase ID token and
     # verify server-side before authorizing access.
     if not session and bearer_token:
-        firebase_user_id = await verify_firebase_id_token(bearer_token)
+        firebase_payload = await verify_firebase_token_payload(bearer_token)
+        firebase_user_id = firebase_payload.get("sub") if firebase_payload else None
         if not firebase_user_id:
             raise HTTPException(status_code=401, detail="Invalid session")
+
+        request.state.firebase_claims = firebase_payload
 
         user = await db.users.find_one({"user_id": firebase_user_id}, {"_id": 0})
         if not user:
@@ -217,6 +295,11 @@ async def _get_firebase_certs() -> Dict[str, str]:
 
 
 async def verify_firebase_id_token(token: str) -> Optional[str]:
+    payload = await verify_firebase_token_payload(token)
+    return payload.get("sub") if payload else None
+
+
+async def verify_firebase_token_payload(token: str) -> Optional[Dict[str, Any]]:
     if not FIREBASE_PROJECT_ID:
         logger.warning("FIREBASE_PROJECT_ID not set; cannot verify Firebase ID token")
         return None
@@ -243,7 +326,7 @@ async def verify_firebase_id_token(token: str) -> Optional[str]:
         user_id = payload.get("sub")
         if not user_id:
             return None
-        return user_id
+        return payload
     except JWTError as e:
         logger.warning(f"Firebase token verification failed: {e}")
         return None
@@ -251,11 +334,58 @@ async def verify_firebase_id_token(token: str) -> Optional[str]:
         logger.error(f"Firebase cert/token verification error: {e}")
         return None
 
+
+def _claims_grant_pro(claims: Dict[str, Any]) -> bool:
+    if not claims:
+        return False
+
+    if claims.get("isPro") is True or claims.get("pro") is True:
+        return True
+
+    entitlements = claims.get("entitlements")
+    if isinstance(entitlements, dict):
+        if entitlements.get("pro") is True:
+            return True
+
+    return False
+
+
+async def require_pro_user(request: Request, user: User = Depends(get_current_user)) -> User:
+    """
+    Server-authoritative Pro entitlement check.
+    Priority:
+    1) Verified Firebase custom claims (webhook/admin-managed)
+    2) Backend user record flags (isPro / entitlements.pro / subscription.pro)
+    """
+    firebase_claims = getattr(request.state, "firebase_claims", None) or {}
+    if _claims_grant_pro(firebase_claims):
+        return user
+
+    user_doc = await db.users.find_one(
+        {"user_id": user.user_id},
+        {"_id": 0, "isPro": 1, "entitlements": 1, "subscription": 1},
+    )
+
+    if user_doc:
+        if user_doc.get("isPro") is True:
+            return user
+
+        entitlements = user_doc.get("entitlements")
+        if isinstance(entitlements, dict) and entitlements.get("pro") is True:
+            return user
+
+        subscription = user_doc.get("subscription")
+        if isinstance(subscription, dict) and subscription.get("pro") is True:
+            return user
+
+    raise HTTPException(status_code=403, detail="Pro subscription required")
+
 # ============== Auth Endpoints ==============
 
 @api_router.post("/auth/session")
 async def exchange_session(request: Request, response: Response):
     """Exchange session_id from OAuth callback for session_token"""
+    await enforce_mutation_rate_limit(request, "auth.session", limit=20, window_seconds=60)
     body = await request.json()
     session_id = body.get("session_id")
     
@@ -344,6 +474,7 @@ async def get_me(user: User = Depends(get_current_user)):
 @api_router.post("/auth/logout")
 async def logout(request: Request, response: Response):
     """Logout user"""
+    await enforce_mutation_rate_limit(request, "auth.logout", limit=30, window_seconds=60)
     session_token = request.cookies.get("session_token")
     if session_token:
         await db.user_sessions.delete_one({"session_token": session_token})
@@ -354,8 +485,9 @@ async def logout(request: Request, response: Response):
 # ============== User Endpoints ==============
 
 @api_router.put("/user/goals")
-async def update_goals(goals: UserGoals, user: User = Depends(get_current_user)):
+async def update_goals(goals: UserGoals, request: Request, user: User = Depends(get_current_user)):
     """Update user nutrition/fitness goals"""
+    await enforce_mutation_rate_limit(request, "user.goals", user.user_id, limit=30, window_seconds=60)
     await db.users.update_one(
         {"user_id": user.user_id},
         {"$set": {"goals": goals.model_dump()}}
@@ -363,8 +495,9 @@ async def update_goals(goals: UserGoals, user: User = Depends(get_current_user))
     return {"message": "Goals updated", "goals": goals.model_dump()}
 
 @api_router.put("/user/equipment")
-async def update_equipment(equipment: UserEquipment, user: User = Depends(get_current_user)):
+async def update_equipment(equipment: UserEquipment, request: Request, user: User = Depends(get_current_user)):
     """Update user's home gym equipment"""
+    await enforce_mutation_rate_limit(request, "user.equipment", user.user_id, limit=30, window_seconds=60)
     await db.users.update_one(
         {"user_id": user.user_id},
         {"$set": {"equipment": equipment.equipment}}
@@ -493,8 +626,9 @@ async def get_exercises_for_user(user: User = Depends(get_current_user), categor
 # ============== Workout Endpoints ==============
 
 @api_router.post("/workouts")
-async def create_workout(workout: WorkoutCreate, user: User = Depends(get_current_user)):
+async def create_workout(workout: WorkoutCreate, request: Request, user: User = Depends(get_current_user)):
     """Create a new workout"""
+    await enforce_mutation_rate_limit(request, "workouts.create", user.user_id, limit=20, window_seconds=60)
     workout_obj = Workout(
         user_id=user.user_id,
         date=workout.date or datetime.now(timezone.utc),
@@ -527,8 +661,9 @@ async def get_workout(workout_id: str, user: User = Depends(get_current_user)):
     return workout
 
 @api_router.put("/workouts/{workout_id}")
-async def update_workout(workout_id: str, workout: WorkoutCreate, user: User = Depends(get_current_user)):
+async def update_workout(workout_id: str, workout: WorkoutCreate, request: Request, user: User = Depends(get_current_user)):
     """Update a workout"""
+    await enforce_mutation_rate_limit(request, "workouts.update", user.user_id, limit=30, window_seconds=60)
     existing = await db.workouts.find_one({"workout_id": workout_id, "user_id": user.user_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Workout not found")
@@ -543,8 +678,9 @@ async def update_workout(workout_id: str, workout: WorkoutCreate, user: User = D
     return updated
 
 @api_router.delete("/workouts/{workout_id}")
-async def delete_workout(workout_id: str, user: User = Depends(get_current_user)):
+async def delete_workout(workout_id: str, request: Request, user: User = Depends(get_current_user)):
     """Delete a workout"""
+    await enforce_mutation_rate_limit(request, "workouts.delete", user.user_id, limit=20, window_seconds=60)
     result = await db.workouts.delete_one({"workout_id": workout_id, "user_id": user.user_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Workout not found")
@@ -553,8 +689,13 @@ async def delete_workout(workout_id: str, user: User = Depends(get_current_user)
 # ============== Warm-up Calculator ==============
 
 @api_router.post("/workouts/warmup-sets")
-async def calculate_warmup_sets(working_weight: float, exercise_name: str):
+async def calculate_warmup_sets(
+    request: Request,
+    working_weight: float = Field(ge=0, le=2000),
+    exercise_name: str = Field(min_length=1, max_length=120),
+):
     """Calculate warm-up sets based on working weight"""
+    await enforce_mutation_rate_limit(request, "workouts.warmup", limit=60, window_seconds=60)
     warmup_sets = []
     
     if working_weight <= 0:
@@ -590,7 +731,7 @@ class ProgressionSuggestion(BaseModel):
     recent_performance: List[Dict[str, Any]]
 
 @api_router.get("/progression/suggestions")
-async def get_progression_suggestions(user: User = Depends(get_current_user)):
+async def get_progression_suggestions(user: User = Depends(require_pro_user)):
     """
     AI-powered progression suggestions based on workout history.
     Analyzes recent performance and suggests weight increases.
@@ -714,7 +855,7 @@ async def get_progression_suggestions(user: User = Depends(get_current_user)):
     }
 
 @api_router.get("/progression/exercise/{exercise_name}")
-async def get_exercise_progression(exercise_name: str, user: User = Depends(get_current_user)):
+async def get_exercise_progression(exercise_name: str, user: User = Depends(require_pro_user)):
     """Get detailed progression history for a specific exercise"""
     # Optimized projection - only fetch needed fields
     projection = {
@@ -877,25 +1018,34 @@ class BodyMeasurement(BaseModel):
 
 class MeasurementCreate(BaseModel):
     date: Optional[str] = None
-    weight: Optional[float] = None
-    body_fat: Optional[float] = None
-    chest: Optional[float] = None
-    waist: Optional[float] = None
-    hips: Optional[float] = None
-    biceps_left: Optional[float] = None
-    biceps_right: Optional[float] = None
-    thighs_left: Optional[float] = None
-    thighs_right: Optional[float] = None
-    calves_left: Optional[float] = None
-    calves_right: Optional[float] = None
-    neck: Optional[float] = None
-    shoulders: Optional[float] = None
-    notes: Optional[str] = None
+    weight: Optional[float] = Field(default=None, ge=0, le=1400)
+    body_fat: Optional[float] = Field(default=None, ge=0, le=80)
+    chest: Optional[float] = Field(default=None, ge=0, le=120)
+    waist: Optional[float] = Field(default=None, ge=0, le=120)
+    hips: Optional[float] = Field(default=None, ge=0, le=120)
+    biceps_left: Optional[float] = Field(default=None, ge=0, le=40)
+    biceps_right: Optional[float] = Field(default=None, ge=0, le=40)
+    thighs_left: Optional[float] = Field(default=None, ge=0, le=80)
+    thighs_right: Optional[float] = Field(default=None, ge=0, le=80)
+    calves_left: Optional[float] = Field(default=None, ge=0, le=50)
+    calves_right: Optional[float] = Field(default=None, ge=0, le=50)
+    neck: Optional[float] = Field(default=None, ge=0, le=40)
+    shoulders: Optional[float] = Field(default=None, ge=0, le=90)
+    notes: Optional[str] = Field(default=None, max_length=1000)
+
+    @field_validator("date")
+    @classmethod
+    def validate_optional_date(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        datetime.strptime(value, "%Y-%m-%d")
+        return value
 
 @api_router.post("/measurements")
-async def create_measurement(measurement: MeasurementCreate, user: User = Depends(get_current_user)):
+async def create_measurement(measurement: MeasurementCreate, request: Request, user: User = Depends(get_current_user)):
     """Create or update body measurement for a date"""
-    date = measurement.date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    await enforce_mutation_rate_limit(request, "measurements.write", user.user_id, limit=30, window_seconds=60)
+    date = validate_date_key(measurement.date or datetime.now(timezone.utc).strftime("%Y-%m-%d"))
     
     # Check if measurement exists for this date
     existing = await db.body_measurements.find_one(
@@ -937,6 +1087,7 @@ async def get_measurements(user: User = Depends(get_current_user), limit: int = 
 @api_router.get("/measurements/{date}")
 async def get_measurement(date: str, user: User = Depends(get_current_user)):
     """Get body measurement for a specific date"""
+    date = validate_date_key(date)
     measurement = await db.body_measurements.find_one(
         {"user_id": user.user_id, "date": date},
         {"_id": 0}
@@ -946,8 +1097,10 @@ async def get_measurement(date: str, user: User = Depends(get_current_user)):
     return measurement
 
 @api_router.delete("/measurements/{date}")
-async def delete_measurement(date: str, user: User = Depends(get_current_user)):
+async def delete_measurement(date: str, request: Request, user: User = Depends(get_current_user)):
     """Delete a body measurement"""
+    await enforce_mutation_rate_limit(request, "measurements.delete", user.user_id, limit=20, window_seconds=60)
+    date = validate_date_key(date)
     result = await db.body_measurements.delete_one(
         {"user_id": user.user_id, "date": date}
     )
@@ -956,7 +1109,7 @@ async def delete_measurement(date: str, user: User = Depends(get_current_user)):
     return {"message": "Measurement deleted"}
 
 @api_router.get("/measurements/stats/progress")
-async def get_measurement_progress(user: User = Depends(get_current_user), days: int = 90):
+async def get_measurement_progress(user: User = Depends(require_pro_user), days: int = 90):
     """Get measurement progress over time for charts"""
     start_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
     
@@ -1029,8 +1182,10 @@ async def get_daily_nutrition(date: str, user: User = Depends(get_current_user))
     return nutrition
 
 @api_router.post("/nutrition/{date}/meal")
-async def add_meal_entry(date: str, entry: MealEntryCreate, user: User = Depends(get_current_user)):
+async def add_meal_entry(date: str, entry: MealEntryCreate, request: Request, user: User = Depends(get_current_user)):
     """Add a food entry to a meal"""
+    await enforce_mutation_rate_limit(request, "nutrition.meal.add", user.user_id, limit=40, window_seconds=60)
+    date = validate_date_key(date)
     existing = await db.daily_nutrition.find_one(
         {"user_id": user.user_id, "date": date}
     )
@@ -1087,8 +1242,14 @@ async def add_meal_entry(date: str, entry: MealEntryCreate, user: User = Depends
     return await get_daily_nutrition(date, user)
 
 @api_router.delete("/nutrition/{date}/meal/{meal_type}/{index}")
-async def remove_meal_entry(date: str, meal_type: str, index: int, user: User = Depends(get_current_user)):
+async def remove_meal_entry(date: str, meal_type: str, index: int, request: Request, user: User = Depends(get_current_user)):
     """Remove a food entry from a meal"""
+    await enforce_mutation_rate_limit(request, "nutrition.meal.delete", user.user_id, limit=40, window_seconds=60)
+    date = validate_date_key(date)
+    if meal_type not in ALLOWED_MEAL_TYPES:
+        raise HTTPException(status_code=422, detail="Invalid meal_type")
+    if index < 0:
+        raise HTTPException(status_code=422, detail="index must be non-negative")
     existing = await db.daily_nutrition.find_one(
         {"user_id": user.user_id, "date": date}
     )
@@ -1127,7 +1288,7 @@ async def remove_meal_entry(date: str, meal_type: str, index: int, user: User = 
 # ============== Progress/Stats Endpoints ==============
 
 @api_router.get("/stats/workout-volume")
-async def get_workout_volume(user: User = Depends(get_current_user), days: int = 30):
+async def get_workout_volume(user: User = Depends(require_pro_user), days: int = 30):
     """Get workout volume over time"""
     start_date = datetime.now(timezone.utc) - timedelta(days=days)
     
@@ -1153,7 +1314,7 @@ async def get_workout_volume(user: User = Depends(get_current_user), days: int =
     return volume_data
 
 @api_router.get("/stats/nutrition-adherence")
-async def get_nutrition_adherence(user: User = Depends(get_current_user), days: int = 7):
+async def get_nutrition_adherence(user: User = Depends(require_pro_user), days: int = 7):
     """Get nutrition macro adherence over time"""
     today = datetime.now(timezone.utc).date()
     
@@ -1442,8 +1603,9 @@ async def get_workout_template(template_id: str):
     return template
 
 @api_router.post("/templates/{template_id}/start")
-async def start_program(template_id: str, user: User = Depends(get_current_user)):
+async def start_program(template_id: str, request: Request, user: User = Depends(get_current_user)):
     """Start a workout program - creates the first workout from template"""
+    await enforce_mutation_rate_limit(request, "templates.start", user.user_id, limit=10, window_seconds=60)
     template = await db.workout_templates.find_one(
         {"template_id": template_id},
         {"_id": 0}

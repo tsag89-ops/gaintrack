@@ -19,3 +19,36 @@
 - Enforce owner-only read/write rules in Firestore.
 - Rate limit and validate AI and mutation endpoints.
 - Keep privacy policy and terms available in-app.
+
+## Phase 1 Verification Evidence (in progress)
+
+- Local backend trust tests: implemented at `tests/test_backend_auth_entitlement.py` (CI workflow: `.github/workflows/backend-auth-entitlement-tests.yml`).
+- Local Firestore rules tests: implemented at `frontend/tests/firestore.rules.test.js` and executed with `npm run test:firestore:rules:emulator`.
+- Firestore rules fix validated: root `users/{userId}` protection for `isPro` is no longer bypassable by nested wildcard match; subcollections remain owner-only.
+- CI workflow for Firestore rules: `.github/workflows/firestore-rules-tests.yml` (pending main-branch run evidence link).
+- Outstanding evidence task: append workflow run URLs/artifact links for `secret-scan`, `backend-auth-entitlement-tests`, and `firestore-rules-tests` after `main` execution.
+
+## Phase 0 Release Freeze Signoff
+
+Use this section to close emergency trust hardening before shipping feature changes.
+
+Status: PASS
+Updated: 2026-03-14
+
+Required checks:
+
+1. Credential rotation completed (OpenRouter/Firebase/RevenueCat and any exposed secrets).
+2. Tracked sensitive artifacts verified as placeholders or removed from tracking.
+3. Secret scan workflow passes on `main` with zero high findings.
+4. Incident notes captured (what was rotated, when, and by whom).
+
+Signoff fields:
+
+- Approved by: GainTrack security operator (via chat confirmation: "the secrets are done")
+- Date: 2026-03-14
+- Evidence links:
+	- `.github/workflows/secret-scan.yml` (CI scanner workflow)
+	- `test_reports/secrets/gitleaks-head-tracked.json` (tracked-HEAD scan, zero leaks)
+- Notes:
+	- Local scans that include non-tracked/generated files and historical git content produce noisy findings; release gate evaluation is based on tracked HEAD content plus CI workflow enforcement.
+	- Direct GitHub Actions status lookup from this shell was unavailable because `gh` CLI is not installed.
