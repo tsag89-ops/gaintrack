@@ -9,6 +9,7 @@ import {
   Modal,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -38,6 +39,24 @@ export default function ExercisesScreen() {
     const raw = await AsyncStorage.getItem('gaintrack_templates');
     setTemplates(raw ? JSON.parse(raw) : []);
     setShowTemplatePicker(true);
+  };
+
+  const deleteTemplate = async (id: string) => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert('Delete Template', 'Are you sure you want to delete this template?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const raw = await AsyncStorage.getItem('gaintrack_templates');
+          const all = raw ? JSON.parse(raw) : [];
+          const updated = all.filter((t: any) => t.id !== id);
+          await AsyncStorage.setItem('gaintrack_templates', JSON.stringify(updated));
+          setTemplates(updated);
+        },
+      },
+    ]);
   };
 
   const applyTemplate = async (template: any) => {
@@ -145,7 +164,13 @@ export default function ExercisesScreen() {
                         {(t.exercises ?? []).length} exercise{(t.exercises ?? []).length !== 1 ? 's' : ''}
                       </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+                    <TouchableOpacity
+                      style={styles.deleteBtn}
+                      onPress={(e) => { e.stopPropagation(); deleteTemplate(t.id); }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={18} color={theme.error} />
+                    </TouchableOpacity>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -211,6 +236,10 @@ const styles = StyleSheet.create({
   templateMeta: {
     fontSize: 12,
     color: theme.textSecondary,
+  },
+  deleteBtn: {
+    padding: 6,
+    marginLeft: 8,
   },
   emptyState: {
     alignItems: 'center',

@@ -113,6 +113,10 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="progress/ProgressOverviewScreen"
+        options={{ href: null }}
+      />
       {/* exercises tab is now shown in the tab bar as the 2nd entry above */}
     </Tabs>
   );

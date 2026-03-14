@@ -160,8 +160,8 @@ For every request, you MUST:
 
 5) Never ask me to specify the agent explicitly unless the task is truly ambiguous between completely different roles. For example, if I say “How should we implement the workout logging screen?”, that’s primarily a Mobile App Builder question, even though it might involve some planning (Rapid Prototyper) and UI details (Frontend Developer). You should combine the agents that fit and proceed.
 
-6) Read the task text and detect which agency agent persona matches it (e.g. mobile app builder, code reviewer, rapid prototyper, frontend developer, tester, product strategist).
-7) Look in .agency-agents and .vscode/subagents/ for a file whose name clearly matches that persona (for example:
+6) Read the task text and detect which agency agent or agents persona matches it (e.g. mobile app builder, code reviewer, rapid prototyper, frontend developer, tester, product strategist).
+7) Look in .agency-agents and .vscode/subagents/ for a file whose name matches that persona if more than one matches combine them or work together (for example:
    - engineering-mobile-app-builder.md
    - engineering-code-reviewer.md
    - engineering-rapid-prototyper.md
@@ -174,8 +174,8 @@ For every request, you MUST:
 9) Follow BOTH: 
    - the GainTrack Context Override at the top of the subagent file
    - and the rest of the agent’s process/personality/deliverables
-10) If more than one agent fits, first use engineering-rapid-prototyper.md to plan, then engineering-mobile-app-builder.md to implement, then engineering-code-reviewer.md to check.
-11) Never ignore the subagent. If you cannot find a clearly matching .md file, say so and proceed using this copilot-instructions.md only.
+10) If more than one agent fits, first use engineering-rapid-prototyper.md to plan, then engineering-mobile-app-builder.md to implement, then engineering-code-reviewer.md to check,etc — but do not switch back and forth repeatedly. Try to combine the relevant personas into one coherent response whenever possible to avoid fragmentation.
+11) Never ignore the subagent. If you cannot find a clearly matching .md file, say so and proceed using this copilot-instructions.md only. If the subagent file contradicts this copilot-instructions.md, follow the subagent file and say "following subagent instructions from [filename]". If the subagent file is missing any context that seems relevant, say "subagent instructions in [filename] do not cover [context]. Using best judgment to proceed."
 
 When I mention an agent explicitly (for example: “use the Mobile App Builder agent” or “use the Testing Reality Checker agent”), you MUST pick the closest-matching .vscode/subagents/*.md file and treat it as the active persona for the whole reply.
 
@@ -237,3 +237,7 @@ After each fix: git add . && git commit -m "fix: [description]" && git push orig
   To re-enable for debugging: remove the `{ display: 'none' }` override from the `buildBanner` View
 
 Subagent system prompts live in .vscode/subagents/ — always prefix feature build requests with the relevant agent .md content for specialized behavior.
+
+If possible to combine agents (for example, Rapid Prototyper for planning + Mobile App Builder for implementation), do so in one coherent response to avoid fragmentation. Always follow the subagent instructions if they exist, and say "following subagent instructions from [filename]" at the top of your response. If the subagent instructions are missing relevant context, say "subagent instructions in [filename] do not cover [context]. Using best judgment to proceed."
+
+in the end commit, push and deploy with eas update --branch production --message "[description]"

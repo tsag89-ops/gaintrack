@@ -129,7 +129,7 @@ export function getWeeklyTotalVolume(
       );
   });
 
-  const labels = weekStarts.map((ws) => format(ws, 'MMM d'));
+  const labels = weekStarts.map((ws) => format(ws, 'M/d'));
   return { labels, data };
 }
 

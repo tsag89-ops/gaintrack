@@ -29,6 +29,7 @@ import { colors, typography, spacing, radii } from '../../src/constants/theme';
 import { usePro } from '../../src/hooks/usePro';
 import { calc1RM } from '../../src/utils/fitness';
 import { GOAL_KEY, type BodyCompositionGoal } from '../body-composition-goal';
+import { useWorkoutVolume } from '../../src/hooks/useWorkoutVolume';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -192,6 +193,8 @@ export default function ProgressScreen() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [goal, setGoal] = useState<BodyCompositionGoal | null>(null);
+  // Volume Overview — loaded upfront so the volume tab renders inline charts without a separate screen
+  const { volumeData: overviewVolumeData, loading: overviewLoading } = useWorkoutVolume(); // [PRO]
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -617,6 +620,31 @@ export default function ProgressScreen() {
               ) : (
                 <EmptyState icon="bar-chart-outline" title="No volume data yet" subtitle="Complete workouts to track your weekly training volume" />
               )}
+
+              {/* ── Volume Overview: Muscle-Group Breakdown ── */}
+              {overviewLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 16 }} />
+              ) : overviewVolumeData?.muscleGroup.data.length ? (
+                <View style={styles.chartCard}>
+                  <Text style={styles.cardTitle}>This Week — Volume by Muscle Group</Text>
+                  <Text style={styles.cardSubtitle}>sets × reps × weight per muscle group</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <BarChart
+                      data={{ labels: overviewVolumeData.muscleGroup.labels, datasets: [{ data: overviewVolumeData.muscleGroup.data }] }}
+                      width={Math.max(SCREEN_W - 48, overviewVolumeData.muscleGroup.labels.length * 72)}
+                      height={200}
+                      chartConfig={{ ...CHART_CFG, propsForLabels: { fontSize: '11' } }}
+                      style={styles.chart}
+                      yAxisLabel=""
+                      yAxisSuffix=" kg"
+                      fromZero
+                      showValuesOnTopOfBars
+                      withInnerLines
+                      verticalLabelRotation={0}
+                    />
+                  </ScrollView>
+                </View>
+              ) : null}
             </View>
           )}
 
