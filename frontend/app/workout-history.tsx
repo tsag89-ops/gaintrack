@@ -19,6 +19,7 @@ import { useNativeAuthState } from '../src/hooks/useAuth';
 import { Workout } from '../src/types';
 import { useWeightUnit } from '../src/hooks/useWeightUnit';
 import { formatDate, calculateWorkoutVolume, calculateTotalSets, formatVolume } from '../src/utils/helpers';
+import { shareWorkoutCard } from '../src/services/social';
 
 export default function WorkoutHistoryScreen() {
   const router = useRouter();
@@ -98,6 +99,26 @@ export default function WorkoutHistoryScreen() {
     );
   };
 
+  const handleShareWorkout = async (workout: Workout) => {
+    const exercises = workout.exercises ?? [];
+    const volume = calculateWorkoutVolume(exercises);
+    const totalSets = calculateTotalSets(exercises);
+
+    const shared = await shareWorkoutCard({
+      workoutName: workout.name || 'Workout',
+      date: formatDate(workout.date),
+      totalVolume: `${formatVolume(volume)} ${weightUnit}`,
+      totalSets,
+      exerciseCount: exercises.length,
+    });
+
+    if (shared) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      Alert.alert('Share unavailable', 'Could not share this workout card right now.');
+    }
+  };
+
   const renderWorkoutCard = ({ item }: { item: Workout }) => {
     const exercises = item.exercises ?? [];
     const volume = calculateWorkoutVolume(exercises);
@@ -115,7 +136,16 @@ export default function WorkoutHistoryScreen() {
             <Text style={styles.cardDate}>{formatDate(item.date)}</Text>
             <Text style={styles.cardName}>{item.name || 'Untitled Workout'}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+          <View style={styles.cardHeaderActions}>
+            <TouchableOpacity
+              style={styles.shareButton}
+              onPress={() => handleShareWorkout(item)}
+              hitSlop={{ top: 8, left: 8, right: 8, bottom: 8 }}
+            >
+              <Ionicons name="share-social-outline" size={18} color="#FF6200" />
+            </TouchableOpacity>
+            <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+          </View>
         </View>
 
         <View style={styles.cardStats}>
@@ -257,6 +287,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
+  },
+  cardHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  shareButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,98,0,0.14)',
   },
   cardDate: {
     fontSize: 12,

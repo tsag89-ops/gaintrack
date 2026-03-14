@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -50,6 +50,14 @@ interface ExerciseHistory {
   total_sessions: number;
 }
 
+interface AnalyticsDepthInsights {
+  fatigueScore: number;
+  deloadRecommended: boolean;
+  highStrainExercises: string[];
+  periodizationPhase: 'base' | 'build' | 'peak' | 'deload';
+  periodizationMessage: string;
+}
+
 const CONFIDENCE_COLORS: Record<string, string> = {
   high: '#4CAF50',
   medium: '#FFC107',
@@ -74,6 +82,57 @@ export default function ProgressionScreen() {
   const [exerciseHistory, setExerciseHistory] = useState<ExerciseHistory | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [totalAnalyzed, setTotalAnalyzed] = useState(0);
+
+  const analyticsInsights = useMemo<AnalyticsDepthInsights>(() => {
+    const recentEntries = suggestions.flatMap((suggestion) =>
+      suggestion.recent_performance
+        .slice(0, 3)
+        .filter((p) => Number.isFinite(p.avg_rpe) && p.avg_rpe > 0)
+        .map((p) => ({
+          exercise: suggestion.exercise_name,
+          avgRpe: p.avg_rpe,
+          increasePct: suggestion.increase_percentage,
+        })),
+    );
+
+    const avgRpe = recentEntries.length
+      ? recentEntries.reduce((sum, entry) => sum + entry.avgRpe, 0) / recentEntries.length
+      : 0;
+    const highRpeCount = recentEntries.filter((entry) => entry.avgRpe >= 8.5).length;
+    const lowProgressCount = recentEntries.filter((entry) => entry.increasePct <= 2).length;
+
+    const fatigueScore = Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round((avgRpe / 10) * 65 + (highRpeCount / Math.max(recentEntries.length, 1)) * 35),
+      ),
+    );
+
+    const highStrainExercises = Array.from(
+      new Set(recentEntries.filter((entry) => entry.avgRpe >= 8.5).map((entry) => entry.exercise)),
+    ).slice(0, 3);
+
+    const deloadRecommended = fatigueScore >= 72 && lowProgressCount >= Math.ceil(recentEntries.length * 0.35);
+
+    const weekBucket = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000)) % 4;
+    const phaseOrder: Array<AnalyticsDepthInsights['periodizationPhase']> = ['base', 'build', 'peak', 'deload'];
+    const periodizationPhase = phaseOrder[weekBucket];
+    const periodizationMessageMap: Record<AnalyticsDepthInsights['periodizationPhase'], string> = {
+      base: 'Base week: prioritize clean technique and stable volume targets.',
+      build: 'Build week: push progressive overload with conservative jumps.',
+      peak: 'Peak week: keep intensity high, reduce accessory fatigue.',
+      deload: 'Deload week: reduce load and volume to restore readiness.',
+    };
+
+    return {
+      fatigueScore,
+      deloadRecommended,
+      highStrainExercises,
+      periodizationPhase,
+      periodizationMessage: periodizationMessageMap[periodizationPhase],
+    };
+  }, [suggestions]);
 
   const fetchSuggestions = useCallback(async () => {
     try {
@@ -151,6 +210,38 @@ export default function ProgressionScreen() {
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{suggestions.length}</Text>
               <Text style={styles.statLabel}>Ready to Progress</Text>
+            </View>
+          </View>
+
+          <View style={styles.depthRow}>
+            <View style={styles.depthCard}>
+              <View style={styles.depthHeader}>
+                <Ionicons name="pulse-outline" size={18} color="#F59E0B" />
+                <Text style={styles.depthTitle}>Fatigue Load</Text>
+              </View>
+              <Text style={styles.depthValue}>{analyticsInsights.fatigueScore}/100</Text>
+              <Text style={styles.depthBody}>
+                {analyticsInsights.deloadRecommended
+                  ? 'Recovery deload suggested based on high strain + slowed progression.'
+                  : 'Training strain looks manageable. Continue progressive loading.'}
+              </Text>
+              {analyticsInsights.highStrainExercises.length > 0 ? (
+                <Text style={styles.depthMeta}>
+                  High strain: {analyticsInsights.highStrainExercises.join(', ')}
+                </Text>
+              ) : null}
+            </View>
+
+            <View style={styles.depthCard}>
+              <View style={styles.depthHeader}>
+                <Ionicons name="layers-outline" size={18} color="#3B82F6" />
+                <Text style={styles.depthTitle}>Periodization</Text>
+              </View>
+              <Text style={styles.depthValue}>
+                {analyticsInsights.periodizationPhase.charAt(0).toUpperCase() + analyticsInsights.periodizationPhase.slice(1)}
+              </Text>
+              <Text style={styles.depthBody}>{analyticsInsights.periodizationMessage}</Text>
+              <Text style={styles.depthMeta}>Cycle cadence: 4-week rotation</Text>
             </View>
           </View>
 
@@ -391,6 +482,44 @@ const styles = StyleSheet.create({
     color: '#B0B0B0',
     fontSize: 12,
     marginTop: 4,
+  },
+  depthRow: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  depthCard: {
+    backgroundColor: '#252525',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#303030',
+  },
+  depthHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  depthTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  depthValue: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    marginTop: 8,
+  },
+  depthBody: {
+    color: '#B0B0B0',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 6,
+  },
+  depthMeta: {
+    color: '#B0B0B0',
+    fontSize: 11,
+    marginTop: 8,
   },
   emptyState: {
     alignItems: 'center',

@@ -422,6 +422,108 @@ class FirstWorkoutTelemetry(BaseModel):
     workout_id: Optional[str] = Field(default=None, min_length=1, max_length=120)
     completed_at: Optional[datetime] = None
 
+
+class HealthIntegrationTelemetry(BaseModel):
+    provider: str = Field(min_length=2, max_length=40)
+    event_type: str = Field(min_length=2, max_length=50)
+    success: bool = True
+    native_bridge_available: bool = False
+    provider_records_read: int = Field(default=0, ge=0, le=2000000)
+    error_message: Optional[str] = Field(default=None, max_length=280)
+
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"apple_health", "google_fit"}:
+            raise ValueError("provider must be apple_health or google_fit")
+        return normalized
+
+    @field_validator("event_type")
+    @classmethod
+    def validate_event_type(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        allowed = {
+            "consent_enabled",
+            "consent_disabled",
+            "connect_attempt",
+            "connect_success",
+            "connect_failed",
+            "sync_success",
+            "sync_failed",
+            "provider_toggle",
+        }
+        if normalized not in allowed:
+            raise ValueError("Unsupported event_type")
+        return normalized
+
+
+class FriendConnectRequest(BaseModel):
+    friend_user_id: str = Field(min_length=2, max_length=120)
+
+    @field_validator("friend_user_id")
+    @classmethod
+    def validate_friend_user_id(cls, value: str) -> str:
+        return value.strip()
+
+
+def evaluate_strava_wearable_scope(
+    adoption_rate_percent: float,
+    avg_sync_events_per_adopted_user: float,
+    adopted_users: int,
+    active_providers: int,
+) -> Dict[str, Any]:
+    provider_balance_bonus = 15 if active_providers >= 2 else 0
+    scale_bonus = 10 if adopted_users >= 50 else (5 if adopted_users >= 20 else 0)
+
+    score = min(
+        100,
+        round(
+            adoption_rate_percent * 0.6
+            + min(avg_sync_events_per_adopted_user, 10) * 3
+            + provider_balance_bonus
+            + scale_bonus,
+            1,
+        ),
+    )
+
+    if score >= 65:
+        recommendation = "proceed_now"
+        rationale = "Adoption and sync depth indicate enough demand to justify Strava/wearable integration build-out."
+    elif score >= 40:
+        recommendation = "validate_further"
+        rationale = "Signal is moderate. Keep measuring and run a short validation cycle before full implementation."
+    else:
+        recommendation = "defer"
+        rationale = "Current adoption signal is weak. Prioritize analytics depth and re-evaluate after additional telemetry."
+
+    return {
+        "score": score,
+        "recommendation": recommendation,
+        "rationale": rationale,
+    }
+
+
+def aggregate_workout_social_stats(workouts: List[Dict[str, Any]]) -> Dict[str, float]:
+    total_sets = 0
+    total_volume = 0.0
+
+    for workout in workouts:
+        for exercise in workout.get("exercises", []) or []:
+            for set_data in exercise.get("sets", []) or []:
+                reps = float(set_data.get("reps", 0) or 0)
+                weight = float(set_data.get("weight", 0) or 0)
+                if reps <= 0:
+                    continue
+                total_sets += 1
+                total_volume += max(weight, 0) * reps
+
+    return {
+        "workouts": len(workouts),
+        "total_sets": total_sets,
+        "total_volume": round(total_volume, 2),
+    }
+
 # ============== Auth Helpers ==============
 
 async def get_current_user(request: Request) -> User:
@@ -2085,6 +2187,263 @@ async def track_first_workout_completion(
         "tracked": True,
         "is_first_workout": is_first_workout,
         "recorded_at": now.isoformat(),
+    }
+
+
+@api_router.post("/integrations/health/telemetry")
+async def ingest_health_integration_telemetry(
+    payload: HealthIntegrationTelemetry,
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    await enforce_mutation_rate_limit(request, "integrations.health.telemetry", user.user_id, limit=120, window_seconds=60)
+
+    now = datetime.now(timezone.utc)
+    event_doc = {
+        "user_id": user.user_id,
+        "provider": payload.provider,
+        "event_type": payload.event_type,
+        "success": payload.success,
+        "native_bridge_available": payload.native_bridge_available,
+        "provider_records_read": payload.provider_records_read,
+        "error_message": payload.error_message,
+        "created_at": now,
+    }
+
+    await db.health_integration_events.insert_one(event_doc)
+
+    return {
+        "tracked": True,
+        "recorded_at": now.isoformat(),
+    }
+
+
+@api_router.get("/integrations/health/strava-readiness")
+async def get_strava_wearable_readiness(
+    request: Request,
+    user: User = Depends(get_current_user),
+    lookback_days: int = Query(default=30, ge=7, le=180),
+):
+    now = datetime.now(timezone.utc)
+    lookback_start = now - timedelta(days=lookback_days)
+
+    await enforce_mutation_rate_limit(request, "integrations.health.strava-readiness", user.user_id, limit=30, window_seconds=60)
+
+    recent_events = await db.health_integration_events.find(
+        {
+            "created_at": {"$gte": lookback_start},
+            "event_type": {
+                "$in": [
+                    "consent_enabled",
+                    "connect_success",
+                    "sync_success",
+                ]
+            },
+        },
+        {"_id": 0, "user_id": 1, "provider": 1, "event_type": 1},
+    ).to_list(length=20000)
+
+    if not recent_events:
+        evaluation = evaluate_strava_wearable_scope(0.0, 0.0, 0, 0)
+        return {
+            "lookback_days": lookback_days,
+            "evaluated_at": now.isoformat(),
+            "metrics": {
+                "users_with_health_interest": 0,
+                "adopted_users": 0,
+                "adoption_rate_percent": 0.0,
+                "avg_sync_events_per_adopted_user": 0.0,
+                "active_providers": 0,
+            },
+            "evaluation": evaluation,
+        }
+
+    interested_users = {
+        evt.get("user_id")
+        for evt in recent_events
+        if evt.get("event_type") in {"consent_enabled", "connect_success", "sync_success"}
+    }
+    adopted_users = {
+        evt.get("user_id")
+        for evt in recent_events
+        if evt.get("event_type") == "sync_success"
+    }
+    active_providers = {
+        evt.get("provider")
+        for evt in recent_events
+        if evt.get("event_type") == "sync_success" and evt.get("provider") in {"apple_health", "google_fit"}
+    }
+
+    sync_success_events = [evt for evt in recent_events if evt.get("event_type") == "sync_success"]
+
+    interested_count = max(len(interested_users), 1)
+    adopted_count = len(adopted_users)
+    adoption_rate_percent = round((adopted_count / interested_count) * 100, 2)
+    avg_sync_events_per_adopted_user = round(
+        len(sync_success_events) / max(adopted_count, 1),
+        2,
+    )
+
+    evaluation = evaluate_strava_wearable_scope(
+        adoption_rate_percent=adoption_rate_percent,
+        avg_sync_events_per_adopted_user=avg_sync_events_per_adopted_user,
+        adopted_users=adopted_count,
+        active_providers=len(active_providers),
+    )
+
+    return {
+        "lookback_days": lookback_days,
+        "evaluated_at": now.isoformat(),
+        "metrics": {
+            "users_with_health_interest": len(interested_users),
+            "adopted_users": adopted_count,
+            "adoption_rate_percent": adoption_rate_percent,
+            "avg_sync_events_per_adopted_user": avg_sync_events_per_adopted_user,
+            "active_providers": len(active_providers),
+        },
+        "evaluation": evaluation,
+    }
+
+
+@api_router.post("/social/friends/connect")
+async def connect_friend(
+    payload: FriendConnectRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    await enforce_mutation_rate_limit(request, "social.friends.connect", user.user_id, limit=30, window_seconds=60)
+
+    friend_user_id = payload.friend_user_id.strip()
+    if friend_user_id == user.user_id:
+        raise HTTPException(status_code=422, detail="Cannot add yourself as a friend")
+
+    friend = await db.users.find_one({"user_id": friend_user_id}, {"_id": 0, "user_id": 1, "name": 1, "email": 1})
+    if not friend:
+        raise HTTPException(status_code=404, detail="Friend user not found")
+
+    now = datetime.now(timezone.utc)
+    members = sorted([user.user_id, friend_user_id])
+
+    await db.user_friendships.update_one(
+        {"members": members},
+        {
+            "$set": {
+                "members": members,
+                "updated_at": now,
+                "status": "accepted",
+            },
+            "$setOnInsert": {
+                "created_at": now,
+            },
+        },
+        upsert=True,
+    )
+
+    return {
+        "connected": True,
+        "friend_user_id": friend_user_id,
+        "recorded_at": now.isoformat(),
+    }
+
+
+@api_router.get("/social/friends")
+async def list_friends(
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    await enforce_mutation_rate_limit(request, "social.friends.list", user.user_id, limit=60, window_seconds=60)
+
+    friendships = await db.user_friendships.find(
+        {"members": user.user_id, "status": "accepted"},
+        {"_id": 0, "members": 1, "updated_at": 1},
+    ).to_list(length=1000)
+
+    friend_ids: List[str] = []
+    for friendship in friendships:
+        for member_id in friendship.get("members", []):
+            if member_id != user.user_id and member_id not in friend_ids:
+                friend_ids.append(member_id)
+
+    if not friend_ids:
+        return {"friends": []}
+
+    friend_docs = await db.users.find(
+        {"user_id": {"$in": friend_ids}},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1},
+    ).to_list(length=len(friend_ids))
+
+    return {"friends": friend_docs}
+
+
+@api_router.get("/social/leaderboard/private")
+async def private_leaderboard(
+    request: Request,
+    user: User = Depends(get_current_user),
+    days: int = Query(default=30, ge=7, le=120),
+):
+    await enforce_mutation_rate_limit(request, "social.leaderboard.private", user.user_id, limit=30, window_seconds=60)
+
+    friendships = await db.user_friendships.find(
+        {"members": user.user_id, "status": "accepted"},
+        {"_id": 0, "members": 1},
+    ).to_list(length=1000)
+
+    participant_ids = {user.user_id}
+    for friendship in friendships:
+        for member_id in friendship.get("members", []):
+            participant_ids.add(member_id)
+
+    user_docs = await db.users.find(
+        {"user_id": {"$in": list(participant_ids)}},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1},
+    ).to_list(length=5000)
+    user_map = {doc.get("user_id"): doc for doc in user_docs}
+
+    workouts = await db.workouts.find(
+        {"user_id": {"$in": list(participant_ids)}},
+        {"_id": 0, "user_id": 1, "date": 1, "exercises": 1},
+    ).to_list(length=50000)
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+
+    def _in_range(workout_date: Any) -> bool:
+        try:
+            return _normalize_datetime(workout_date) >= cutoff
+        except Exception:
+            return False
+
+    grouped: Dict[str, List[Dict[str, Any]]] = {pid: [] for pid in participant_ids}
+    for workout in workouts:
+        if not _in_range(workout.get("date")):
+            continue
+        uid = workout.get("user_id")
+        if uid in grouped:
+            grouped[uid].append(workout)
+
+    leaderboard: List[Dict[str, Any]] = []
+    for participant_id in participant_ids:
+        stats = aggregate_workout_social_stats(grouped.get(participant_id, []))
+        profile = user_map.get(participant_id, {})
+        leaderboard.append(
+            {
+                "user_id": participant_id,
+                "name": profile.get("name") or "Athlete",
+                "is_you": participant_id == user.user_id,
+                "total_workouts": int(stats["workouts"]),
+                "total_sets": int(stats["total_sets"]),
+                "total_volume": stats["total_volume"],
+            }
+        )
+
+    leaderboard.sort(key=lambda row: (row["total_volume"], row["total_sets"], row["total_workouts"]), reverse=True)
+
+    for idx, row in enumerate(leaderboard, start=1):
+        row["rank"] = idx
+
+    return {
+        "days": days,
+        "participants": len(leaderboard),
+        "leaderboard": leaderboard,
     }
 
 # ============== Health Check ==============

@@ -300,3 +300,120 @@ async def test_track_first_workout_completion_sets_first_flag(backend_server):
     assert result["is_first_workout"] is True
     notification_profiles.update_one.assert_awaited()
 
+
+def test_evaluate_strava_wearable_scope_recommendation_levels(backend_server):
+    proceed = backend_server.evaluate_strava_wearable_scope(
+        adoption_rate_percent=72.0,
+        avg_sync_events_per_adopted_user=6.5,
+        adopted_users=84,
+        active_providers=2,
+    )
+    assert proceed["recommendation"] == "proceed_now"
+    assert proceed["score"] >= 65
+
+    validate = backend_server.evaluate_strava_wearable_scope(
+        adoption_rate_percent=38.0,
+        avg_sync_events_per_adopted_user=3.0,
+        adopted_users=19,
+        active_providers=1,
+    )
+    assert validate["recommendation"] in {"validate_further", "defer"}
+
+
+@pytest.mark.asyncio
+async def test_ingest_health_integration_telemetry_tracks_event(backend_server):
+    request = _make_request()
+    user = backend_server.User(
+        user_id="u-health-1",
+        email="health@example.com",
+        name="Health User",
+        created_at=backend_server.datetime.now(backend_server.timezone.utc),
+    )
+
+    health_events = SimpleNamespace(insert_one=AsyncMock(return_value=None))
+    backend_server.db = SimpleNamespace(health_integration_events=health_events)
+
+    payload = backend_server.HealthIntegrationTelemetry(
+        provider="google_fit",
+        event_type="sync_success",
+        success=True,
+        native_bridge_available=True,
+        provider_records_read=321,
+    )
+
+    result = await backend_server.ingest_health_integration_telemetry(payload, request, user)
+
+    assert result["tracked"] is True
+    health_events.insert_one.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_strava_wearable_readiness_computes_metrics(backend_server):
+    request = _make_request()
+    user = backend_server.User(
+        user_id="u-health-2",
+        email="health2@example.com",
+        name="Health User Two",
+        created_at=backend_server.datetime.now(backend_server.timezone.utc),
+    )
+
+    events = [
+        {"user_id": "u1", "provider": "apple_health", "event_type": "consent_enabled"},
+        {"user_id": "u1", "provider": "apple_health", "event_type": "sync_success"},
+        {"user_id": "u2", "provider": "google_fit", "event_type": "consent_enabled"},
+        {"user_id": "u2", "provider": "google_fit", "event_type": "sync_success"},
+        {"user_id": "u2", "provider": "google_fit", "event_type": "sync_success"},
+    ]
+
+    find_result = SimpleNamespace(to_list=AsyncMock(return_value=events))
+    health_events = SimpleNamespace(find=lambda *_args, **_kwargs: find_result)
+    backend_server.db = SimpleNamespace(health_integration_events=health_events)
+
+    result = await backend_server.get_strava_wearable_readiness(request, user, lookback_days=30)
+
+    assert result["metrics"]["users_with_health_interest"] == 2
+    assert result["metrics"]["adopted_users"] == 2
+    assert result["metrics"]["adoption_rate_percent"] == 100.0
+    assert result["evaluation"]["recommendation"] in {"proceed_now", "validate_further", "defer"}
+
+
+def test_aggregate_workout_social_stats_sums_sets_and_volume(backend_server):
+    workouts = [
+        {
+            "exercises": [
+                {"sets": [{"reps": 10, "weight": 50}, {"reps": 8, "weight": 55}]},
+                {"sets": [{"reps": 12, "weight": 20}]},
+            ]
+        },
+        {
+            "exercises": [
+                {"sets": [{"reps": 5, "weight": 100}]},
+            ]
+        },
+    ]
+
+    stats = backend_server.aggregate_workout_social_stats(workouts)
+
+    assert stats["workouts"] == 2
+    assert stats["total_sets"] == 4
+    assert stats["total_volume"] == 1810.0
+
+
+@pytest.mark.asyncio
+async def test_connect_friend_rejects_self_reference(backend_server):
+    request = _make_request()
+    user = backend_server.User(
+        user_id="u-social-1",
+        email="social@example.com",
+        name="Social User",
+        created_at=backend_server.datetime.now(backend_server.timezone.utc),
+    )
+
+    payload = backend_server.FriendConnectRequest(friend_user_id="u-social-1")
+
+    with pytest.raises(HTTPException) as exc:
+        await backend_server.connect_friend(payload, request, user)
+
+    assert exc.value.status_code == 422
+    assert exc.value.detail == "Cannot add yourself as a friend"
+

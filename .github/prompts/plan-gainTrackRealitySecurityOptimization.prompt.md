@@ -96,17 +96,23 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Completed: milestone unlock prompt + success haptic on workout completion added in `frontend/app/workout/active.tsx` for thresholds (1, 5, 10, 25, 50, 100, 200).
 	- Completed: streak-preservation intervention added on Home momentum card to detect "worked out today" and surface a "Protect" CTA when streak is at risk.
 	- Completed: weekly recap CTA now provides in-app weekly summary (workout days, nutrition days, total volume, streak) before linking to full Progress analytics.
-7. Phase 3 - Competitive integrations: IN PROGRESS
+7. Phase 3 - Competitive integrations: COMPLETED
 	- Completed: Pro-gated health integration baseline added in `frontend/src/services/healthSync.ts` with explicit consent state, provider enable/disable state, connection lifecycle, and sync result snapshots.
 	- Completed: explicit permission UX and connect/sync controls added in `frontend/app/(tabs)/profile.tsx` for Apple Health (iOS) and Google Fit (Android).
 	- Completed: native bridge packages installed in `frontend/package.json` (`react-native-health`, `react-native-health-connect`) and Expo config updated at `frontend/app.config.js` for Health Connect plugin + iOS HealthKit usage descriptions.
 	- Completed: direct provider read baseline wired (`react-native-health` step count reads on iOS, `react-native-health-connect` steps reads on Android) and surfaced in sync results.
-	- Pending: Strava/wearable extension decision gate using adoption telemetry from this baseline.
-8. Phase 3 - Analytics depth for advanced users: IN PROGRESS
-	- Notes: progression and trend analytics are partially present, but fatigue/deload and periodization views are not fully implemented.
-9. Phase 4 - Network effects: NOT STARTED
+	- Completed: telemetry ingestion + Strava/wearable readiness evaluation added in `backend/server.py` (`/integrations/health/telemetry`, `/integrations/health/strava-readiness`) and surfaced in app UX through `frontend/src/services/healthSync.ts` + `frontend/app/(tabs)/profile.tsx`.
+8. Phase 3 - Analytics depth for advanced users: COMPLETED
+	- Completed: fatigue scoring and deload recommendation signals added in `frontend/app/progression.tsx` based on recent RPE and progression velocity.
+	- Completed: periodization guidance card added in `frontend/app/progression.tsx` with 4-week phase rotation messaging (base/build/peak/deload).
+	- Completed: progression insights now surface high-strain exercises to reduce advanced-user churn risk.
+9. Phase 4 - Network effects: IN PROGRESS
+	- Completed: backend social baseline added in `backend/server.py` with friend connection endpoint and private leaderboard endpoint (`/social/friends/connect`, `/social/friends`, `/social/leaderboard/private`).
+	- Completed: shareable workout card flow added in `frontend/app/workout-history.tsx` via `frontend/src/services/social.ts`.
+	- Completed: private leaderboard screen added in `frontend/app/social-leaderboard.tsx` and linked from `frontend/app/(tabs)/profile.tsx`.
+	- Pending: fuller friend discovery/invites and richer share card formats.
 10. Phase 4 - Security and quality operations: IN PROGRESS
 	- Notes: secret scanning now added; OWASP MASVS cadence, SCA gates, and policy regression release gates still pending.
 
 ### Next Active Step
-- Continue Phase 3 competitive integrations: evaluate Strava/wearable extension scope using telemetry from HealthKit/Google Fit adoption.
+- Continue Phase 4 network effects: add friend discovery/invite flow and richer share card formats before community feed rollout.

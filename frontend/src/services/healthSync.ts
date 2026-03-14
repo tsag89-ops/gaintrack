@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { storage } from '../utils/storage';
 
 export type HealthProvider = 'apple_health' | 'google_fit';
 export type HealthSyncStatus = 'idle' | 'success' | 'failed';
@@ -31,8 +32,62 @@ export interface HealthSyncResult {
   };
 }
 
+export interface StravaReadinessResult {
+  lookback_days: number;
+  evaluated_at: string;
+  metrics: {
+    users_with_health_interest: number;
+    adopted_users: number;
+    adoption_rate_percent: number;
+    avg_sync_events_per_adopted_user: number;
+    active_providers: number;
+  };
+  evaluation: {
+    score: number;
+    recommendation: 'proceed_now' | 'validate_further' | 'defer';
+    rationale: string;
+  };
+}
+
 const HEALTH_SYNC_SETTINGS_KEY = 'gaintrack_health_sync_settings';
 const HEALTH_SYNC_SNAPSHOT_PREFIX = 'gaintrack_health_sync_snapshot_';
+const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL?.trim() || '';
+
+const sendHealthIntegrationTelemetry = async (
+  provider: HealthProvider,
+  payload: {
+    eventType: string;
+    success: boolean;
+    nativeBridgeAvailable: boolean;
+    providerRecordsRead?: number;
+    errorMessage?: string;
+  },
+): Promise<void> => {
+  if (!BACKEND_URL) return;
+
+  try {
+    const sessionToken = await storage.getItem('sessionToken');
+    if (!sessionToken) return;
+
+    await fetch(`${BACKEND_URL}/api/integrations/health/telemetry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        provider,
+        event_type: payload.eventType,
+        success: payload.success,
+        native_bridge_available: payload.nativeBridgeAvailable,
+        provider_records_read: payload.providerRecordsRead ?? 0,
+        error_message: payload.errorMessage,
+      }),
+    });
+  } catch {
+    // Telemetry should not block primary UX flows.
+  }
+};
 
 const isProviderSupportedOnPlatform = (provider: HealthProvider): boolean => {
   if (provider === 'apple_health') return Platform.OS === 'ios';
@@ -226,6 +281,17 @@ export const setHealthSyncConsent = async (consentGiven: boolean): Promise<Healt
     updatedAt: new Date().toISOString(),
   };
   await saveSettings(next);
+
+  await Promise.all(
+    getSupportedProvidersForDevice().map((provider) =>
+      sendHealthIntegrationTelemetry(provider, {
+        eventType: consentGiven ? 'consent_enabled' : 'consent_disabled',
+        success: true,
+        nativeBridgeAvailable: next.providers[provider]?.nativeBridgeAvailable ?? false,
+      }),
+    ),
+  );
+
   return next;
 };
 
@@ -246,6 +312,13 @@ export const setHealthProviderEnabled = async (
     updatedAt: new Date().toISOString(),
   };
   await saveSettings(next);
+
+  await sendHealthIntegrationTelemetry(provider, {
+    eventType: 'provider_toggle',
+    success: true,
+    nativeBridgeAvailable: next.providers[provider].nativeBridgeAvailable,
+  });
+
   return next;
 };
 
@@ -280,11 +353,23 @@ export const connectHealthProvider = async (provider: HealthProvider): Promise<H
     };
 
     await saveSettings(next);
+    await sendHealthIntegrationTelemetry(provider, {
+      eventType: 'connect_failed',
+      success: false,
+      nativeBridgeAvailable: false,
+      errorMessage: 'Native health bridge is not available in this build.',
+    });
     return {
       ok: false,
       message: 'Native health bridge is unavailable. Install and prebuild with HealthKit/Health Connect modules to enable direct reads.',
     };
   }
+
+  await sendHealthIntegrationTelemetry(provider, {
+    eventType: 'connect_attempt',
+    success: true,
+    nativeBridgeAvailable,
+  });
 
   const connectionResult =
     provider === 'apple_health'
@@ -308,6 +393,13 @@ export const connectHealthProvider = async (provider: HealthProvider): Promise<H
   };
 
   await saveSettings(next);
+  await sendHealthIntegrationTelemetry(provider, {
+    eventType: connectionResult.ok ? 'connect_success' : 'connect_failed',
+    success: connectionResult.ok,
+    nativeBridgeAvailable,
+    errorMessage: connectionResult.ok ? undefined : connectionResult.message,
+  });
+
   return {
     ok: connectionResult.ok,
     message: connectionResult.ok ? 'Provider connected. You can now run sync.' : connectionResult.message,
@@ -327,6 +419,12 @@ export const syncHealthProviderBaseline = async (provider: HealthProvider): Prom
   }
 
   if (!providerState.nativeBridgeAvailable) {
+    await sendHealthIntegrationTelemetry(provider, {
+      eventType: 'sync_failed',
+      success: false,
+      nativeBridgeAvailable: false,
+      errorMessage: 'Native health bridge unavailable',
+    });
     return {
       ok: false,
       message: 'Native health bridge is unavailable in this build. Sync cannot read device health data yet.',
@@ -393,11 +491,47 @@ export const syncHealthProviderBaseline = async (provider: HealthProvider): Prom
   };
   await saveSettings(next);
 
+  await sendHealthIntegrationTelemetry(provider, {
+    eventType: 'sync_success',
+    success: true,
+    nativeBridgeAvailable: true,
+    providerRecordsRead: providerRecordsRead,
+  });
+
   return {
     ok: true,
     message: 'Baseline sync completed.',
     snapshot,
   };
+};
+
+export const getStravaWearableReadiness = async (
+  lookbackDays = 30,
+): Promise<StravaReadinessResult | null> => {
+  if (!BACKEND_URL) return null;
+
+  try {
+    const sessionToken = await storage.getItem('sessionToken');
+    if (!sessionToken) return null;
+
+    const response = await fetch(
+      `${BACKEND_URL}/api/integrations/health/strava-readiness?lookback_days=${lookbackDays}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${sessionToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    return (await response.json()) as StravaReadinessResult;
+  } catch {
+    return null;
+  }
 };
 
 export const getProviderLabel = (provider: HealthProvider): string => {
