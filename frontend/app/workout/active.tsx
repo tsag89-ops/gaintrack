@@ -949,13 +949,26 @@ const ActiveWorkoutScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </View>
-      <TouchableOpacity style={styles.addExerciseBtn} onPress={() => router.push('/(tabs)/exercises')}>
+      <TouchableOpacity
+        style={styles.addExerciseBtn}
+        onPress={() =>
+          router.push({
+            pathname: '/(tabs)/exercises',
+            params: {
+              fromWorkout: '1',
+              workoutName: currentWorkout?.name || workoutTitle || 'Quick Workout',
+            },
+          })
+        }
+      >
         <Text style={styles.addExerciseText}>+ Add Exercise</Text>
       </TouchableOpacity>
       <DraggableFlatList
         data={exerciseList}
         onDragEnd={({ data }) => setExerciseList(data)}
         keyExtractor={(item) => item.exercise_id}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
         renderItem={({ item, drag, isActive }: RenderItemParams<any>) => {
           const groupMeta = item.superset_group ? getSupersetGroupMeta(item.superset_group) : null;
           return (
@@ -990,6 +1003,8 @@ const ActiveWorkoutScreen: React.FC = () => {
             <FlatList
               data={item.sets}
               keyExtractor={(_, idx) => idx.toString()}
+              scrollEnabled={false}
+              nestedScrollEnabled={false}
               ListHeaderComponent={
                 <View>
                   {prefilledFromLastSession.has(item.exercise_id) && (
@@ -1029,6 +1044,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                   <TextInput
                     style={styles.input}
                     keyboardType="numeric"
+                    rejectResponderTermination={false}
                     value={set.weight.toString()}
                     onChangeText={(v) => updateSet(item.exercise_id, index, 'weight', Number(v))}
                     placeholder={weightUnit}
@@ -1037,6 +1053,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                   <TextInput
                     style={styles.input}
                     keyboardType="numeric"
+                    rejectResponderTermination={false}
                     value={set.reps.toString()}
                     onChangeText={(v) => updateSet(item.exercise_id, index, 'reps', Number(v))}
                     placeholder="reps"
@@ -1045,6 +1062,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                   <TextInput
                     style={styles.input}
                     keyboardType="numeric"
+                    rejectResponderTermination={false}
                     value={set.rpe?.toString() || ''}
                     onChangeText={(v) => updateSet(item.exercise_id, index, 'rpe', Number(v))}
                     placeholder="RPE"

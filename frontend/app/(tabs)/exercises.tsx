@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,8 +28,11 @@ import { setPendingExercise } from '../../src/utils/exerciseMailbox';
 
 export default function ExercisesScreen() {
   const router = useRouter();
+  const { fromWorkout, workoutName } = useLocalSearchParams<{ fromWorkout?: string; workoutName?: string }>();
   const { isPro } = usePro();
   const { currentWorkout, startWorkout, addExerciseToWorkout, addMultipleExercisesToWorkout, clearInProgress } = useWorkoutStore();
+  const isFromWorkoutFlow = fromWorkout === '1';
+  const fallbackWorkoutName = workoutName || currentWorkout?.name || 'Quick Workout';
 
   // ── Template picker state ──────────────────────────────────────────────────
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -87,10 +90,10 @@ export default function ExercisesScreen() {
   const handleAdd = async (exercise: Exercise, _superset?: boolean) => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    if (currentWorkout) {
+    if (currentWorkout || isFromWorkoutFlow) {
       // Active workout in progress — pass exercise back via mailbox and return
       setPendingExercise(exercise);
-      router.back();
+      router.push({ pathname: '/workout/active', params: { name: fallbackWorkoutName } });
       return;
     }
 
@@ -112,6 +115,10 @@ export default function ExercisesScreen() {
   };
 
   const handleClose = () => {
+    if (isFromWorkoutFlow) {
+      router.push({ pathname: '/workout/active', params: { name: fallbackWorkoutName } });
+      return;
+    }
     router.back();
   };
 
