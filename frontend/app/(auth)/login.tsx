@@ -18,6 +18,7 @@ import { auth } from '../../src/config/firebase';
 import rnFirebaseAuth from '@react-native-firebase/auth';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import FormWrapper from '../../src/components/FormWrapper';
+import { sendEngagementTelemetry } from '../../src/services/notifications';
 
 const GOOGLE_ERROR_MAP: Record<string, string> = {
   'auth/popup-closed-by-user': 'Sign-in cancelled.',
@@ -41,6 +42,14 @@ export default function LoginScreen() {
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [redirectChecking, setRedirectChecking] = useState(false);
 
+  useEffect(() => {
+    sendEngagementTelemetry({
+      feature: 'auth',
+      action: 'login_screen_view',
+      context: mode,
+    });
+  }, []);
+
   const applyGoogleUser = async (firebaseUser: any) => {
     const sessionToken = await firebaseUser.getIdToken();
     await setSession(
@@ -56,6 +65,11 @@ export default function LoginScreen() {
       },
       sessionToken,
     );
+    sendEngagementTelemetry({
+      feature: 'auth',
+      action: 'google_auth_success',
+      context: Platform.OS,
+    });
     router.replace('/(tabs)');
   };
 
@@ -84,6 +98,11 @@ export default function LoginScreen() {
 
   const signInWithGoogle = async () => {
     console.log('[Google] button pressed, platform:', Platform.OS);
+    sendEngagementTelemetry({
+      feature: 'auth',
+      action: 'google_auth_attempt',
+      context: Platform.OS,
+    });
 
     // ── Native (Android / iOS) ────────────────────────────────────────────────
     if (Platform.OS !== 'web') {
@@ -101,6 +120,11 @@ export default function LoginScreen() {
       } catch (e: any) {
         if (e?.code === statusCodes.SIGN_IN_CANCELLED) return;
         console.error('[Google native] error:', e?.code, e?.message);
+        sendEngagementTelemetry({
+          feature: 'auth',
+          action: 'google_auth_failed',
+          context: e?.code ?? 'native_unknown',
+        });
         setGoogleError(e?.message ?? 'Google sign-in failed.');
       } finally {
         setGoogleLoading(false);
@@ -118,6 +142,11 @@ export default function LoginScreen() {
       await applyGoogleUser(result.user);
     } catch (e: any) {
       console.error('[Google web] error:', e?.code, e?.message);
+      sendEngagementTelemetry({
+        feature: 'auth',
+        action: 'google_auth_failed',
+        context: e?.code ?? 'web_unknown',
+      });
       setGoogleError(GOOGLE_ERROR_MAP[e?.code] ?? e?.message ?? `Google sign-in failed (${e?.code ?? 'unknown'})`);
     } finally {
       setGoogleLoading(false);
@@ -140,6 +169,11 @@ export default function LoginScreen() {
 
     try {
       setIsSubmitting(true);
+      sendEngagementTelemetry({
+        feature: 'auth',
+        action: mode === 'signup' ? 'email_signup_attempt' : 'email_signin_attempt',
+        context: Platform.OS,
+      });
 
       let firebaseUser;
       if (mode === 'signup') {
@@ -175,9 +209,19 @@ export default function LoginScreen() {
         equipment: ['dumbbells', 'barbell', 'pullup_bar'],
       };
       await setSession(user, sessionToken);
+      sendEngagementTelemetry({
+        feature: 'auth',
+        action: mode === 'signup' ? 'email_signup_success' : 'email_signin_success',
+        context: Platform.OS,
+      });
       router.replace('/(tabs)');
     } catch (error: any) {
       console.error('Auth error:', error);
+      sendEngagementTelemetry({
+        feature: 'auth',
+        action: mode === 'signup' ? 'email_signup_failed' : 'email_signin_failed',
+        context: error?.code ?? 'auth_unknown',
+      });
       const msg: Record<string, string> = {
         'auth/user-not-found': 'No account found. Switch to Sign Up.',
         'auth/wrong-password': 'Incorrect password.',
@@ -231,7 +275,14 @@ export default function LoginScreen() {
           <View style={styles.modeToggle}>
             <TouchableOpacity
               style={[styles.modeBtn, mode === 'signin' && styles.modeBtnActive]}
-              onPress={() => setMode('signin')}
+              onPress={() => {
+                setMode('signin');
+                sendEngagementTelemetry({
+                  feature: 'auth',
+                  action: 'mode_switch',
+                  context: 'signin',
+                });
+              }}
             >
               <Text style={[styles.modeBtnText, mode === 'signin' && styles.modeBtnTextActive]}>
                 Sign In
@@ -239,7 +290,14 @@ export default function LoginScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modeBtn, mode === 'signup' && styles.modeBtnActive]}
-              onPress={() => setMode('signup')}
+              onPress={() => {
+                setMode('signup');
+                sendEngagementTelemetry({
+                  feature: 'auth',
+                  action: 'mode_switch',
+                  context: 'signup',
+                });
+              }}
             >
               <Text style={[styles.modeBtnText, mode === 'signup' && styles.modeBtnTextActive]}>
                 Create Account

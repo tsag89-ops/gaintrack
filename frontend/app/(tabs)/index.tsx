@@ -36,6 +36,7 @@ import {
   formatVolume,
 } from '../../src/utils/helpers';
 import { format, subDays, parseISO, isSameDay } from 'date-fns';
+import { sendEngagementTelemetry } from '../../src/services/notifications';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -136,6 +137,14 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [resumeWorkoutName, setResumeWorkoutName] = useState<string | null>(null);
   const [nutritionTrackedDays, setNutritionTrackedDays] = useState(0);
+
+  useEffect(() => {
+    sendEngagementTelemetry({
+      feature: 'home',
+      action: 'screen_view',
+      context: 'tabs_index',
+    });
+  }, []);
 
   // ── Check for persisted in-progress workout on every focus ────────────────
   useFocusEffect(
@@ -283,28 +292,58 @@ export default function HomeScreen() {
   const handleNewWorkout = async () => {
     if (hasActiveWorkout) {
       await Haptics.selectionAsync();
+      sendEngagementTelemetry({
+        feature: 'home',
+        action: 'start_workout_blocked_active_session',
+        context: 'cta',
+      });
       return;
     }
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    sendEngagementTelemetry({
+      feature: 'home',
+      action: 'start_workout_tapped',
+      context: 'cta',
+    });
     router.push('/(tabs)/exercises');
   };
 
   const handleQuickLog = async () => {
     if (hasActiveWorkout) {
       await Haptics.selectionAsync();
+      sendEngagementTelemetry({
+        feature: 'home',
+        action: 'quick_log_blocked_active_session',
+        context: 'fab',
+      });
       return;
     }
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    sendEngagementTelemetry({
+      feature: 'home',
+      action: 'quick_log_tapped',
+      context: 'fab',
+    });
     router.push('/(tabs)/exercises');
   };
 
   const handleResumeWorkout = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    sendEngagementTelemetry({
+      feature: 'home',
+      action: 'resume_workout_tapped',
+      context: resumeWorkoutName ?? 'in_progress',
+    });
     router.push({ pathname: '/workout/active', params: { name: resumeWorkoutName ?? '' } });
   };
 
   const handleDismissResume = async () => {
     await Haptics.selectionAsync();
+    sendEngagementTelemetry({
+      feature: 'home',
+      action: 'resume_workout_dismissed',
+      context: resumeWorkoutName ?? 'in_progress',
+    });
     // Clear both AsyncStorage and Zustand so no ghost workout remains
     await clearInProgress();
     setResumeWorkoutName(null);
@@ -322,6 +361,11 @@ export default function HomeScreen() {
 
   const handleWorkoutPress = async (workout: Workout) => {
     await Haptics.selectionAsync();
+    sendEngagementTelemetry({
+      feature: 'home',
+      action: 'recent_workout_opened',
+      context: workout.workout_id,
+    });
     router.push(`/workout/${workout.workout_id}`);
   };
 
@@ -332,6 +376,11 @@ export default function HomeScreen() {
 
   const handleWeeklyRecapPress = async () => {
     await Haptics.selectionAsync();
+    sendEngagementTelemetry({
+      feature: 'home',
+      action: 'weekly_recap_opened',
+      context: 'home_card',
+    });
     const deltaPayload =
       `Volume vs last week: ${weeklyDeltaRecap.volumeDelta >= 0 ? '+' : ''}${formatVolume(Math.abs(weeklyDeltaRecap.volumeDelta))} (${weeklyDeltaRecap.volumeDeltaPct >= 0 ? '+' : ''}${weeklyDeltaRecap.volumeDeltaPct}%)\n` +
       `Workout days delta: ${weeklyDeltaRecap.dayDelta >= 0 ? '+' : ''}${weeklyDeltaRecap.dayDelta}\n` +
@@ -388,7 +437,14 @@ export default function HomeScreen() {
         </View>
         <TouchableOpacity
           style={styles.programsBtn}
-          onPress={() => router.push('/(tabs)/calendar')}
+          onPress={() => {
+            sendEngagementTelemetry({
+              feature: 'home',
+              action: 'calendar_opened',
+              context: 'header_icon',
+            });
+            router.push('/(tabs)/calendar');
+          }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="calendar-outline" size={22} color={theme.textSecondary} />
@@ -567,7 +623,14 @@ export default function HomeScreen() {
       {recentWorkouts.length > 0 && (
         <View style={styles.sectionRow}>
           <Text style={styles.sectionTitle}>Recent Workouts</Text>
-          <TouchableOpacity onPress={() => router.push('/workout-history' as any)}>
+          <TouchableOpacity onPress={() => {
+            sendEngagementTelemetry({
+              feature: 'home',
+              action: 'workout_history_opened',
+              context: 'see_all_recent',
+            });
+            router.push('/workout-history' as any);
+          }}>
             <Text style={styles.seeAll}>See all</Text>
           </TouchableOpacity>
         </View>
