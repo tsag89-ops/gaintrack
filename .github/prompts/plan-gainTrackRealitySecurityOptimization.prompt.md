@@ -269,3 +269,9 @@ Legend: `P0 NOW`, `P1 NEXT`, `P2 LATER`
 - Fixed TypeScript handler mismatch in `frontend/app/pro-paywall.tsx` by binding `Go Back` to a no-arg callback (`onPress={() => handleDismiss('dismiss')}`).
 - Validation: file diagnostics clear and `frontend` type-check no longer reports the paywall handler signature error.
 - OTA evidence: update group `b378af28-5f21-4b72-9ff8-82ba0ecaef51` (branch: `production`, commit: `7c9fe43274b58d88bbc7c7a59d59178f18b8bd32`).
+
+### Progress Note (2026-03-14 - EAS remote credentials migration)
+- Build profiles switched to remote signing credentials in `frontend/eas.json` for `preview`, `production`, and `production-apk` to align with EAS-managed credentials.
+- Phone-test build attempt currently blocked by missing configured Android keystore in EAS for this project/profile when running non-interactive builds.
+- One-time manual action required in terminal: run `eas credentials --platform android`, select `production-apk`, and link/upload the existing keystore so subsequent CI/non-interactive builds succeed.
+- Future-risk check identified an additional build warning source: EAS production environment currently logs only `EXPO_PUBLIC_*` vars; ensure file env vars (`GOOGLE_SERVICES_JSON`, optionally `GOOGLE_SERVICES_PLIST`) are present to avoid firebase config upload warnings.

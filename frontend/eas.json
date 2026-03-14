@@ -19,14 +19,14 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "credentialsSource": "local",
+      "credentialsSource": "remote",
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
       "channel": "production",
-      "credentialsSource": "local",
+      "credentialsSource": "remote",
       "android": {
         "buildType": "app-bundle"
       }
@@ -34,7 +34,7 @@
     "production-apk": {
       "channel": "production",
       "environment": "production",
-      "credentialsSource": "local",
+      "credentialsSource": "remote",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
