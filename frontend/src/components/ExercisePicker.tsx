@@ -517,6 +517,36 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
     ];
   }, [recentlyUsed, filteredExercises, query, activeMuscle, activeEquipment, favoriteIds, isPro]);
 
+  // ── Detect Pro-gated empty: free user gets 0 results but full library has matches [PRO]
+  const isGatedEmpty = useMemo(() => {
+    if (isPro || filteredExercises.length > 0) return false;
+    // Check if applying the same filters to the full EXERCISES list yields results
+    let fullList = EXERCISES;
+    if (activeMuscle !== 'All') {
+      fullList = fullList.filter(
+        (ex) =>
+          ex.muscleGroup === activeMuscle ||
+          ex.muscle_groups.some((mg) => mg.toLowerCase() === activeMuscle.toLowerCase()),
+      );
+    }
+    if (activeEquipment !== 'All') {
+      const filterL = activeEquipment.toLowerCase();
+      fullList = fullList.filter((ex) =>
+        ex.equipment_required.some((eq) => eq.toLowerCase() === filterL || eq.toLowerCase().startsWith(filterL)),
+      );
+    }
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      fullList = fullList.filter(
+        (ex) =>
+          ex.name.toLowerCase().includes(q) ||
+          ex.muscleGroup.toLowerCase().includes(q) ||
+          ex.equipment_required.some((eq) => eq.toLowerCase().includes(q)),
+      );
+    }
+    return fullList.length > 0; // there are Pro-only matches
+  }, [isPro, filteredExercises.length, activeMuscle, activeEquipment, query]);
+
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleAdd = useCallback(
     async (exercise: Exercise, superset: boolean) => {
@@ -631,10 +661,29 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
           <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : filteredExercises.length === 0 && recentlyUsed.length === 0 ? (
-        <View style={styles.center}>
-          <Ionicons name="search-outline" size={44} color={theme.charcoal} />
-          <Text style={styles.emptyText}>No exercises found</Text>
-        </View>
+        isGatedEmpty ? ( // [PRO] — results exist but are locked behind Pro
+          <View style={styles.center}>
+            <View style={styles.gatedEmptyBox}>
+              <Ionicons name="lock-closed" size={36} color={theme.primary} style={{ marginBottom: 10 }} />
+              <Text style={styles.gatedEmptyTitle}>These exercises are Pro-only</Text>
+              <Text style={styles.gatedEmptySubtitle}>
+                Upgrade to Pro to unlock the full library of {EXERCISES.length} exercises.
+              </Text>
+              <TouchableOpacity
+                style={styles.gatedEmptyBtn}
+                onPress={() => router.push('/pro-paywall' as any)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.gatedEmptyBtnText}>Unlock Pro</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.center}>
+            <Ionicons name="search-outline" size={44} color={theme.charcoal} />
+            <Text style={styles.emptyText}>No exercises found</Text>
+          </View>
+        )
       ) : (
         <SectionList
           sections={sections}
@@ -814,6 +863,42 @@ const styles = StyleSheet.create({
   emptyText: {
     color: theme.textSecondary,
     fontSize: 15,
+  },
+
+  // Pro-gated empty state styles [PRO]
+  gatedEmptyBox: {
+    marginHorizontal: 24,
+    padding: 28,
+    borderRadius: 16,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.primary,
+    alignItems: 'center',
+  },
+  gatedEmptyTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: theme.textPrimary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  gatedEmptySubtitle: {
+    fontSize: 14,
+    color: theme.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  gatedEmptyBtn: {
+    backgroundColor: theme.primary,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  gatedEmptyBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.textPrimary,
   },
 });
 
