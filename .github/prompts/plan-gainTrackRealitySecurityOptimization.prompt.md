@@ -126,3 +126,67 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 
 ### Next Active Step
 - Begin post-plan enhancement backlog prioritization (retention + conversion lift opportunities) using latest security baseline as release gate.
+
+## Post-Plan Enhancement Backlog (prioritized 2026-03-14)
+
+Legend: `P0 NOW`, `P1 NEXT`, `P2 LATER`
+
+1. P0 NOW - Supersets conversion pack (Pro)
+	- Why now: already partially surfaced as Pro-gated in workout logger UX; highest near-term conversion upside with low implementation risk.
+	- Scope:
+	  - Complete superset creation/editing flow in `frontend/app/workout/active.tsx` and `frontend/src/components/WorkoutLogger.tsx`.
+	  - Persist superset grouping in workout storage/firestore models (`frontend/src/store/workoutStore.ts`, `frontend/src/services/workoutFirestore.ts`).
+	  - Add milestone-style prompt after first successful superset completion.
+	- KPI target:
+	  - +12% paywall view->purchase conversion among users who attempt to add a superset.
+	  - +6% D7 retention for users who use advanced logging in first 7 days.
+
+2. P1 NEXT - Advanced progress monetization card stack (Pro)
+	- Why now: analytics depth is implemented but packaging can better drive perceived value.
+	- Scope:
+	  - Add premium summary cards in `frontend/app/(tabs)/progress.tsx` (readiness score trend, deload timing confidence, strain balance).
+	  - Add weekly "progress delta" recap payload to home CTA path (`frontend/app/(tabs)/index.tsx`).
+	- KPI target:
+	  - +8% engagement with Progress tab among active users.
+	  - +10% trial start rate from analytics paywall prompts.
+
+3. P1 NEXT - Social invite activation loop
+	- Why now: network baseline exists; missing invite completion loop can increase stickiness.
+	- Scope:
+	  - Add pending invite reminders and accept/decline follow-up nudges in `frontend/app/social-leaderboard.tsx`.
+	  - Add backend reminder cadence endpoint for pending invites in `backend/server.py`.
+	- KPI target:
+	  - +15% invite acceptance rate.
+	  - +7% D30 retention for users with >=1 accepted friend.
+
+4. P1 NEXT - Health sync to coaching loop
+	- Why now: health integration telemetry exists; connect-to-value flow can improve adoption.
+	- Scope:
+	  - Use health sync snapshots to trigger personalized coaching text in `frontend/app/(tabs)/ai-suggestions.tsx`.
+	  - Surface sync quality status in profile with actionable troubleshooting.
+	- KPI target:
+	  - +20% monthly health sync completion among Pro users.
+	  - +5% Pro renewal retention proxy (active Pro users at day 30).
+
+5. P2 LATER - Firestore scale/performance hardening for social + history
+	- Why now: TODO markers indicate known index/pagination debt that can become retention friction as data grows.
+	- Scope:
+	  - Add composite indexes and pagination path for workouts/social queries (`frontend/src/services/workoutFirestore.ts`).
+	  - Add archive/soft-delete path for undo and lower accidental churn risk.
+	- KPI target:
+	  - 95th percentile list load time under 800ms for users with 500+ workouts.
+
+6. P2 LATER - iOS native auth bridge parity
+	- Why now: open TODOs in `frontend/src/services/authBridge.ts` risk platform inconsistency.
+	- Scope:
+	  - Implement iOS native bridge parity and remove temporary fallback paths.
+	- KPI target:
+	  - Reduce auth-related iOS support incidents by 50%.
+
+## Post-Plan Release Rule
+
+- All backlog releases must keep `Security Quality Operations` workflow passing on `main` before OTA promotion.
+- Any feature introducing new dependency surfaces must include SCA verification notes in `SECURITY.md`.
+
+### Updated Next Active Step
+- Execute backlog item #1 (`P0 NOW`): implement full supersets conversion pack (logger flow + persistence + conversion prompts), then capture KPI instrumentation hooks.
