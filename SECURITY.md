@@ -28,6 +28,17 @@
 - CI workflow for Firestore rules: `.github/workflows/firestore-rules-tests.yml` (pending main-branch run evidence link).
 - Outstanding evidence task: append workflow run URLs/artifact links for `secret-scan`, `backend-auth-entitlement-tests`, and `firestore-rules-tests` after `main` execution.
 
+Main branch CI evidence (commit `c65c3cec09b52d131dd298157cde7ec35d35de5f`):
+
+- Secret Scan: https://github.com/tsag89-ops/gaintrack/actions/runs/23090680856 (success)
+	- Artifacts API: https://api.github.com/repos/tsag89-ops/gaintrack/actions/runs/23090680856/artifacts
+- Backend Auth Entitlement Tests: https://github.com/tsag89-ops/gaintrack/actions/runs/23090680861 (success)
+	- Artifacts API: https://api.github.com/repos/tsag89-ops/gaintrack/actions/runs/23090680861/artifacts
+- Firestore Rules Tests: https://github.com/tsag89-ops/gaintrack/actions/runs/23090680855 (success)
+	- Artifacts API: https://api.github.com/repos/tsag89-ops/gaintrack/actions/runs/23090680855/artifacts
+
+Status: Phase 1 verification evidence attached for the required workflows.
+
 ## Phase 0 Release Freeze Signoff
 
 Use this section to close emergency trust hardening before shipping feature changes.

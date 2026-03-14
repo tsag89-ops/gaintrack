@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+from datetime import datetime, timezone
 
 import pytest
 from pydantic import ValidationError
@@ -198,4 +199,37 @@ def test_meal_entry_create_rejects_invalid_meal_type(backend_server):
             carbs=1,
             fat=11,
         )
+
+
+def test_generate_lifecycle_jobs_day1_when_no_workout(backend_server):
+    now = datetime(2026, 3, 14, tzinfo=timezone.utc)
+    created_at = datetime(2026, 3, 12, tzinfo=timezone.utc)
+
+    jobs = backend_server.generate_lifecycle_jobs_for_profile(
+        now=now,
+        user_id="u-lifecycle-1",
+        created_at=created_at,
+        sent_days=[],
+        has_workouts=False,
+        has_recent_workout=False,
+    )
+
+    day_keys = {job["day_key"] for job in jobs}
+    assert "day_1" in day_keys
+
+
+def test_generate_lifecycle_jobs_skips_sent_and_recent_activity(backend_server):
+    now = datetime(2026, 3, 14, tzinfo=timezone.utc)
+    created_at = datetime(2026, 2, 1, tzinfo=timezone.utc)
+
+    jobs = backend_server.generate_lifecycle_jobs_for_profile(
+        now=now,
+        user_id="u-lifecycle-2",
+        created_at=created_at,
+        sent_days=["day_1", "day_7"],
+        has_workouts=True,
+        has_recent_workout=True,
+    )
+
+    assert jobs == []
 

@@ -69,24 +69,27 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	    - Note: direct GitHub Actions status query from this shell is unavailable (no `gh` CLI), but workflow is configured at `.github/workflows/secret-scan.yml`.
 	  - [x] Record release-freeze signoff in `SECURITY.md` (who approved + date).
 
-2. Phase 1 - Server-side auth and entitlement trust: IN PROGRESS
+2. Phase 1 - Server-side auth and entitlement trust: COMPLETED
 	- Completed: backend Firebase ID token verification is implemented in `backend/server.py` and protected routes depend on authenticated user context.
 	- Completed: server-authoritative Pro entitlement checks now gate premium endpoints in `backend/server.py` (`/progression/suggestions`, `/progression/exercise/{exercise_name}`, `/measurements/stats/progress`, `/stats/workout-volume`, `/stats/nutrition-adherence`).
 	- Completed: automated backend verification tests added at `tests/test_backend_auth_entitlement.py` for invalid/expired/forged token rejection paths and entitlement mismatch/fallback enforcement.
 	- Completed: CI workflow added at `.github/workflows/backend-auth-entitlement-tests.yml` to run `tests/test_backend_auth_entitlement.py` and upload JUnit artifacts to `test_reports/pytest/backend-auth-entitlement.xml`.
-	- Remaining: confirm workflow pass on `main` and attach the resulting artifact/run URL to security evidence.
+	- Completed: workflow pass confirmed on `main` and evidence links captured in `SECURITY.md` (run: `23090680861`).
 
-3. Phase 1 - Firestore and API access control baseline: IN PROGRESS
+3. Phase 1 - Firestore and API access control baseline: COMPLETED
 	- Completed: Firestore owner-only rules and `isPro` write protection exist in `frontend/firestore.rules`; AI route validation + rate limiting exists in `frontend/app/api/ai-chat+api.ts`.
 	- Completed: mutation schema validation and abuse controls expanded in `backend/server.py` (strict constraints for goals/equipment/workouts/measurements/nutrition inputs, date key validation, and per-scope mutation rate limits).
 	- Completed: Firestore emulator/rules tests added (`frontend/tests/firestore.rules.test.js`) and CI workflow added (`.github/workflows/firestore-rules-tests.yml`).
 	- Completed: local emulator verification passed (`npm run test:firestore:rules:emulator`) for owner-only access, cross-user denial, unauthenticated denial, and `isPro` create/update protection.
-	- Remaining: confirm CI workflow pass on `main` and attach workflow run URL/artifact evidence.
+	- Completed: CI workflow pass confirmed on `main` and evidence links captured in `SECURITY.md` (run: `23090680855`).
 
 4. Phase 1 - Compliance artifacts and user rights: COMPLETED
 	- Completed: Privacy Policy and Terms screens exist; in-app links are wired from login/profile; account deletion and full JSON export are available in `frontend/app/(tabs)/profile.tsx`.
 
-5. Phase 2 - Retention infrastructure: NOT STARTED
+5. Phase 2 - Retention infrastructure: IN PROGRESS
+	- Completed: backend lifecycle notification infrastructure added in `backend/server.py` with internal cron-protected preview/dispatch endpoints and push token upsert (`/notifications/push-token`, `/notifications/lifecycle/jobs`, `/notifications/lifecycle/dispatch`).
+	- Completed: day 1/day 7/day 30 lifecycle job generation rules implemented and covered with additional tests in `tests/test_backend_auth_entitlement.py`.
+	- Remaining: connect dispatch path to provider send worker (Expo push API) and trigger onboarding hooks from first-workout flow.
 6. Phase 2 - Engagement loops: NOT STARTED
 7. Phase 3 - Competitive integrations: NOT STARTED
 8. Phase 3 - Analytics depth for advanced users: IN PROGRESS
@@ -96,4 +99,4 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Notes: secret scanning now added; OWASP MASVS cadence, SCA gates, and policy regression release gates still pending.
 
 ### Next Active Step
-- Run CI workflows (`secret-scan`, `backend-auth-entitlement-tests`, `firestore-rules-tests`) on `main`, then attach run URLs/artifact links in `SECURITY.md` to close Phase 1 verification evidence.
+- Continue Phase 2 retention infrastructure: integrate Expo push send worker for queued lifecycle jobs and wire first-workout onboarding trigger telemetry from the frontend.

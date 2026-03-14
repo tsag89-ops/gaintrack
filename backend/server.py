@@ -51,6 +51,27 @@ ALLOWED_EQUIPMENT = {
     "bodyweight",
 }
 ALLOWED_MEAL_TYPES = {"breakfast", "lunch", "dinner", "snacks"}
+CRON_INTERNAL_KEY = os.getenv("CRON_INTERNAL_KEY")
+
+LIFECYCLE_DAY_KEYS = {
+    1: "day_1",
+    7: "day_7",
+    30: "day_30",
+}
+LIFECYCLE_TEMPLATES = {
+    "day_1": {
+        "title": "Welcome to GainTrack",
+        "body": "Start your first workout today and build momentum.",
+    },
+    "day_7": {
+        "title": "One Week In",
+        "body": "You are one week in. Log a workout and keep your streak alive.",
+    },
+    "day_30": {
+        "title": "30-Day Check-In",
+        "body": "Review your progress and set your next milestone today.",
+    },
+}
 
 
 def _client_identifier(request: Request, user_id: Optional[str] = None) -> str:
@@ -92,6 +113,70 @@ def validate_date_key(date_value: str) -> str:
         return date_value
     except ValueError as exc:
         raise HTTPException(status_code=422, detail="Date must be in YYYY-MM-DD format") from exc
+
+
+def _normalize_datetime(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, str):
+        dt = datetime.fromisoformat(value)
+    else:
+        raise ValueError("Invalid datetime value")
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def generate_lifecycle_jobs_for_profile(
+    now: datetime,
+    user_id: str,
+    created_at: datetime,
+    sent_days: Optional[List[str]],
+    has_workouts: bool,
+    has_recent_workout: bool,
+) -> List[Dict[str, Any]]:
+    sent_day_set = set(sent_days or [])
+    account_age_days = max((now - created_at).days, 0)
+
+    jobs: List[Dict[str, Any]] = []
+
+    for day, day_key in LIFECYCLE_DAY_KEYS.items():
+        if day_key in sent_day_set:
+            continue
+        if account_age_days < day:
+            continue
+
+        should_send = False
+        if day_key == "day_1":
+            should_send = not has_workouts
+        elif day_key == "day_7":
+            should_send = not has_recent_workout
+        elif day_key == "day_30":
+            should_send = not has_recent_workout
+
+        if should_send:
+            template = LIFECYCLE_TEMPLATES[day_key]
+            jobs.append(
+                {
+                    "user_id": user_id,
+                    "day_key": day_key,
+                    "title": template["title"],
+                    "body": template["body"],
+                    "scheduled_at": now,
+                }
+            )
+
+    return jobs
+
+
+async def require_internal_cron(request: Request) -> None:
+    if not CRON_INTERNAL_KEY:
+        raise HTTPException(status_code=503, detail="CRON_INTERNAL_KEY not configured")
+
+    incoming_key = request.headers.get("x-internal-cron-key")
+    if incoming_key != CRON_INTERNAL_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized internal cron request")
 
 # ============== Models ==============
 
@@ -217,6 +302,16 @@ class MealEntryCreate(BaseModel):
         if normalized not in ALLOWED_MEAL_TYPES:
             raise ValueError("meal_type must be one of: breakfast, lunch, dinner, snacks")
         return normalized
+
+
+class PushTokenUpsert(BaseModel):
+    expo_push_token: str = Field(min_length=20, max_length=300)
+    platform: Optional[str] = Field(default=None, max_length=20)
+
+
+class LifecycleDispatchRequest(BaseModel):
+    dry_run: bool = True
+    user_limit: int = Field(default=500, ge=1, le=5000)
 
 # ============== Auth Helpers ==============
 
@@ -1636,6 +1731,149 @@ async def start_program(template_id: str, request: Request, user: User = Depends
     
     await db.workouts.insert_one(workout.model_dump())
     return workout.model_dump()
+
+# ============== Lifecycle Notifications ==============
+
+@api_router.post("/notifications/push-token")
+async def upsert_push_token(payload: PushTokenUpsert, request: Request, user: User = Depends(get_current_user)):
+    """Store or update user's push token for server-scheduled lifecycle messaging."""
+    await enforce_mutation_rate_limit(request, "notifications.push-token", user.user_id, limit=15, window_seconds=60)
+
+    now = datetime.now(timezone.utc)
+    await db.notification_profiles.update_one(
+        {"user_id": user.user_id},
+        {
+            "$set": {
+                "expo_push_token": payload.expo_push_token,
+                "platform": payload.platform,
+                "updated_at": now,
+            },
+            "$setOnInsert": {
+                "created_at": now,
+                "lifecycle_sent_days": [],
+            },
+        },
+        upsert=True,
+    )
+
+    return {"message": "Push token saved"}
+
+
+@api_router.get("/notifications/lifecycle/jobs")
+async def preview_lifecycle_jobs(request: Request, _: None = Depends(require_internal_cron)):
+    """Preview pending lifecycle jobs for internal monitoring/cron checks."""
+    now = datetime.now(timezone.utc)
+    profiles = await db.notification_profiles.find({"expo_push_token": {"$exists": True}}, {"_id": 0}).limit(1000).to_list(1000)
+
+    jobs: List[Dict[str, Any]] = []
+    for profile in profiles:
+        user_id = profile.get("user_id")
+        if not user_id:
+            continue
+
+        user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "created_at": 1})
+        if not user_doc:
+            continue
+
+        created_at = _normalize_datetime(user_doc.get("created_at"))
+        has_workouts = await db.workouts.count_documents({"user_id": user_id}, limit=1) > 0
+        recent_cutoff = now - timedelta(days=7)
+        has_recent_workout = await db.workouts.count_documents(
+            {"user_id": user_id, "date": {"$gte": recent_cutoff}},
+            limit=1,
+        ) > 0
+
+        pending = generate_lifecycle_jobs_for_profile(
+            now=now,
+            user_id=user_id,
+            created_at=created_at,
+            sent_days=profile.get("lifecycle_sent_days", []),
+            has_workouts=has_workouts,
+            has_recent_workout=has_recent_workout,
+        )
+        jobs.extend(pending)
+
+    return {
+        "generated_at": now.isoformat(),
+        "job_count": len(jobs),
+        "jobs": jobs,
+    }
+
+
+@api_router.post("/notifications/lifecycle/dispatch")
+async def dispatch_lifecycle_jobs(
+    payload: LifecycleDispatchRequest,
+    request: Request,
+    _: None = Depends(require_internal_cron),
+):
+    """
+    Internal endpoint for scheduled lifecycle messaging.
+    `dry_run=true` previews jobs; `dry_run=false` writes queued jobs and marks sent days.
+    """
+    now = datetime.now(timezone.utc)
+    profiles = await db.notification_profiles.find({"expo_push_token": {"$exists": True}}, {"_id": 0}).limit(payload.user_limit).to_list(payload.user_limit)
+
+    queued_jobs: List[Dict[str, Any]] = []
+    sent_updates = 0
+
+    for profile in profiles:
+        user_id = profile.get("user_id")
+        if not user_id:
+            continue
+
+        user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "created_at": 1})
+        if not user_doc:
+            continue
+
+        created_at = _normalize_datetime(user_doc.get("created_at"))
+        has_workouts = await db.workouts.count_documents({"user_id": user_id}, limit=1) > 0
+        recent_cutoff = now - timedelta(days=7)
+        has_recent_workout = await db.workouts.count_documents(
+            {"user_id": user_id, "date": {"$gte": recent_cutoff}},
+            limit=1,
+        ) > 0
+
+        jobs = generate_lifecycle_jobs_for_profile(
+            now=now,
+            user_id=user_id,
+            created_at=created_at,
+            sent_days=profile.get("lifecycle_sent_days", []),
+            has_workouts=has_workouts,
+            has_recent_workout=has_recent_workout,
+        )
+
+        if not jobs:
+            continue
+
+        for job in jobs:
+            queued_jobs.append(
+                {
+                    **job,
+                    "expo_push_token": profile.get("expo_push_token"),
+                    "status": "queued" if not payload.dry_run else "preview",
+                    "created_at": now,
+                }
+            )
+
+        if not payload.dry_run:
+            await db.notification_jobs.insert_many(queued_jobs[-len(jobs):])
+            sent_keys = [job["day_key"] for job in jobs]
+            await db.notification_profiles.update_one(
+                {"user_id": user_id},
+                {
+                    "$addToSet": {"lifecycle_sent_days": {"$each": sent_keys}},
+                    "$set": {"last_dispatch_at": now},
+                },
+            )
+            sent_updates += 1
+
+    return {
+        "dry_run": payload.dry_run,
+        "users_scanned": len(profiles),
+        "jobs_generated": len(queued_jobs),
+        "profiles_updated": sent_updates,
+        "generated_at": now.isoformat(),
+    }
 
 # ============== Health Check ==============
 
