@@ -97,6 +97,8 @@ export interface Workout {
   date: string;
   duration?: number;
   notes?: string;
+  archived?: boolean;
+  archived_at?: string | null;
   exercises: WorkoutExercise[];
   created_at: string;
 }

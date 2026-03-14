@@ -131,6 +131,22 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 
 Legend: `P0 NOW`, `P1 NEXT`, `P2 LATER`
 
+### Backlog Execution Status (verified 2026-03-14)
+
+1. P0 NOW - Supersets conversion pack (Pro): COMPLETED
+	- Verified implemented:
+	  - Superset assignment/removal UI exists in `frontend/app/workout/active.tsx` (group create/add/remove controls and Pro gate).
+	  - Superset metadata exists in types (`superset_group` on `WorkoutExercise` in `frontend/src/types/index.ts`).
+	  - Firestore persistence now stores `superset_group` in `frontend/src/services/workoutFirestore.ts`.
+	  - First successful superset completion prompt is wired in `frontend/app/workout/active.tsx`.
+	  - KPI instrumentation hooks are implemented for attempt, blocked attempt, paywall view, completion, and first-completion prompt (`frontend/src/services/notifications.ts` + `backend/server.py`).
+
+2. P1 NEXT - Advanced progress monetization card stack (Pro): COMPLETED
+3. P1 NEXT - Social invite activation loop: COMPLETED
+4. P1 NEXT - Health sync to coaching loop: COMPLETED
+5. P2 LATER - Firestore scale/performance hardening for social + history: COMPLETED
+6. P2 LATER - iOS native auth bridge parity: COMPLETED
+
 1. P0 NOW - Supersets conversion pack (Pro)
 	- Why now: already partially surfaced as Pro-gated in workout logger UX; highest near-term conversion upside with low implementation risk.
 	- Scope:
@@ -189,4 +205,44 @@ Legend: `P0 NOW`, `P1 NEXT`, `P2 LATER`
 - Any feature introducing new dependency surfaces must include SCA verification notes in `SECURITY.md`.
 
 ### Updated Next Active Step
-- Execute backlog item #1 (`P0 NOW`): implement full supersets conversion pack (logger flow + persistence + conversion prompts), then capture KPI instrumentation hooks.
+- Post-plan backlog execution complete. Continue with KPI monitoring and release validation gates for retention/conversion impact.
+
+### Progress Note (2026-03-14)
+- Verification pass completed on backlog status against codebase. Phase 0-4 plan items remain completed as documented.
+- Backlog item #1 is now completed end-to-end:
+	- `superset_group` persistence added in Firestore workout write path at `frontend/src/services/workoutFirestore.ts`.
+	- First successful superset completion prompt added in `frontend/app/workout/active.tsx`.
+	- KPI instrumentation hooks added for superset attempt, blocked attempt, paywall view, completion, and first-completion prompt (`frontend/app/workout/active.tsx`, `frontend/src/services/notifications.ts`, `backend/server.py`).
+- Backlog item #2 completed:
+	- Premium summary cards added in `frontend/app/(tabs)/progress.tsx` for readiness trend, deload timing confidence, and strain balance.
+	- Weekly progress delta recap payload added in `frontend/app/(tabs)/index.tsx` and passed into Progress route params from recap CTA.
+- Backlog item #3 completed:
+	- Pending invite reminder/follow-up nudges added in `frontend/app/social-leaderboard.tsx`.
+	- Backend reminder cadence endpoint implemented at `backend/server.py` (`/api/social/friends/invites/reminders`) and integrated via `frontend/src/services/social.ts`.
+- Backlog item #4 completed:
+	- Health-sync-aware coaching section added in `frontend/app/(tabs)/ai-suggestions.tsx` using provider snapshots and sync staleness context.
+	- Sync quality diagnostics + actionable troubleshooting controls added in `frontend/app/(tabs)/profile.tsx`.
+	- Snapshot retrieval helper added in `frontend/src/services/healthSync.ts` for coaching/troubleshooting consumers.
+- Backlog item #5 completed:
+	- Firestore pagination paths added in `frontend/src/services/workoutFirestore.ts` (`loadUserWorkoutsPage`, `loadArchivedWorkoutsPage`).
+	- Soft-delete/archive and restore paths implemented (`deleteWorkout` now archives, `restoreWorkout`, `hardDeleteWorkout`) and surfaced in `frontend/src/store/workoutStore.ts`.
+	- Index spec added at `frontend/firestore.indexes.json` for archived/date query support.
+- Backlog item #6 completed:
+	- iOS/native auth parity added in `frontend/src/services/authBridge.ts` using `@react-native-firebase/auth` fallback for get state, auth listener, sign-out, and delete-account with recent-login error mapping.
+- Autonomous phase progression completed through all remaining backlog phases (#2 through #6).
+
+### Autonomous Continuation Note (2026-03-14)
+- Post-backlog hardening continued without waiting for prompt.
+- Soft-delete rollout is now user-recoverable in-app:
+	- Workout history archive action now offers immediate undo restore in `frontend/app/workout-history.tsx` via `restoreWorkout` from `frontend/src/store/workoutStore.ts`.
+- Weekly recap-to-progress continuity is now closed:
+	- Home recap delta route params are consumed and displayed in `frontend/app/(tabs)/progress.tsx` as a recap delta card.
+- Next autonomous focus remains KPI monitoring and release validation gates.
+
+### Release Validation Note (2026-03-14)
+- Autonomous release validation pass executed before commit/deploy.
+- Validation results:
+	- `frontend`: `npx tsc --noEmit` PASS.
+	- `frontend`: `npm audit --omit=dev --audit-level=high` PASS for high/critical; remaining advisories are moderate-only (`markdown-it` via `react-native-markdown-display`, no upstream fix).
+	- `frontend`: `npm run lint` still reports pre-existing repository lint errors outside the P0-P2 backlog acceptance scope; compile-breaking TypeScript errors in `frontend/app/(auth)/login.tsx` and `frontend/app/(tabs)/profile.tsx` were fixed in this pass.
+- KPI monitoring + release gate cadence remains active after OTA publish.

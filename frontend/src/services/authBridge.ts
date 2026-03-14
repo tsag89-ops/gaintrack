@@ -60,6 +60,15 @@ const { AuthBridge } = NativeModules as {
   };
 };
 
+const getNativeFirebaseAuth = (): any | null => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('@react-native-firebase/auth').default;
+  } catch {
+    return null;
+  }
+};
+
 /**
  * Event name constant sourced from the native module.
  * Falls back to the hardcoded string so it also works in tests / Storybook
@@ -91,12 +100,20 @@ export const REQUIRES_RECENT_LOGIN = 'REQUIRES_RECENT_LOGIN';
  *       wired up (Google Sign-In / email flow), removing the anonymous fallback.
  */
 export async function getAuthState(): Promise<NativeAuthState> {
-  if (Platform.OS !== 'android' || !AuthBridge) {
-    // Non-Android: return a neutral state so callers don't crash.
-    // TODO: implement native iOS bridge.
+  if (Platform.OS === 'android' && AuthBridge) {
+    return AuthBridge.getAuthState();
+  }
+
+  const rnAuth = getNativeFirebaseAuth();
+  if (!rnAuth) {
     return { uid: null, isAuthenticated: false };
   }
-  return AuthBridge.getAuthState();
+
+  const currentUser = rnAuth().currentUser;
+  return {
+    uid: currentUser?.uid ?? null,
+    isAuthenticated: Boolean(currentUser?.uid),
+  };
 }
 
 /**
@@ -116,7 +133,27 @@ export async function getAuthState(): Promise<NativeAuthState> {
 export function addAuthStateListener(
   callback: (state: NativeAuthState) => void,
 ): EmitterSubscription {
-  return DeviceEventEmitter.addListener(AUTH_STATE_CHANGED_EVENT, callback);
+  if (Platform.OS === 'android' && AuthBridge) {
+    return DeviceEventEmitter.addListener(AUTH_STATE_CHANGED_EVENT, callback);
+  }
+
+  const rnAuth = getNativeFirebaseAuth();
+  if (!rnAuth) {
+    return {
+      remove: () => undefined,
+    } as EmitterSubscription;
+  }
+
+  const unsubscribe = rnAuth().onAuthStateChanged((firebaseUser: any) => {
+    callback({
+      uid: firebaseUser?.uid ?? null,
+      isAuthenticated: Boolean(firebaseUser?.uid),
+    });
+  });
+
+  return {
+    remove: () => unsubscribe(),
+  } as EmitterSubscription;
 }
 
 /**
@@ -128,11 +165,14 @@ export function addAuthStateListener(
  * Throws on non-Android or if the native module is unavailable.
  */
 export async function signOut(): Promise<void> {
-  if (Platform.OS !== 'android' || !AuthBridge) {
-    // TODO: implement native iOS bridge.
+  if (Platform.OS === 'android' && AuthBridge) {
+    await AuthBridge.signOut();
     return;
   }
-  await AuthBridge.signOut();
+
+  const rnAuth = getNativeFirebaseAuth();
+  if (!rnAuth) return;
+  await rnAuth().signOut();
 }
 
 /**
@@ -147,9 +187,25 @@ export async function signOut(): Promise<void> {
  * any other Firebase failure (including stale-session errors).
  */
 export async function deleteAccount(): Promise<void> {
-  if (Platform.OS !== 'android' || !AuthBridge) {
-    // TODO: implement native iOS bridge.
+  if (Platform.OS === 'android' && AuthBridge) {
+    await AuthBridge.deleteAccount();
     return;
   }
-  await AuthBridge.deleteAccount();
+
+  const rnAuth = getNativeFirebaseAuth();
+  if (!rnAuth) return;
+
+  const currentUser = rnAuth().currentUser;
+  if (!currentUser) {
+    throw Object.assign(new Error('No user is signed in'), { code: 'NO_USER' });
+  }
+
+  try {
+    await currentUser.delete();
+  } catch (error: any) {
+    if (error?.code === 'auth/requires-recent-login') {
+      throw Object.assign(new Error('Recent login required'), { code: REQUIRES_RECENT_LOGIN });
+    }
+    throw error;
+  }
 }

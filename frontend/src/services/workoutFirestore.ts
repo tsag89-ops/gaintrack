@@ -19,6 +19,11 @@ import firestore, {
 } from '@react-native-firebase/firestore';
 import { Workout } from '../types';
 
+export interface WorkoutPageResult {
+  workouts: Workout[];
+  nextCursorDate: string | null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,12 +60,70 @@ export async function loadUserWorkouts(
   limit = 30,
 ): Promise<Workout[]> {
   const snapshot = await workoutsCol(uid)
-    // TODO: add .where('archived', '==', false) once you add soft-delete support
     .orderBy('date', 'desc')
     .limit(limit)
     .get();
 
-  return snapshot.docs.map(docToWorkout);
+  // Keep backward compatibility with older documents that don't have `archived`.
+  return snapshot.docs
+    .map(docToWorkout)
+    .filter((workout) => workout.archived !== true);
+}
+
+/**
+ * Cursor-based pagination for workout history feed.
+ * Pass the previous response's nextCursorDate to fetch the next page.
+ */
+export async function loadUserWorkoutsPage(
+  uid: string,
+  pageSize = 30,
+  cursorDate?: string,
+): Promise<WorkoutPageResult> {
+  let query = workoutsCol(uid)
+    .orderBy('date', 'desc')
+    .limit(pageSize + 1);
+
+  if (cursorDate) {
+    query = query.startAfter(cursorDate);
+  }
+
+  const snapshot = await query.get();
+  const docs = snapshot.docs.map(docToWorkout).filter((workout) => workout.archived !== true);
+  const page = docs.slice(0, pageSize);
+  const hasMore = docs.length > pageSize;
+
+  return {
+    workouts: page,
+    nextCursorDate: hasMore ? page[page.length - 1]?.date ?? null : null,
+  };
+}
+
+/**
+ * Returns archived workouts for undo/restore surfaces.
+ */
+export async function loadArchivedWorkoutsPage(
+  uid: string,
+  pageSize = 20,
+  cursorArchivedAt?: string,
+): Promise<WorkoutPageResult> {
+  let query = workoutsCol(uid)
+    .where('archived', '==', true)
+    .orderBy('archived_at', 'desc')
+    .limit(pageSize + 1);
+
+  if (cursorArchivedAt) {
+    query = query.startAfter(cursorArchivedAt);
+  }
+
+  const snapshot = await query.get();
+  const docs = snapshot.docs.map(docToWorkout);
+  const page = docs.slice(0, pageSize);
+  const hasMore = docs.length > pageSize;
+
+  return {
+    workouts: page,
+    nextCursorDate: hasMore ? page[page.length - 1]?.archived_at ?? null : null,
+  };
 }
 
 /**
@@ -81,6 +144,7 @@ export async function createWorkout(
     exercise_id: ex.exercise_id,
     exercise_name: ex.exercise_name,
     notes: ex.notes ?? null,
+    superset_group: ex.superset_group ?? null,
     sets: (ex.sets ?? []).map((s: any) => ({
       set_id: s.set_id,
       set_number: s.set_number,
@@ -96,6 +160,8 @@ export async function createWorkout(
   const payload = JSON.parse(JSON.stringify({
     ...data,
     exercises: cleanedExercises,
+    archived: false,
+    archived_at: null,
     created_at: new Date().toISOString(),
     date: data.date ?? new Date().toISOString(),
   }));
@@ -122,11 +188,30 @@ export async function updateWorkout(
 }
 
 /**
- * Hard-deletes a workout document.
- *
- * TODO: replace with a soft-delete (set `archived: true`) if you want to
- *       support undo or an audit trail.
+ * Soft-deletes a workout document (archive), enabling undo/restore.
  */
 export async function deleteWorkout(uid: string, workoutId: string): Promise<void> {
+  await workoutsCol(uid).doc(workoutId).update({
+    archived: true,
+    archived_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  });
+}
+
+/**
+ * Restores an archived workout back into active history.
+ */
+export async function restoreWorkout(uid: string, workoutId: string): Promise<void> {
+  await workoutsCol(uid).doc(workoutId).update({
+    archived: false,
+    archived_at: null,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+/**
+ * Permanent delete path reserved for irreversible cleanup operations.
+ */
+export async function hardDeleteWorkout(uid: string, workoutId: string): Promise<void> {
   await workoutsCol(uid).doc(workoutId).delete();
 }

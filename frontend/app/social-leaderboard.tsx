@@ -16,6 +16,8 @@ import { useRouter } from 'expo-router';
 import { usePro } from '../src/hooks/usePro'; // [PRO]
 import { socialApi, LeaderboardEntry, FriendProfile, FriendInvite } from '../src/services/social'; // [PRO]
 
+const INVITE_REMINDER_MIN_HOURS = 24;
+
 export default function SocialLeaderboardScreen() {
   const router = useRouter();
   const { isPro } = usePro(); // [PRO]
@@ -27,16 +29,20 @@ export default function SocialLeaderboardScreen() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [reminderDueCount, setReminderDueCount] = useState(0);
+  const [sendingReminder, setSendingReminder] = useState(false);
 
   const loadLeaderboard = useCallback(async () => {
     setLoading(true);
-    const [leaderboardPayload, invitePayload] = await Promise.all([
+    const [leaderboardPayload, invitePayload, reminderPreview] = await Promise.all([
       socialApi.getPrivateLeaderboard(30),
       socialApi.getFriendInvites(),
+      socialApi.processInviteReminders(true, INVITE_REMINDER_MIN_HOURS),
     ]);
     setLeaderboard(leaderboardPayload?.leaderboard ?? []);
     setIncomingInvites(invitePayload.incoming ?? []);
     setOutgoingInvites(invitePayload.outgoing ?? []);
+    setReminderDueCount(reminderPreview?.due_count ?? 0);
     setLoading(false);
   }, []);
 
@@ -109,6 +115,29 @@ export default function SocialLeaderboardScreen() {
       Alert.alert('Action failed', 'Could not update invite status.');
       return;
     }
+    await loadLeaderboard();
+  };
+
+  const handleSendPendingInviteReminders = async () => {
+    setSendingReminder(true);
+    await Haptics.selectionAsync();
+
+    const result = await socialApi.processInviteReminders(false, INVITE_REMINDER_MIN_HOURS);
+    setSendingReminder(false);
+
+    if (!result) {
+      Alert.alert('Reminder failed', 'Could not process invite reminders right now.');
+      return;
+    }
+
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    const sent = result.reminders_marked;
+    Alert.alert(
+      'Invite reminders processed',
+      sent > 0
+        ? `${sent} pending invite reminder${sent === 1 ? '' : 's'} marked for follow-up cadence.`
+        : 'No pending invites were due for reminders right now.',
+    );
     await loadLeaderboard();
   };
 
@@ -187,6 +216,7 @@ export default function SocialLeaderboardScreen() {
           {incomingInvites.length > 0 ? (
             <View style={styles.connectCard}>
               <Text style={styles.cardTitle}>Incoming Invites</Text>
+              <Text style={styles.nudgeText}>Respond quickly to activate leaderboard momentum with new friends.</Text>
               {incomingInvites.map((invite) => (
                 <View key={invite.invite_id} style={styles.discoveryRow}>
                   <View style={{ flex: 1 }}>
@@ -214,7 +244,21 @@ export default function SocialLeaderboardScreen() {
 
           {outgoingInvites.length > 0 ? (
             <View style={styles.connectCard}>
-              <Text style={styles.cardTitle}>Outgoing Invites</Text>
+              <View style={styles.outgoingHeaderRow}>
+                <Text style={styles.cardTitle}>Outgoing Invites</Text>
+                <TouchableOpacity
+                  style={[styles.reminderButton, sendingReminder && styles.reminderButtonDisabled]}
+                  onPress={handleSendPendingInviteReminders}
+                  disabled={sendingReminder}
+                >
+                  <Text style={styles.reminderButtonText}>{sendingReminder ? 'Sending...' : 'Send reminder'}</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.nudgeText}>
+                {reminderDueCount > 0
+                  ? `${reminderDueCount} invite${reminderDueCount === 1 ? '' : 's'} due for follow-up.`
+                  : 'No follow-up reminders due yet.'}
+              </Text>
               {outgoingInvites.map((invite) => (
                 <View key={invite.invite_id} style={styles.discoveryRow}>
                   <View style={{ flex: 1 }}>
@@ -274,6 +318,27 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   cardTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '700', marginBottom: 8 },
+  nudgeText: { color: '#B0B0B0', fontSize: 12, marginTop: -2, marginBottom: 8 },
+  outgoingHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  reminderButton: {
+    backgroundColor: '#FF6200',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  reminderButtonDisabled: {
+    opacity: 0.65,
+  },
+  reminderButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   input: {
     flex: 1,

@@ -22,7 +22,7 @@ import { LineChart, BarChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { format, addWeeks } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { colors, typography, spacing, radii } from '../../src/constants/theme';
@@ -46,6 +46,7 @@ type Tab = '1rm' | 'volume' | 'prs' | 'bodyweight' | 'nutrition';
 interface StoredSet {
   reps: number;
   weight: number;
+  rpe?: number;
   set_number?: number;
   completed?: boolean;
 }
@@ -85,6 +86,14 @@ interface ChartDataSet {
   data: number[];
 }
 
+interface PremiumInsightData {
+  readinessScore: number;
+  readinessDelta: number;
+  deloadConfidence: number;
+  strainBalance: number;
+  hardSetRate: number;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** ISO week label e.g. "2025-W04" */
@@ -109,6 +118,62 @@ const getExName = (ex: StoredExercise): string =>
 
 const getBW = (m: StoredMeasurement): number =>
   m.weight ?? m.bodyweight ?? (m as any).body_weight ?? (m as any).bodyWeight ?? 0;
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.max(min, Math.min(max, value));
+
+const getWorkoutDate = (workout: StoredWorkout): Date | null => {
+  const d = new Date(workout.date);
+  return isNaN(d.getTime()) ? null : d;
+};
+
+const getWindowWorkouts = (
+  workouts: StoredWorkout[],
+  startInclusive: Date,
+  endInclusive: Date,
+): StoredWorkout[] => {
+  const start = startInclusive.getTime();
+  const end = endInclusive.getTime();
+  return workouts.filter((w) => {
+    const d = getWorkoutDate(w);
+    if (!d) return false;
+    const t = d.getTime();
+    return t >= start && t <= end;
+  });
+};
+
+const summarizeWindow = (windowWorkouts: StoredWorkout[]) => {
+  let totalVolume = 0;
+  let totalSets = 0;
+  let hardSets = 0;
+  let rpeSetCount = 0;
+  let rpeSum = 0;
+
+  windowWorkouts.forEach((w) => {
+    (w.exercises ?? []).forEach((ex) => {
+      (ex.sets ?? []).forEach((set) => {
+        if ((set.reps ?? 0) <= 0 || (set.weight ?? 0) < 0) return;
+        totalSets += 1;
+        totalVolume += (set.weight ?? 0) * (set.reps ?? 0);
+        if ((set.rpe ?? 0) >= 8) {
+          hardSets += 1;
+        }
+        if (typeof set.rpe === 'number' && set.rpe > 0) {
+          rpeSetCount += 1;
+          rpeSum += set.rpe;
+        }
+      });
+    });
+  });
+
+  return {
+    sessions: windowWorkouts.length,
+    totalVolume,
+    totalSets,
+    hardSetRate: totalSets > 0 ? hardSets / totalSets : 0,
+    avgRpe: rpeSetCount > 0 ? rpeSum / rpeSetCount : 6,
+  };
+};
 
 // ── Chart config ──────────────────────────────────────────────────────────────
 
@@ -183,6 +248,13 @@ const StatBox = React.memo(function StatBox({
 export default function ProgressScreen() {
   const { isPro } = usePro();
   const router = useRouter();
+  const recapParams = useLocalSearchParams<{
+    source?: string;
+    volumeDelta?: string;
+    volumeDeltaPct?: string;
+    dayDelta?: string;
+    workoutDelta?: string;
+  }>();
 
   const [workouts, setWorkouts] = useState<StoredWorkout[]>([]);
   const [measurements, setMeasurements] = useState<StoredMeasurement[]>([]);
@@ -418,6 +490,74 @@ export default function ProgressScreen() {
     };
   }, [nutritionDays]);
 
+  const premiumInsights = useMemo((): PremiumInsightData => {
+    const today = new Date();
+    const thisWeekStart = new Date(today);
+    thisWeekStart.setDate(today.getDate() - 6);
+
+    const previousWeekEnd = new Date(thisWeekStart);
+    previousWeekEnd.setDate(thisWeekStart.getDate() - 1);
+    const previousWeekStart = new Date(previousWeekEnd);
+    previousWeekStart.setDate(previousWeekEnd.getDate() - 6);
+
+    const thisWeek = summarizeWindow(getWindowWorkouts(workouts, thisWeekStart, today));
+    const previousWeek = summarizeWindow(getWindowWorkouts(workouts, previousWeekStart, previousWeekEnd));
+
+    const volumeBase = Math.max(previousWeek.totalVolume, 1);
+    const volumeSpike = thisWeek.totalVolume / volumeBase;
+    const sessionDensity = thisWeek.sessions / 7;
+
+    const readinessRaw =
+      100
+      - thisWeek.avgRpe * 5.5
+      - thisWeek.hardSetRate * 26
+      - Math.max(0, volumeSpike - 1) * 18
+      - sessionDensity * 8;
+    const readinessScore = Math.round(clamp(readinessRaw, 20, 98));
+
+    const prevReadinessRaw =
+      100
+      - previousWeek.avgRpe * 5.5
+      - previousWeek.hardSetRate * 26
+      - Math.max(0, (previousWeek.totalVolume / Math.max(thisWeek.totalVolume, 1)) - 1) * 18
+      - (previousWeek.sessions / 7) * 8;
+    const previousReadiness = Math.round(clamp(prevReadinessRaw, 20, 98));
+    const readinessDelta = readinessScore - previousReadiness;
+
+    const deloadSignal =
+      (thisWeek.avgRpe >= 8 ? 35 : thisWeek.avgRpe >= 7.5 ? 24 : 10)
+      + (thisWeek.hardSetRate >= 0.55 ? 32 : thisWeek.hardSetRate >= 0.4 ? 22 : 10)
+      + (volumeSpike >= 1.2 ? 24 : volumeSpike >= 1.05 ? 16 : 8)
+      + (thisWeek.sessions >= 5 ? 14 : thisWeek.sessions >= 4 ? 9 : 4);
+    const deloadConfidence = Math.round(clamp(deloadSignal, 8, 95));
+
+    const strainBalance = Math.round(clamp(100 - Math.abs(thisWeek.hardSetRate - 0.5) * 180, 18, 98));
+
+    return {
+      readinessScore,
+      readinessDelta,
+      deloadConfidence,
+      strainBalance,
+      hardSetRate: thisWeek.hardSetRate,
+    };
+  }, [workouts]);
+
+  const weeklyRecapDelta = useMemo(() => {
+    if (recapParams.source !== 'weekly_recap') return null;
+
+    const volumeDelta = Number(recapParams.volumeDelta ?? 0);
+    const volumeDeltaPct = Number(recapParams.volumeDeltaPct ?? 0);
+    const dayDelta = Number(recapParams.dayDelta ?? 0);
+    const workoutDelta = Number(recapParams.workoutDelta ?? 0);
+
+    return {
+      volumeDelta,
+      volumeDeltaPct,
+      dayDelta,
+      workoutDelta,
+    };
+  }, [recapParams.dayDelta, recapParams.source, recapParams.volumeDelta, recapParams.volumeDeltaPct, recapParams.workoutDelta]);
+
   const handleExport = async () => {
     if (!isPro) { // [PRO]
       Alert.alert('Pro Feature', 'Upgrade to Pro to export your workout data as CSV.');
@@ -558,6 +698,54 @@ export default function ProgressScreen() {
         </View>
       ) : (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {weeklyRecapDelta && (
+            <View style={styles.recapDeltaCard}>
+              <View style={styles.recapDeltaHeader}>
+                <Text style={styles.recapDeltaTitle}>Weekly Delta From Home Recap</Text>
+                <Ionicons name="sparkles-outline" size={14} color={colors.primary} />
+              </View>
+              <Text style={styles.recapDeltaText}>
+                Volume: {weeklyRecapDelta.volumeDelta >= 0 ? '+' : ''}{Math.round(weeklyRecapDelta.volumeDelta)} kg ({weeklyRecapDelta.volumeDeltaPct >= 0 ? '+' : ''}{weeklyRecapDelta.volumeDeltaPct}%)
+              </Text>
+              <Text style={styles.recapDeltaText}>
+                Workout days: {weeklyRecapDelta.dayDelta >= 0 ? '+' : ''}{weeklyRecapDelta.dayDelta} • Sessions: {weeklyRecapDelta.workoutDelta >= 0 ? '+' : ''}{weeklyRecapDelta.workoutDelta}
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.premiumInsightCard}>
+            <View style={styles.premiumInsightHeader}>
+              <Text style={styles.premiumInsightTitle}>Premium Performance Signals</Text>
+              <View style={styles.premiumPill}>
+                <Text style={styles.premiumPillText}>PRO</Text>
+              </View>
+            </View>
+            <Text style={styles.premiumInsightSubtitle}>Weekly readiness, deload timing confidence, and strain balance.</Text>
+            <View style={styles.premiumGrid}>
+              <View style={styles.premiumMetricCard}>
+                <Text style={styles.premiumMetricLabel}>Readiness Trend</Text>
+                <Text style={styles.premiumMetricValue}>{premiumInsights.readinessScore}</Text>
+                <Text style={[styles.premiumMetricMeta, { color: premiumInsights.readinessDelta >= 0 ? colors.success : colors.error }]}>
+                  {premiumInsights.readinessDelta >= 0 ? '+' : ''}{premiumInsights.readinessDelta} vs last week
+                </Text>
+              </View>
+              <View style={styles.premiumMetricCard}>
+                <Text style={styles.premiumMetricLabel}>Deload Confidence</Text>
+                <Text style={styles.premiumMetricValue}>{premiumInsights.deloadConfidence}%</Text>
+                <Text style={styles.premiumMetricMeta}>
+                  {premiumInsights.deloadConfidence >= 70 ? 'High strain detected' : premiumInsights.deloadConfidence >= 45 ? 'Watch recovery' : 'Normal load'}
+                </Text>
+              </View>
+              <View style={styles.premiumMetricCardFull}>
+                <Text style={styles.premiumMetricLabel}>Strain Balance</Text>
+                <Text style={styles.premiumMetricValue}>{premiumInsights.strainBalance}/100</Text>
+                <Text style={styles.premiumMetricMeta}>
+                  Hard sets this week: {Math.round(premiumInsights.hardSetRate * 100)}% of total logged sets
+                </Text>
+              </View>
+            </View>
+          </View>
+
           {activeTab === '1rm' && (
             <View>
               <ExerciseSelector selectedExercise={selectedExercise} onPress={openExercisePicker} />
@@ -958,6 +1146,103 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.semibold, color: colors.textPrimary, marginBottom: 2 },
   cardSubtitle: { fontSize: typography.fontSize.xs, color: colors.textSecondary, marginBottom: spacing[4] },
   chart: { borderRadius: radii.md, marginLeft: -spacing[3] },
+  premiumInsightCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: spacing[4],
+    marginBottom: spacing[4],
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  premiumInsightHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing[2],
+  },
+  premiumInsightTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.bold,
+  },
+  premiumPill: {
+    paddingHorizontal: spacing[2],
+    paddingVertical: 2,
+    borderRadius: radii.full,
+    backgroundColor: colors.primaryMuted,
+  },
+  premiumPillText: {
+    color: colors.primary,
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.extrabold,
+    letterSpacing: 0.3,
+  },
+  premiumInsightSubtitle: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.xs,
+    marginBottom: spacing[3],
+  },
+  premiumGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[2],
+  },
+  premiumMetricCard: {
+    flex: 1,
+    minWidth: 130,
+    backgroundColor: colors.charcoal,
+    borderRadius: radii.md,
+    padding: spacing[3],
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  premiumMetricCardFull: {
+    width: '100%',
+    backgroundColor: colors.charcoal,
+    borderRadius: radii.md,
+    padding: spacing[3],
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  premiumMetricLabel: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.xs,
+    marginBottom: spacing[1],
+  },
+  premiumMetricValue: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.extrabold,
+  },
+  premiumMetricMeta: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.xs,
+    marginTop: spacing[1],
+  },
+  recapDeltaCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: spacing[4],
+    marginBottom: spacing[4],
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  recapDeltaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing[2],
+  },
+  recapDeltaTitle: {
+    color: colors.textPrimary,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
+  },
+  recapDeltaText: {
+    color: colors.textSecondary,
+    fontSize: typography.fontSize.xs,
+    marginBottom: 2,
+  },
   statRow: { flexDirection: 'row', marginTop: spacing[4], gap: spacing[2] },
   statBox: { flex: 1, backgroundColor: colors.charcoal, borderRadius: radii.md, padding: spacing[3], alignItems: 'center' },
   statBoxValue: { fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.bold, color: colors.textPrimary },

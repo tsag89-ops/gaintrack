@@ -6,6 +6,7 @@ import {
   createWorkout    as fsCreateWorkout,
   updateWorkout    as fsUpdateWorkout,
   deleteWorkout    as fsDeleteWorkout,
+  restoreWorkout   as fsRestoreWorkout,
 } from '../services/workoutFirestore';
 import { enqueueWorkout } from '../services/offlineQueue';
 
@@ -65,11 +66,14 @@ interface WorkoutState {
   ) => Promise<void>;
 
   /**
-   * Deletes a workout from Firestore and removes it from the local list.
-   *
-   * TODO: replace with soft-delete (archived flag) for undo support.
+    * Archives a workout in Firestore and removes it from the active local list.
    */
   deleteWorkout: (uid: string, workoutId: string) => Promise<void>;
+
+    /**
+    * Restores an archived workout and prepends it back to the local active list.
+    */
+    restoreWorkout: (uid: string, workout: Workout) => Promise<void>;
 }
 
 export const useWorkoutStore = create<WorkoutState>((set, get) => ({
@@ -241,6 +245,18 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     await fsDeleteWorkout(uid, workoutId);
     set((state) => {
       const updated = state.workouts.filter((w) => w.workout_id !== workoutId);
+      storage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
+      return { workouts: updated };
+    });
+  },
+
+  restoreWorkout: async (uid, workout) => {
+    await fsRestoreWorkout(uid, workout.workout_id);
+    set((state) => {
+      const updated = [
+        { ...workout, archived: false, archived_at: null },
+        ...state.workouts.filter((w) => w.workout_id !== workout.workout_id),
+      ];
       storage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
       return { workouts: updated };
     });

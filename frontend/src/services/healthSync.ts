@@ -32,6 +32,17 @@ export interface HealthSyncResult {
   };
 }
 
+export interface HealthSyncSnapshot {
+  provider: HealthProvider;
+  syncedAt: string;
+  snapshot: {
+    workoutsImported: number;
+    nutritionDaysImported: number;
+    measurementsImported: number;
+    providerRecordsRead: number;
+  };
+}
+
 export interface StravaReadinessResult {
   lookback_days: number;
   evaluated_at: string;
@@ -536,6 +547,21 @@ export const getStravaWearableReadiness = async (
 
 export const getProviderLabel = (provider: HealthProvider): string => {
   return provider === 'apple_health' ? 'Apple Health' : 'Google Fit';
+};
+
+export const getHealthSyncSnapshot = async (
+  provider: HealthProvider,
+): Promise<HealthSyncSnapshot | null> => {
+  try {
+    const raw = await AsyncStorage.getItem(`${HEALTH_SYNC_SNAPSHOT_PREFIX}${provider}`);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as HealthSyncSnapshot;
+    if (!parsed?.syncedAt || !parsed?.snapshot) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 };
 
 export const getSupportedProvidersForDevice = (): HealthProvider[] => {

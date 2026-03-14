@@ -34,6 +34,13 @@ import type { BodyCompositionGoals } from '../../src/types/bodyGoals';
 import { AISuggestionCard } from '../../src/components/AISuggestionCard';
 import { useAISuggestions } from '../../src/hooks/useAISuggestions'; // [PRO]
 import { storage } from '../../src/utils/storage';
+import {
+  type HealthProvider,
+  getHealthSyncSettings,
+  getHealthSyncSnapshot,
+  getProviderLabel,
+  getSupportedProvidersForDevice,
+} from '../../src/services/healthSync'; // [PRO]
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const AI_HISTORY_KEY   = 'gaintrack_ai_history';
@@ -234,6 +241,7 @@ export default function AISuggestions() {
   const [latestBodyWt,    setLatestBodyWt]     = useState<number | null>(null);
   const [recentWorkouts,  setRecentWorkouts]   = useState<any[]>([]);
   const [recentNutrition, setRecentNutrition]  = useState<any[]>([]);
+  const [healthCoachingTips, setHealthCoachingTips] = useState<Array<{ id: string; title: string; body: string }>>([]); // [PRO]
 
   // [PRO] AI personalised picks — fetched once on mount, cached 24 h
   const aiPicksContext = useMemo(() => ({
@@ -331,6 +339,67 @@ export default function AISuggestions() {
             .slice(0, 3),
         );
       }
+
+      // [PRO] Build health-sync-aware coaching prompts from latest snapshots.
+      const providers = getSupportedProvidersForDevice();
+      const healthSettings = await getHealthSyncSettings();
+      const tips: Array<{ id: string; title: string; body: string }> = [];
+
+      if (!healthSettings.consentGiven && providers.length > 0) {
+        tips.push({
+          id: 'health-consent',
+          title: 'Enable health sync for deeper coaching',
+          body: 'Turn on Health Data consent in Profile to unlock coaching suggestions based on real activity and recovery snapshots.',
+        });
+      }
+
+      for (const provider of providers) {
+        const snapshot = await getHealthSyncSnapshot(provider);
+        const providerState = healthSettings.providers[provider as HealthProvider];
+        const providerLabel = getProviderLabel(provider as HealthProvider);
+
+        if (!providerState?.connected) {
+          tips.push({
+            id: `health-connect-${provider}`,
+            title: `${providerLabel} not connected`,
+            body: `Connect ${providerLabel} in Profile to receive coaching tied to your activity baseline and health sync quality.`,
+          });
+          continue;
+        }
+
+        if (!snapshot) {
+          tips.push({
+            id: `health-sync-${provider}`,
+            title: `Run first ${providerLabel} sync`,
+            body: `No ${providerLabel} snapshot found yet. Use Sync now in Profile so AI can personalize training load and recovery guidance.`,
+          });
+          continue;
+        }
+
+        const readCount = Number(snapshot.snapshot.providerRecordsRead ?? 0);
+        const workoutsImported = Number(snapshot.snapshot.workoutsImported ?? 0);
+        const nutritionImported = Number(snapshot.snapshot.nutritionDaysImported ?? 0);
+        const syncedAtMs = new Date(snapshot.syncedAt).getTime();
+        const daysSinceSync = Number.isFinite(syncedAtMs)
+          ? Math.max(0, Math.floor((Date.now() - syncedAtMs) / (1000 * 60 * 60 * 24)))
+          : 99;
+
+        if (daysSinceSync >= 4) {
+          tips.push({
+            id: `health-stale-${provider}`,
+            title: `${providerLabel} sync is stale`,
+            body: `Last sync was ${daysSinceSync} days ago. Sync again before your next session so coaching reflects current fatigue and activity.` ,
+          });
+        } else {
+          tips.push({
+            id: `health-ready-${provider}`,
+            title: `${providerLabel} coaching signal ready`,
+            body: `Latest sync captured ${readCount.toLocaleString()} provider records with ${workoutsImported} workouts and ${nutritionImported} nutrition logs. Keep sync cadence at least every 48 hours for better coaching accuracy.`,
+          });
+        }
+      }
+
+      setHealthCoachingTips(tips.slice(0, 3));
     } catch (e) {
       console.error('[AISuggestions] loadAll error:', e);
     }
@@ -629,6 +698,18 @@ Always give specific, personalized advice referencing the user's actual data, cu
                   />
                 ))
               )}
+
+              {healthCoachingTips.length > 0 && (
+                <>
+                  <Text style={[styles.sectionLabel, { marginTop: 6 }]}>Health Sync Coaching</Text>
+                  {healthCoachingTips.map((tip) => (
+                    <View key={tip.id} style={styles.healthTipCard}>
+                      <Text style={styles.healthTipTitle}>{tip.title}</Text>
+                      <Text style={styles.healthTipBody}>{tip.body}</Text>
+                    </View>
+                  ))}
+                </>
+              )}
             </>
           )}
 
@@ -883,6 +964,25 @@ const styles = StyleSheet.create({
     borderRadius: 7,
     backgroundColor: '#3a3a3a',
     width: '100%',
+  },
+  healthTipCard: {
+    backgroundColor: '#252525',
+    borderWidth: 1,
+    borderColor: '#2D2D2D',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  healthTipTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  healthTipBody: {
+    color: '#B0B0B0',
+    fontSize: 13,
+    lineHeight: 19,
   },
   messages: {
     flex: 1,

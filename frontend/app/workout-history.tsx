@@ -24,7 +24,7 @@ import { shareWorkoutCard } from '../src/services/social';
 export default function WorkoutHistoryScreen() {
   const router = useRouter();
   const { uid } = useNativeAuthState();
-  const { workouts, loadUserWorkouts, deleteWorkout } = useWorkoutStore();
+  const { workouts, loadUserWorkouts, deleteWorkout, restoreWorkout } = useWorkoutStore();
   const [refreshing, setRefreshing] = useState(false);
   const [localWorkouts, setLocalWorkouts] = useState<Workout[]>([]);
   const weightUnit = useWeightUnit();
@@ -82,17 +82,31 @@ export default function WorkoutHistoryScreen() {
 
   const handleDeleteWorkout = (workout: Workout) => {
     Alert.alert(
-      'Delete Workout',
-      `Delete "${workout.name}"? This cannot be undone.`,
+      'Archive Workout',
+      `Archive "${workout.name}"? You can restore it right after archiving.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Archive',
           style: 'destructive',
           onPress: async () => {
             if (!uid) return;
             await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             await deleteWorkout(uid, workout.workout_id);
+            Alert.alert(
+              'Workout archived',
+              'This workout was moved out of active history.',
+              [
+                {
+                  text: 'Undo',
+                  onPress: async () => {
+                    await Haptics.selectionAsync();
+                    await restoreWorkout(uid, workout);
+                  },
+                },
+                { text: 'Done', style: 'cancel' },
+              ],
+            );
           },
         },
       ],

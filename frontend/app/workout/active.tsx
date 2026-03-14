@@ -29,12 +29,13 @@ import { useWeightUnit } from '../../src/hooks/useWeightUnit';
 import { seedExercises } from '../../src/data/seedData';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
-import { sendFirstWorkoutCompletedTelemetry } from '../../src/services/notifications';
+import { sendFirstWorkoutCompletedTelemetry, sendSupersetTelemetry } from '../../src/services/notifications';
 
 const DEFAULT_REST_SECONDS = 90;
 const REST_DURATION_KEY = 'gaintrack_rest_duration';
 const SUPERSET_COLORS = ['#FF6200', '#4CAF50', '#29B6F6', '#FFB300', '#EF5350', '#AB47BC'];
 const WORKOUT_MILESTONES = [1, 5, 10, 25, 50, 100, 200];
+const SUPERSET_FIRST_COMPLETION_PROMPT_KEY = 'gaintrack_superset_first_completion_prompted';
 // Per-exercise last-session cache — written on every finish, read before scanning workout history
 const EXERCISE_HISTORY_KEY = 'gaintrack_exercise_history';
 
@@ -278,9 +279,36 @@ const ActiveWorkoutScreen: React.FC = () => {
   // [PRO] Prompt user to choose which superset group this exercise belongs to.
   const toggleSuperset = (exerciseId: string) => {
     if (!isPro) {
-      Alert.alert('Pro Feature', 'Supersets are available with GainTrack Pro ($4.99/yr).');
+      void sendSupersetTelemetry({
+        eventType: 'superset_attempt_blocked',
+        success: false,
+        isPro: false,
+        context: 'active_workout_toggle',
+      });
+      Alert.alert('Pro Feature', 'Supersets are available with GainTrack Pro ($4.99/yr).', [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'Upgrade',
+          onPress: () => {
+            void sendSupersetTelemetry({
+              eventType: 'superset_paywall_view',
+              success: true,
+              isPro: false,
+              context: 'active_workout_toggle',
+            });
+            router.push('/pro-paywall' as any);
+          },
+        },
+      ]);
       return;
     }
+
+    void sendSupersetTelemetry({
+      eventType: 'superset_attempt',
+      success: true,
+      isPro: true,
+      context: 'active_workout_toggle',
+    });
     const exercise = exerciseList.find((ex) => ex.exercise_id === exerciseId);
     if (!exercise) return;
 
@@ -650,6 +678,30 @@ const ActiveWorkoutScreen: React.FC = () => {
     return newPRs;
   };
 
+  const summarizeCompletedSupersets = (exercises: WorkoutExercise[]): { groupsCount: number; exercisesCount: number } => {
+    const grouped = new Map<string, WorkoutExercise[]>();
+    for (const ex of exercises) {
+      if (!ex.superset_group) continue;
+      const list = grouped.get(ex.superset_group) ?? [];
+      list.push(ex);
+      grouped.set(ex.superset_group, list);
+    }
+
+    let groupsCount = 0;
+    let exercisesCount = 0;
+    grouped.forEach((groupExercises) => {
+      if (groupExercises.length < 2) return;
+      const exercisesWithCompletedSet = groupExercises.filter((ex) =>
+        ex.sets.some((set) => set.completed),
+      );
+      if (exercisesWithCompletedSet.length < 2) return;
+      groupsCount += 1;
+      exercisesCount += exercisesWithCompletedSet.length;
+    });
+
+    return { groupsCount, exercisesCount };
+  };
+
   // Finish workout: save to Firestore, detect PRs, stamp duration, prompt template [PRO]
   const finishWorkout = async (skipIncompleteCheck = false) => {
     if (!currentWorkout) return;
@@ -746,6 +798,21 @@ const ActiveWorkoutScreen: React.FC = () => {
       const savedWorkout = await createWorkout(uid, updatedWorkout);
       const isOffline = savedWorkout.workout_id.startsWith('offline_');
 
+      const supersetSummary = summarizeCompletedSupersets(validExercises);
+      const hasCompletedSuperset = supersetSummary.groupsCount > 0;
+
+      if (hasCompletedSuperset) {
+        void sendSupersetTelemetry({
+          eventType: 'superset_completed_workout',
+          success: true,
+          isPro,
+          workoutId: savedWorkout.workout_id,
+          groupsCount: supersetSummary.groupsCount,
+          exercisesCount: supersetSummary.exercisesCount,
+          context: 'active_workout_finish',
+        });
+      }
+
       if (!isOffline && priorWorkoutCount === 0) {
         await sendFirstWorkoutCompletedTelemetry({
           workoutId: savedWorkout.workout_id,
@@ -760,6 +827,33 @@ const ActiveWorkoutScreen: React.FC = () => {
           Alert.alert(
             'Milestone unlocked',
             `Great work! You just completed ${completedCount} workout${completedCount > 1 ? 's' : ''}. Keep the streak alive.`,
+          );
+        }
+      }
+
+      if (hasCompletedSuperset) {
+        const hasSeenFirstSupersetPrompt = await AsyncStorage.getItem(SUPERSET_FIRST_COMPLETION_PROMPT_KEY);
+        if (!hasSeenFirstSupersetPrompt) {
+          await AsyncStorage.setItem(SUPERSET_FIRST_COMPLETION_PROMPT_KEY, '1');
+          void sendSupersetTelemetry({
+            eventType: 'superset_first_completion_prompt_shown',
+            success: true,
+            isPro,
+            workoutId: savedWorkout.workout_id,
+            groupsCount: supersetSummary.groupsCount,
+            exercisesCount: supersetSummary.exercisesCount,
+            context: 'active_workout_finish',
+          });
+          Alert.alert(
+            'Superset milestone unlocked',
+            'First superset session completed. Track progression and fatigue trends in Progress to keep pushing smart overload.',
+            [
+              {
+                text: 'View Progress',
+                onPress: () => router.push('/(tabs)/progress' as any),
+              },
+              { text: 'Later', style: 'cancel' },
+            ],
           );
         }
       }

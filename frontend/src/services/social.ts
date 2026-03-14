@@ -22,6 +22,22 @@ export interface FriendInviteList {
   outgoing: FriendInvite[];
 }
 
+export interface InviteReminderDue {
+  invite_id: string;
+  to_user_id: string;
+  created_at: string;
+  reminder_count: number;
+}
+
+export interface FriendInviteReminderResult {
+  dry_run: boolean;
+  pending_invites: number;
+  due_invites: InviteReminderDue[];
+  due_count: number;
+  reminders_marked: number;
+  evaluated_at: string;
+}
+
 export interface LeaderboardEntry {
   user_id: string;
   name: string;
@@ -122,6 +138,19 @@ export const socialApi = {
       method: 'POST',
     });
     return Boolean(response?.ok);
+  },
+
+  processInviteReminders: async (dryRun = true, minAgeHours = 24): Promise<FriendInviteReminderResult | null> => {
+    const response = await authorizedFetch('/api/social/friends/invites/reminders', {
+      method: 'POST',
+      body: JSON.stringify({
+        dry_run: dryRun,
+        min_age_hours: minAgeHours,
+      }),
+    });
+    if (!response?.ok) return null;
+
+    return (await response.json()) as FriendInviteReminderResult;
   },
 };
 

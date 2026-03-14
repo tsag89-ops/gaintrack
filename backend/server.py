@@ -459,6 +459,31 @@ class HealthIntegrationTelemetry(BaseModel):
         return normalized
 
 
+class SupersetTelemetry(BaseModel):
+    event_type: str = Field(min_length=2, max_length=80)
+    success: bool = True
+    is_pro: bool = False
+    workout_id: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    groups_count: int = Field(default=0, ge=0, le=50)
+    exercises_count: int = Field(default=0, ge=0, le=200)
+    context: Optional[str] = Field(default=None, max_length=80)
+
+    @field_validator("event_type")
+    @classmethod
+    def validate_event_type(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        allowed = {
+            "superset_attempt",
+            "superset_attempt_blocked",
+            "superset_paywall_view",
+            "superset_completed_workout",
+            "superset_first_completion_prompt_shown",
+        }
+        if normalized not in allowed:
+            raise ValueError("Unsupported event_type")
+        return normalized
+
+
 class FriendConnectRequest(BaseModel):
     friend_user_id: str = Field(min_length=2, max_length=120)
 
@@ -475,6 +500,11 @@ class FriendInviteRequest(BaseModel):
     @classmethod
     def validate_target_user_id(cls, value: str) -> str:
         return value.strip()
+
+
+class FriendInviteReminderRequest(BaseModel):
+    dry_run: bool = True
+    min_age_hours: int = Field(default=24, ge=1, le=168)
 
 
 def evaluate_strava_wearable_scope(
@@ -2228,6 +2258,35 @@ async def ingest_health_integration_telemetry(
     }
 
 
+@api_router.post("/workouts/superset/telemetry")
+async def ingest_superset_telemetry(
+    payload: SupersetTelemetry,
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    await enforce_mutation_rate_limit(request, "workouts.superset.telemetry", user.user_id, limit=120, window_seconds=60)
+
+    now = datetime.now(timezone.utc)
+    event_doc = {
+        "user_id": user.user_id,
+        "event_type": payload.event_type,
+        "success": payload.success,
+        "is_pro": payload.is_pro,
+        "workout_id": payload.workout_id,
+        "groups_count": payload.groups_count,
+        "exercises_count": payload.exercises_count,
+        "context": payload.context,
+        "created_at": now,
+    }
+
+    await db.superset_events.insert_one(event_doc)
+
+    return {
+        "tracked": True,
+        "recorded_at": now.isoformat(),
+    }
+
+
 @api_router.get("/integrations/health/strava-readiness")
 async def get_strava_wearable_readiness(
     request: Request,
@@ -2528,6 +2587,78 @@ async def respond_friend_invite(
         "updated": True,
         "status": next_status,
         "recorded_at": now.isoformat(),
+    }
+
+
+@api_router.post("/social/friends/invites/reminders")
+async def process_friend_invite_reminders(
+    payload: FriendInviteReminderRequest,
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    await enforce_mutation_rate_limit(request, "social.friends.invites.reminders", user.user_id, limit=20, window_seconds=60)
+
+    now = datetime.now(timezone.utc)
+    min_age_cutoff = now - timedelta(hours=payload.min_age_hours)
+
+    pending_outgoing = await db.user_friend_invites.find(
+        {
+            "from_user_id": user.user_id,
+            "status": "pending",
+            "created_at": {"$lte": min_age_cutoff},
+        },
+        {
+            "_id": 0,
+            "invite_id": 1,
+            "to_user_id": 1,
+            "created_at": 1,
+            "last_reminder_at": 1,
+            "reminder_count": 1,
+        },
+    ).to_list(length=300)
+
+    due_invites: List[Dict[str, Any]] = []
+    for invite in pending_outgoing:
+        reminder_count = int(invite.get("reminder_count") or 0)
+        if reminder_count >= 3:
+            continue
+
+        last_reminder_at = invite.get("last_reminder_at")
+        if last_reminder_at:
+            try:
+                if _normalize_datetime(last_reminder_at) > min_age_cutoff:
+                    continue
+            except Exception:
+                pass
+
+        due_invites.append(
+            {
+                "invite_id": invite.get("invite_id"),
+                "to_user_id": invite.get("to_user_id"),
+                "created_at": invite.get("created_at"),
+                "reminder_count": reminder_count,
+            }
+        )
+
+    reminders_sent = 0
+    if not payload.dry_run and due_invites:
+        for due_invite in due_invites:
+            await db.user_friend_invites.update_one(
+                {"invite_id": due_invite.get("invite_id"), "from_user_id": user.user_id, "status": "pending"},
+                {
+                    "$set": {"last_reminder_at": now, "updated_at": now},
+                    "$inc": {"reminder_count": 1},
+                },
+            )
+            reminders_sent += 1
+
+    return {
+        "dry_run": payload.dry_run,
+        "pending_invites": len(pending_outgoing),
+        "due_invites": due_invites,
+        "due_count": len(due_invites),
+        "reminders_marked": reminders_sent,
+        "evaluated_at": now.isoformat(),
     }
 
 

@@ -93,6 +93,55 @@ export async function sendFirstWorkoutCompletedTelemetry(payload: {
   }
 }
 
+export async function sendSupersetTelemetry(payload: {
+  eventType:
+    | 'superset_attempt'
+    | 'superset_attempt_blocked'
+    | 'superset_paywall_view'
+    | 'superset_completed_workout'
+    | 'superset_first_completion_prompt_shown';
+  success?: boolean;
+  isPro?: boolean;
+  workoutId?: string;
+  groupsCount?: number;
+  exercisesCount?: number;
+  context?: string;
+}): Promise<void> {
+  if (!BACKEND_URL) {
+    return;
+  }
+
+  try {
+    const sessionToken = await storage.getItem('sessionToken');
+    if (!sessionToken) {
+      return;
+    }
+
+    const response = await fetch(`${BACKEND_URL}/api/workouts/superset/telemetry`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({
+        event_type: payload.eventType,
+        success: payload.success ?? true,
+        is_pro: payload.isPro ?? false,
+        workout_id: payload.workoutId,
+        groups_count: payload.groupsCount ?? 0,
+        exercises_count: payload.exercisesCount ?? 0,
+        context: payload.context,
+      }),
+    });
+
+    if (!response.ok) {
+      console.log('Failed to send superset telemetry:', response.status);
+    }
+  } catch (error) {
+    console.log('Failed to send superset telemetry:', error);
+  }
+}
+
 async function initNotifications() {
   try {
     // Dynamically import to avoid crashes in Expo Go

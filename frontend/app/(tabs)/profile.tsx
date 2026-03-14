@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useAuthStore } from '../../src/store/authStore';
 import { userApi } from '../../src/services/api';
@@ -30,6 +30,7 @@ import {
   HealthProvider,
   HealthSyncSettings,
   connectHealthProvider,
+  getHealthSyncSnapshot,
   getHealthSyncSettings,
   getProviderLabel,
   getSupportedProvidersForDevice,
@@ -99,6 +100,7 @@ export default function ProfileScreen() {
   const [restDuration, setRestDuration] = useState(90);
   const [aiConsent, setAiConsent] = useState(false);
   const [healthSyncSettings, setHealthSyncSettings] = useState<HealthSyncSettings | null>(null); // [PRO]
+  const [healthSyncSnapshots, setHealthSyncSnapshots] = useState<Partial<Record<HealthProvider, Awaited<ReturnType<typeof getHealthSyncSnapshot>>>>>({}); // [PRO]
   const [healthSyncProviderLoading, setHealthSyncProviderLoading] = useState<HealthProvider | null>(null); // [PRO]
   const [healthReadinessLoading, setHealthReadinessLoading] = useState(false); // [PRO]
   const supportedHealthProviders = getSupportedProvidersForDevice(); // [PRO]
@@ -114,14 +116,64 @@ export default function ProfileScreen() {
       .then((v) => setAiConsent(v === 'true'))
       .catch(() => null);
 
-    getHealthSyncSettings()
-      .then(setHealthSyncSettings)
-      .catch(() => null);
+    refreshHealthSyncSettings().catch(() => null);
   }, []);
 
   const refreshHealthSyncSettings = async () => {
     const next = await getHealthSyncSettings();
     setHealthSyncSettings(next);
+
+    const snapshotEntries = await Promise.all(
+      supportedHealthProviders.map(async (provider) => [provider, await getHealthSyncSnapshot(provider)] as const),
+    );
+    setHealthSyncSnapshots(Object.fromEntries(snapshotEntries) as Partial<Record<HealthProvider, Awaited<ReturnType<typeof getHealthSyncSnapshot>>>>);
+  };
+
+  const getHealthSyncQuality = (provider: HealthProvider) => {
+    const providerState = healthSyncSettings?.providers?.[provider];
+    const snapshot = healthSyncSnapshots[provider];
+
+    if (!providerState?.nativeBridgeAvailable) {
+      return { level: 'critical' as const, label: 'Bridge missing', detail: 'Native health bridge is unavailable in this build.' };
+    }
+    if (!providerState?.connected) {
+      return { level: 'warning' as const, label: 'Not connected', detail: 'Connect provider to unlock sync-driven coaching.' };
+    }
+    if (providerState.lastSyncStatus === 'failed') {
+      return { level: 'critical' as const, label: 'Sync failed', detail: providerState.lastError || 'Last sync attempt failed.' };
+    }
+    if (!snapshot?.syncedAt) {
+      return { level: 'warning' as const, label: 'No snapshot', detail: 'Run Sync now to generate a health snapshot.' };
+    }
+
+    const daysSinceSync = Math.max(0, Math.floor((Date.now() - new Date(snapshot.syncedAt).getTime()) / (1000 * 60 * 60 * 24)));
+    if (daysSinceSync >= 4) {
+      return { level: 'warning' as const, label: 'Sync stale', detail: `Last sync was ${daysSinceSync} day${daysSinceSync === 1 ? '' : 's'} ago.` };
+    }
+    return { level: 'good' as const, label: 'Healthy', detail: daysSinceSync === 0 ? 'Snapshot updated today.' : `Snapshot updated ${daysSinceSync}d ago.` };
+  };
+
+  const showHealthTroubleshooting = async (provider: HealthProvider) => {
+    await Haptics.selectionAsync();
+    const quality = getHealthSyncQuality(provider);
+    const providerState = healthSyncSettings?.providers?.[provider];
+    const snapshot = healthSyncSnapshots[provider];
+
+    const lines = [
+      `Status: ${quality.label}`,
+      `Detail: ${quality.detail}`,
+      providerState?.lastError ? `Last error: ${providerState.lastError}` : null,
+      snapshot?.snapshot
+        ? `Records: ${snapshot.snapshot.providerRecordsRead} | Workouts: ${snapshot.snapshot.workoutsImported} | Nutrition: ${snapshot.snapshot.nutritionDaysImported}`
+        : null,
+      '',
+      'Recommended actions:',
+      '1) Confirm Health Data consent is enabled.',
+      '2) Re-run Connect to refresh permissions.',
+      '3) Run Sync now and verify record counts increase.',
+    ].filter(Boolean);
+
+    Alert.alert(`${getProviderLabel(provider)} Troubleshooting`, lines.join('\n'));
   };
 
   const requireProForHealthSync = async (): Promise<boolean> => {
@@ -900,6 +952,8 @@ const handleExportMyData = async () => {
             supportedHealthProviders.map((provider) => {
               const providerState = healthSyncSettings?.providers[provider];
               const isBusy = healthSyncProviderLoading === provider;
+              const quality = getHealthSyncQuality(provider);
+              const qualityColor = quality.level === 'good' ? '#4CAF50' : quality.level === 'warning' ? '#F59E0B' : '#F44336';
 
               return (
                 <View key={provider} style={[styles.settingItem, styles.healthProviderCard]}>
@@ -947,7 +1001,19 @@ const handleExportMyData = async () => {
                     >
                       <Text style={styles.healthActionText}>{isBusy ? 'Syncing...' : 'Sync now'}</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.healthActionButton, styles.healthTroubleshootButton]}
+                      onPress={() => showHealthTroubleshooting(provider)}
+                    >
+                      <Text style={styles.healthActionText}>Troubleshoot</Text>
+                    </TouchableOpacity>
                   </View>
+
+                  <View style={styles.healthQualityRow}>
+                    <View style={[styles.healthQualityDot, { backgroundColor: qualityColor }]} />
+                    <Text style={styles.healthQualityTitle}>Sync Quality: {quality.label}</Text>
+                  </View>
+                  <Text style={styles.healthQualityDetail}>{quality.detail}</Text>
                 </View>
               );
             })
@@ -995,7 +1061,7 @@ const handleExportMyData = async () => {
           </Text>
           <TouchableOpacity
             style={[styles.settingItem, { marginTop: 8 }]}
-            onPress={() => router.push('/privacy-policy')}
+            onPress={() => router.push('/privacy-policy' as any)}
           >
             <View style={styles.settingLeft}>
               <Ionicons name="document-text-outline" size={22} color="#FF6200" />
@@ -1008,7 +1074,7 @@ const handleExportMyData = async () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.settingItem}
-            onPress={() => router.push('/terms')}
+            onPress={() => router.push('/terms' as any)}
           >
             <View style={styles.settingLeft}>
               <Ionicons name="document-outline" size={22} color="#FF6200" />
@@ -1287,6 +1353,9 @@ const styles = StyleSheet.create({
   healthProviderCard: { flexDirection: 'column', alignItems: 'stretch', gap: 10 },
   healthProviderHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   healthProviderActions: { flexDirection: 'row', gap: 10 },
+  healthTroubleshootButton: {
+    backgroundColor: '#1F2937',
+  },
   healthActionButton: {
     backgroundColor: '#111827',
     borderWidth: 1,
@@ -1297,6 +1366,26 @@ const styles = StyleSheet.create({
   },
   healthActionButtonDisabled: { opacity: 0.6 },
   healthActionText: { color: '#FF6200', fontSize: 13, fontWeight: '700' },
+  healthQualityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  healthQualityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  healthQualityTitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  healthQualityDetail: {
+    color: '#B0B0B0',
+    fontSize: 12,
+    lineHeight: 16,
+  },
   healthWarningText: { color: '#F59E0B', fontSize: 12 },
   healthReadinessButton: {
     marginTop: 10,

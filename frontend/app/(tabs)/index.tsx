@@ -67,6 +67,30 @@ function buildWeeklyChartData(workouts: Workout[]) {
   return { labels, data, max };
 }
 
+function buildWindowStats(workouts: Workout[], start: Date, end: Date) {
+  const windowWorkouts = workouts.filter((w) => {
+    try {
+      const d = parseISO(w.date);
+      return d >= start && d <= end && calculateWorkoutVolume(w.exercises ?? []) > 0;
+    } catch {
+      return false;
+    }
+  });
+
+  const volume = windowWorkouts.reduce((sum, workout) => sum + calculateWorkoutVolume(workout.exercises ?? []), 0);
+  const workoutDays = new Set(
+    windowWorkouts.map((workout) => {
+      try {
+        return format(parseISO(workout.date), 'yyyy-MM-dd');
+      } catch {
+        return '';
+      }
+    }).filter(Boolean),
+  ).size;
+
+  return { volume, workoutDays, workouts: windowWorkouts.length };
+}
+
 /** Consecutive-day workout streak ending today */
 function calcStreak(workouts: Workout[]): number {
   // Only count workouts with actual volume
@@ -198,6 +222,31 @@ export default function HomeScreen() {
   }, [workouts]);
   const streakAtRisk = streak > 0 && !workedOutToday;
 
+  const weeklyDeltaRecap = useMemo(() => {
+    const today = new Date();
+    const thisWeekStart = subDays(today, 6);
+    const prevWeekEnd = subDays(thisWeekStart, 1);
+    const prevWeekStart = subDays(prevWeekEnd, 6);
+
+    const current = buildWindowStats(workouts, thisWeekStart, today);
+    const previous = buildWindowStats(workouts, prevWeekStart, prevWeekEnd);
+
+    const volumeDelta = current.volume - previous.volume;
+    const dayDelta = current.workoutDays - previous.workoutDays;
+    const workoutDelta = current.workouts - previous.workouts;
+    const baseVolume = Math.max(previous.volume, 1);
+    const volumeDeltaPct = Math.round((volumeDelta / baseVolume) * 100);
+
+    return {
+      current,
+      previous,
+      volumeDelta,
+      dayDelta,
+      workoutDelta,
+      volumeDeltaPct,
+    };
+  }, [workouts]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -283,14 +332,28 @@ export default function HomeScreen() {
 
   const handleWeeklyRecapPress = async () => {
     await Haptics.selectionAsync();
+    const deltaPayload =
+      `Volume vs last week: ${weeklyDeltaRecap.volumeDelta >= 0 ? '+' : ''}${formatVolume(Math.abs(weeklyDeltaRecap.volumeDelta))} (${weeklyDeltaRecap.volumeDeltaPct >= 0 ? '+' : ''}${weeklyDeltaRecap.volumeDeltaPct}%)\n` +
+      `Workout days delta: ${weeklyDeltaRecap.dayDelta >= 0 ? '+' : ''}${weeklyDeltaRecap.dayDelta}\n` +
+      `Sessions delta: ${weeklyDeltaRecap.workoutDelta >= 0 ? '+' : ''}${weeklyDeltaRecap.workoutDelta}`;
+
     Alert.alert(
       'Weekly Recap',
-      `Workout days: ${workoutDaysThisWeek}/7\nNutrition days: ${nutritionTrackedDays}/7\nTotal volume: ${formatVolume(totalVolumeThisWeek)}\nCurrent streak: ${streak} day${streak === 1 ? '' : 's'}`,
+      `Workout days: ${workoutDaysThisWeek}/7\nNutrition days: ${nutritionTrackedDays}/7\nTotal volume: ${formatVolume(totalVolumeThisWeek)}\nCurrent streak: ${streak} day${streak === 1 ? '' : 's'}\n\nProgress delta payload:\n${deltaPayload}`,
       [
         { text: 'Close', style: 'cancel' },
         {
           text: 'Open Full Progress',
-          onPress: () => router.push('/(tabs)/progress'),
+          onPress: () => router.push({
+            pathname: '/(tabs)/progress',
+            params: {
+              source: 'weekly_recap',
+              volumeDelta: String(weeklyDeltaRecap.volumeDelta),
+              volumeDeltaPct: String(weeklyDeltaRecap.volumeDeltaPct),
+              dayDelta: String(weeklyDeltaRecap.dayDelta),
+              workoutDelta: String(weeklyDeltaRecap.workoutDelta),
+            },
+          } as any),
         },
       ],
     );
@@ -526,6 +589,7 @@ export default function HomeScreen() {
     workoutDaysThisWeek,
     nutritionTrackedDays,
     weeklyConsistencyScore,
+    weeklyDeltaRecap,
     milestone.next,
     milestone.progress,
     completedWorkoutsCount,
