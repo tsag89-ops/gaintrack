@@ -1,3 +1,13 @@
+﻿## GainTrack Context Override
+- Stack: Expo managed workflow, React Native, TypeScript
+- No eject, no paid services, free tiers only
+- Local path: C:\gaintrack\gaintrack\frontend\
+- Navigation: Expo Router file-based (app/ folder)
+- State: AsyncStorage local + Firestore free tier
+- Monetization: RevenueCat, isPro flag gates Pro features
+- Never commit secrets (.env, google-services.json)
+
+---
 # GainTrack EAS Agent
 
 ## Role
@@ -14,10 +24,10 @@ REPO ROOT:   C:\gaintrack\gaintrack
 FRONTEND:    C:\gaintrack\gaintrack\frontend
 BACKEND:     C:\gaintrack\gaintrack\backend
 
-✅ Run git commands from:      C:\gaintrack\gaintrack    (repo root)
-✅ Run expo/eas commands from: C:\gaintrack\gaintrack\frontend
-❌ NEVER run git from frontend/  — git history is at repo root
-❌ NEVER run eas/expo from repo root — app.config.js is in frontend/
+β… Run git commands from:      C:\gaintrack\gaintrack    (repo root)
+β… Run expo/eas commands from: C:\gaintrack\gaintrack\frontend
+β NEVER run git from frontend/  β€” git history is at repo root
+β NEVER run eas/expo from repo root β€” app.config.js is in frontend/
 ```
 
 ---
@@ -98,7 +108,7 @@ eas update --branch production --message "release: v1.x.x"
 ### Builds (New Native Code or Dependencies)
 
 ```powershell
-# Preview build (APK for Android testing — fastest, no review)
+# Preview build (APK for Android testing β€” fastest, no review)
 cd C:\gaintrack\gaintrack\frontend
 eas build --profile preview --platform android
 
@@ -129,9 +139,9 @@ eas credentials --platform android
 ```
 frontend/.env
 frontend/.env.local
-frontend/google-services.json       ← Use EAS file secret
-frontend/GoogleService-Info.plist   ← Use EAS file secret
-frontend/credentials.json           ← Contains Google service account key
+frontend/google-services.json       β† Use EAS file secret
+frontend/GoogleService-Info.plist   β† Use EAS file secret
+frontend/credentials.json           β† Contains Google service account key
 any file containing API keys
 ```
 
@@ -175,7 +185,7 @@ eas secret:delete --name SECRET_NAME
 ### Trigger an EAS Build from GitHub Actions
 
 The workflow file is at `.github/workflows/eas-build.yml`.  
-Do NOT manually trigger builds that are already automated — check the Actions tab first.
+Do NOT manually trigger builds that are already automated β€” check the Actions tab first.
 
 Secrets added to EAS are NOT the same as GitHub Actions secrets.  
 GitHub Actions uses its own secrets store for `EXPO_TOKEN`.
@@ -184,7 +194,7 @@ GitHub Actions uses its own secrets store for `EXPO_TOKEN`.
 # Get your EXPO_TOKEN for GitHub Actions:
 # 1. Go to https://expo.dev/accounts/[username]/settings/access-tokens
 # 2. Create a new token
-# 3. In GitHub: Settings → Secrets and variables → Actions → New repository secret
+# 3. In GitHub: Settings β†’ Secrets and variables β†’ Actions β†’ New repository secret
 # 4. Name: EXPO_TOKEN  Value: [your token]
 ```
 
@@ -247,7 +257,7 @@ eas build --profile development --platform android
 ### "OTA update not showing in app"
 ```
 1. Make sure the app's runtime version matches the update channel
-2. Check: frontend/app.config.js → updates.channel should match your branch
+2. Check: frontend/app.config.js β†’ updates.channel should match your branch
 3. Force close and reopen the app (OTA updates apply on launch)
 4. Check Expo dashboard: https://expo.dev/projects for update delivery status
 ```
@@ -258,7 +268,7 @@ eas build --profile development --platform android
 
 ### 1. Exact PowerShell Commands
 Every command on its own line. Include `cd` before every `eas` or `expo` command.  
-No bash syntax (no `&&`, no `$()` — use PowerShell equivalents).
+No bash syntax (no `&&`, no `$()` β€” use PowerShell equivalents).
 
 ```powershell
 cd C:\gaintrack\gaintrack\frontend
@@ -280,8 +290,8 @@ What the terminal should show on success, and what a failure looks like.
 
 ### 5. Verification Steps
 ```
-1. Check https://expo.dev/projects/gaintrack/updates — update should appear within 60s
-2. Open the app on your test device — update applies on next launch
+1. Check https://expo.dev/projects/gaintrack/updates β€” update should appear within 60s
+2. Open the app on your test device β€” update applies on next launch
 3. Navigate to the updated feature to confirm it works
 ```
 
@@ -300,3 +310,4 @@ git push origin main
 cd frontend
 eas update --branch dev --message "feat: [describe feature]"
 ```
+

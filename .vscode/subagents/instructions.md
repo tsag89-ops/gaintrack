@@ -1,4 +1,14 @@
-# GainTrack VS Code Subagents — Master Guide
+﻿## GainTrack Context Override
+- Stack: Expo managed workflow, React Native, TypeScript
+- No eject, no paid services, free tiers only
+- Local path: C:\gaintrack\gaintrack\frontend\
+- Navigation: Expo Router file-based (app/ folder)
+- State: AsyncStorage local + Firestore free tier
+- Monetization: RevenueCat, isPro flag gates Pro features
+- Never commit secrets (.env, google-services.json)
+
+---
+# GainTrack VS Code Subagents β€” Master Guide
 
 ## What Are Subagents?
 Subagents are specialized AI prompt templates that give GitHub Copilot a focused role for a specific part of your app. Instead of asking a general question, you paste the relevant agent prompt first so Copilot understands exactly what you're building and how.
@@ -25,7 +35,7 @@ Replace the values inside `< >` with your actual context.
 
 ```
 CONTEXT:
-  Project:  GainTrack — Expo managed workflow, React Native, TypeScript
+  Project:  GainTrack β€” Expo managed workflow, React Native, TypeScript
   Repo:     C:\gaintrack\gaintrack
   Frontend: C:\gaintrack\gaintrack\frontend
   Platform: Android + iOS, dark mode only
@@ -40,48 +50,15 @@ STACK:
   expo-haptics
   react-native-chart-kit
 
-CURRENT_PROGRESS:
-  ✅ Active workout screen (app/workout/active.tsx — 640 lines, 0 TS errors)
-  🔄 Exercise picker (app/(tabs)/exercises.tsx — in progress)
-  ❌ Progress charts (not started)
-  ❌ CSV export (not started)
-  ❌ Supersets (not started)
 
-TASK:
-  <Describe exactly what you need — one sentence is fine>
+
+
 
 OUTPUT_FORMAT:
-  - Full .tsx / .ts file(s) — no partial snippets
+  - Full .tsx / .ts file(s) β€” no partial snippets
   - npx expo install commands for any new dependencies
   - 3-step test instructions
-  - One-line summary of what changed
-```
-
----
-
-## How to Switch Subagents Mid-Conversation
-
-1. Type `/clear` in Copilot Chat to reset the conversation context.
-2. Open the new agent file (e.g., `.vscode/subagents/charts-agent.md`).
-3. Copy the entire file contents.
-4. Paste it as your first message in the new Copilot Chat session.
-5. Follow immediately with the Universal Context Block above.
-6. State your task.
-
-You do NOT need to re-paste the agent prompt for follow-up questions in the same session — Copilot remembers it.
-
----
-
-## Workflow: Start to Deployed Feature (6 Steps)
-
-```
-1. OPEN    → VS Code → Copilot Chat (Ctrl+Alt+I)
-2. PASTE   → Agent prompt from .vscode/subagents/<agent>.md
-3. CONTEXT → Paste Universal Context Block with your task filled in
-4. REVIEW  → Read the output, check for placeholder text
-5. TEST    → Follow the 3-step test instructions from the output
-6. DEPLOY  → Run: eas update --branch dev --message "feat: <what you built>"
-```
+  
 
 ---
 
@@ -89,32 +66,32 @@ You do NOT need to re-paste the agent prompt for follow-up questions in the same
 
 | Feature | Free | Pro ($4.99/yr) | Status |
 |---------|------|----------------|--------|
-| Exercise Library | Top 50 | Full 1000+ | ✅ Free done, Pro locked |
-| Workout Logging | Basic sets/reps | + Supersets, RPE | ✅ Basic done |
-| Rest Timer | ✅ | ✅ | ✅ Done |
-| Exercise Videos/GIFs | ❌ | ✅ | 🔄 Component built, Pro gate needed |
-| Progress Graphs (1RM) | ❌ | ✅ | ❌ Not started |
-| PR Tracking | ❌ | ✅ | ❌ Not started |
-| Plate Calculator | ✅ | ✅ | ✅ Done |
-| Firestore Sync | ❌ | ✅ | ✅ Sync logic done |
-| CSV Export | ❌ | ✅ | ❌ Not started |
-| AI Suggestions | Preview (3/day) | Unlimited | 🔄 Basic done |
-| Macros Tracking | Basic | Full history + charts | 🔄 In progress |
-| Supersets | ❌ | ✅ | ❌ Not started |
-| Body Measurements | ✅ | ✅ + Charts | 🔄 Input done |
+| Exercise Library | Top 50 | Full 1000+ | β… Free done, Pro locked |
+| Workout Logging | Basic sets/reps | + Supersets, RPE | β… Basic done |
+| Rest Timer | β… | β… | β… Done |
+| Exercise Videos/GIFs | β | β… | π”„ Component built, Pro gate needed |
+| Progress Graphs (1RM) | β | β… | β Not started |
+| PR Tracking | β | β… | β Not started |
+| Plate Calculator | β… | β… | β… Done |
+| Firestore Sync | β | β… | β… Sync logic done |
+| CSV Export | β | β… | β Not started |
+| AI Suggestions | Preview (3/day) | Unlimited | π”„ Basic done |
+| Macros Tracking | Basic | Full history + charts | π”„ In progress |
+| Supersets | β | β… | β Not started |
+| Body Measurements | β… | β… + Charts | π”„ Input done |
 
 ---
 
 ## Suggested Next 2 Features
 
-### 1. 1RM Progress Chart (High Impact — Pro Upsell)
+### 1. 1RM Progress Chart (High Impact β€” Pro Upsell)
 - **Why:** The #1 reason users pay for fitness apps is to see their progress visually.
 - **Agent:** `/charts` then `/iap` for the Pro gate paywall.
 - **Files:** `components/charts/OneRMChart.tsx`, `app/(tabs)/progress.tsx`
 - **Formula:** `weight * (36 / (37 - reps))` (Brzycki)
 
 ### 2. Superset Support in Active Workout (Differentiator)
-- **Why:** Hevy supports supersets — it's a top user request and a strong Pro upsell.
+- **Why:** Hevy supports supersets β€” it's a top user request and a strong Pro upsell.
 - **Agent:** `/ui` for the UI, `/storage` for the schema update.
 - **Files:** `app/workout/active.tsx` (update), `src/store/workoutStore.ts` (schema)
 - **Schema change:** Add `superset_id?: string` to `WorkoutSet` type.
@@ -125,22 +102,23 @@ You do NOT need to re-paste the agent prompt for follow-up questions in the same
 
 ```
 .vscode/subagents/
-  instructions.md       ← This file (master guide)
-  ui-agent.md           ← /ui
-  storage-agent.md      ← /storage
-  charts-agent.md       ← /charts
-  revenuecat-agent.md   ← /iap
-  eas-agent.md          ← /eas
-  debug-agent.md        ← /debug
+  instructions.md       β† This file (master guide)
+  ui-agent.md           β† /ui
+  storage-agent.md      β† /storage
+  charts-agent.md       β† /charts
+  revenuecat-agent.md   β† /iap
+  eas-agent.md          β† /eas
+  debug-agent.md        β† /debug
 ```
 
 ---
 
 ## Golden Rules (Never Break These)
 
-1. **Never run `git` from `frontend/`** — always run git from `C:\gaintrack\gaintrack`.
-2. **Never run `expo` / `eas` from repo root** — always `cd frontend` first.
-3. **Never commit secrets** — `.env`, `google-services.json`, API keys go in EAS secrets only.
-4. **Always AsyncStorage first, Firestore second** — offline-first architecture.
-5. **Never hardcode `isPro = true`** — always read from `authStore` → Firestore.
-6. **Always use `format(date, 'yyyy-MM-dd')` from date-fns** — never `.toISOString().split('T')[0]`.
+1. **Never run `git` from `frontend/`** β€” always run git from `C:\gaintrack\gaintrack`.
+2. **Never run `expo` / `eas` from repo root** β€” always `cd frontend` first.
+3. **Never commit secrets** β€” `.env`, `google-services.json`, API keys go in EAS secrets only.
+4. **Always AsyncStorage first, Firestore second** β€” offline-first architecture.
+5. **Never hardcode `isPro = true`** β€” always read from `authStore` β†’ Firestore.
+6. **Always use `format(date, 'yyyy-MM-dd')` from date-fns** β€” never `.toISOString().split('T')[0]`.
+

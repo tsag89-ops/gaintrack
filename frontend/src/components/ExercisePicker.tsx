@@ -457,10 +457,14 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
       );
     }
     if (activeEquipment !== 'All') {
+      const filterL = activeEquipment.toLowerCase();
       list = list.filter((ex) =>
-        ex.equipment_required.some(
-          (eq) => eq.toLowerCase() === activeEquipment.toLowerCase(),
-        ),
+        ex.equipment_required.some((eq) => {
+          const eqL = eq.toLowerCase();
+          // startsWith handles 'dumbbell' → 'dumbbells' and 'cable' → 'cable machine'
+          // while exact checks keep 'machine' from matching 'cable machine'
+          return eqL === filterL || eqL.startsWith(filterL);
+        }),
       );
     }
     if (query.trim()) {

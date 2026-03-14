@@ -51,3 +51,4 @@ google-services.json
 *.tsbuildinfo
 
 app-example
+.agency-agents/

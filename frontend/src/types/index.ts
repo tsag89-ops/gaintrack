@@ -143,3 +143,21 @@ export interface WorkoutProgram {
   createdAt: string;      // format(date, 'yyyy-MM-dd')
   lastSessionDate?: string; // format(date, 'yyyy-MM-dd')
 }
+
+// ─── Physique Progress Photos ─────────────────────────────────────────────────
+
+export interface PhysiqueWorkoutSummary {
+  name: string;
+  exerciseCount: number;
+  totalSets: number;
+  totalVolume: number; // kg
+}
+
+export interface PhysiquePhoto {
+  id: string;               // uuid
+  date: string;             // 'yyyy-MM-dd'
+  uri: string;              // permanent local file URI (documentDirectory)
+  capturedAt: string;       // ISO timestamp
+  notes?: string;
+  workoutSummary?: PhysiqueWorkoutSummary | null;
+}

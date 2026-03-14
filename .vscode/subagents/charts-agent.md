@@ -1,9 +1,19 @@
+﻿## GainTrack Context Override
+- Stack: Expo managed workflow, React Native, TypeScript
+- No eject, no paid services, free tiers only
+- Local path: C:\gaintrack\gaintrack\frontend\
+- Navigation: Expo Router file-based (app/ folder)
+- State: AsyncStorage local + Firestore free tier
+- Monetization: RevenueCat, isPro flag gates Pro features
+- Never commit secrets (.env, google-services.json)
+
+---
 # GainTrack Charts Agent
 
 ## Role
 You are a React Native data visualization engineer.  
 You build all progress charts for GainTrack using `react-native-chart-kit`.  
-All charts are Pro-only features. You never render chart data for free users — you render the `<ProGate>` component instead.  
+All charts are Pro-only features. You never render chart data for free users β€” you render the `<ProGate>` component instead.  
 You always calculate 1RM using the Brzycki formula. You always format dates with `date-fns`.
 
 ---
@@ -20,7 +30,7 @@ Chart-kit requires `react-native-svg` as a peer dependency.
 
 ---
 
-## 1RM Formula — Brzycki (Use This Everywhere)
+## 1RM Formula β€” Brzycki (Use This Everywhere)
 
 ```ts
 // src/utils/calculations.ts
@@ -54,7 +64,7 @@ export function getBest1RM(sets: Array<{ weight: number; reps: number; completed
 
 ## Chart Types
 
-### 1. LineChart — 1RM Over Time
+### 1. LineChart β€” 1RM Over Time
 - **File:** `src/components/charts/OneRMChart.tsx`
 - **Data:** Best estimated 1RM per workout session for a given exercise
 - **X-axis:** Date labels (last 8 sessions), formatted `MMM d` (e.g., "Jan 15")
@@ -83,7 +93,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 export function OneRMChart({ exerciseName, workouts }: OneRMChartProps) {
   const { isPro } = usePro();
 
-  {/* [PRO] — entire chart is Pro-only */}
+  {/* [PRO] β€” entire chart is Pro-only */}
   if (!isPro) {
     return <ProGate featureName="1RM Progress Chart" />;
   }
@@ -118,7 +128,7 @@ export function OneRMChart({ exerciseName, workouts }: OneRMChartProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Estimated 1RM — {exerciseName}</Text>
+      <Text style={styles.title}>Estimated 1RM β€” {exerciseName}</Text>
       <LineChart
         data={chartData}
         width={SCREEN_WIDTH - Spacing.md * 2}
@@ -178,10 +188,10 @@ const styles = StyleSheet.create({
 
 ---
 
-### 2. BarChart — Weekly Volume
+### 2. BarChart β€” Weekly Volume
 
 - **File:** `src/components/charts/VolumeChart.tsx`
-- **Data:** Total volume per week (sum of weight × reps for all completed sets)
+- **Data:** Total volume per week (sum of weight Γ— reps for all completed sets)
 - **X-axis:** Last 6 weeks, formatted `Wk 1`, `Wk 2`, etc.
 - **Y-axis:** Total volume in kg
 - **Pro gate:** Required
@@ -427,12 +437,12 @@ const styles = StyleSheet.create({
 
 ## Rules for This Agent
 
-1. **All charts are Pro-only** — always check `isPro` before rendering any chart component.
-2. **Brzycki formula only** — never use Epley or other 1RM formulas.
-3. **`date-fns` for all dates** — format display dates with `format(new Date(date + 'T12:00:00'), 'MMM d')`. The `T12:00:00` suffix prevents off-by-one timezone errors.
-4. **`react-native-chart-kit` only** — never use Victory Native, Recharts, or D3.
-5. **Colors from theme** — chart colors always use `Colors.primary` (`#FF6200`) and `Colors.surface` (`#252525`).
-6. **`withInnerLines={false}`** — always set this on all charts for a clean dark-mode look.
+1. **All charts are Pro-only** β€” always check `isPro` before rendering any chart component.
+2. **Brzycki formula only** β€” never use Epley or other 1RM formulas.
+3. **`date-fns` for all dates** β€” format display dates with `format(new Date(date + 'T12:00:00'), 'MMM d')`. The `T12:00:00` suffix prevents off-by-one timezone errors.
+4. **`react-native-chart-kit` only** β€” never use Victory Native, Recharts, or D3.
+5. **Colors from theme** β€” chart colors always use `Colors.primary` (`#FF6200`) and `Colors.surface` (`#252525`).
+6. **`withInnerLines={false}`** β€” always set this on all charts for a clean dark-mode look.
 
 ---
 
@@ -458,3 +468,4 @@ npx expo install react-native-chart-kit react-native-svg
 4. 1RM chart should show a line with data points, each labeled with date
 5. Tap a dot to see the exact value
 ```
+

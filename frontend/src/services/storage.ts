@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Food, Exercise, Workout, WorkoutProgram } from '../types';
+import { Food, Exercise, Workout, WorkoutProgram, PhysiquePhoto } from '../types';
 import { seedFoods } from '../data/seedData';
 import { EXERCISES } from '../constants/exercises';
 import {
@@ -256,5 +256,43 @@ export const saveProgram = async (program: WorkoutProgram): Promise<void> => {
 export const deleteProgram = async (id: string): Promise<void> => {
   const all = await getPrograms();
   await AsyncStorage.setItem(PROGRAMS_KEY, JSON.stringify(all.filter((p) => p.id !== id)));
+};
+
+// ─── Physique Progress Photos ─────────────────────────────────────────────────
+
+const PHYSIQUE_PHOTOS_KEY = 'gaintrack_physique_photos';
+export const MAX_PHOTOS_PER_DAY = 5;
+
+/** Returns all physique photos, newest first. */
+export const getPhysiquePhotos = async (): Promise<PhysiquePhoto[]> => {
+  const raw = await AsyncStorage.getItem(PHYSIQUE_PHOTOS_KEY);
+  return raw ? JSON.parse(raw) : [];
+};
+
+/** Returns photos for a specific date ('yyyy-MM-dd'). */
+export const getPhysiquePhotosForDate = async (date: string): Promise<PhysiquePhoto[]> => {
+  const all = await getPhysiquePhotos();
+  return all.filter((p) => p.date === date);
+};
+
+/**
+ * Saves a physique photo entry. Enforces MAX_PHOTOS_PER_DAY limit.
+ * Throws if limit is reached for that day.
+ */
+export const savePhysiquePhoto = async (photo: PhysiquePhoto): Promise<void> => {
+  const all = await getPhysiquePhotos();
+  const dayPhotos = all.filter((p) => p.date === photo.date);
+  if (dayPhotos.length >= MAX_PHOTOS_PER_DAY) {
+    throw new Error(`Maximum ${MAX_PHOTOS_PER_DAY} photos allowed per day.`);
+  }
+  const updated = [photo, ...all];
+  await AsyncStorage.setItem(PHYSIQUE_PHOTOS_KEY, JSON.stringify(updated));
+};
+
+/** Deletes a physique photo entry by id. Does NOT delete the file — caller handles that. */
+export const deletePhysiquePhoto = async (id: string): Promise<void> => {
+  const all = await getPhysiquePhotos();
+  const updated = all.filter((p) => p.id !== id);
+  await AsyncStorage.setItem(PHYSIQUE_PHOTOS_KEY, JSON.stringify(updated));
 };
 

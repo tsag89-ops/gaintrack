@@ -483,26 +483,39 @@ export default function ProgressScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Progress</Text>
-        <TouchableOpacity
-          style={[styles.exportBtn, !isPro && styles.exportBtnDim]}
-          onPress={handleExport}
-          disabled={exporting}
-          activeOpacity={0.75}
-        >
-          {exporting ? (
-            <ActivityIndicator size="small" color={colors.textPrimary} />
-          ) : (
-            <>
-              <Ionicons name="download-outline" size={15} color={isPro ? colors.textPrimary : colors.textSecondary} />
-              <Text style={[styles.exportBtnText, !isPro && { color: colors.textSecondary }]}>CSV</Text>
-              {!isPro && (
-                <View style={styles.miniProBadge}>
-                  <Text style={styles.miniProBadgeText}>PRO</Text>
-                </View>
-              )}
-            </>
-          )}
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity
+            style={styles.exportBtn}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/physique-progress' as any);
+            }}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="camera-outline" size={15} color={colors.textPrimary} />
+            <Text style={styles.exportBtnText}>Physique</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.exportBtn, !isPro && styles.exportBtnDim]}
+            onPress={handleExport}
+            disabled={exporting}
+            activeOpacity={0.75}
+          >
+            {exporting ? (
+              <ActivityIndicator size="small" color={colors.textPrimary} />
+            ) : (
+              <>
+                <Ionicons name="download-outline" size={15} color={isPro ? colors.textPrimary : colors.textSecondary} />
+                <Text style={[styles.exportBtnText, !isPro && { color: colors.textSecondary }]}>CSV</Text>
+                {!isPro && (
+                  <View style={styles.miniProBadge}>
+                    <Text style={styles.miniProBadgeText}>PRO</Text>
+                  </View>
+                )}
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.tabBar}>

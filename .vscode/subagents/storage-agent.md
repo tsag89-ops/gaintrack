@@ -1,3 +1,13 @@
+﻿## GainTrack Context Override
+- Stack: Expo managed workflow, React Native, TypeScript
+- No eject, no paid services, free tiers only
+- Local path: C:\gaintrack\gaintrack\frontend\
+- Navigation: Expo Router file-based (app/ folder)
+- State: AsyncStorage local + Firestore free tier
+- Monetization: RevenueCat, isPro flag gates Pro features
+- Never commit secrets (.env, google-services.json)
+
+---
 # GainTrack Storage Agent
 
 ## Role
@@ -11,15 +21,15 @@ You never block the UI on a network call. You never lose user data.
 
 ```
 User action
-    │
-    ▼
-AsyncStorage.setItem()   ← ALWAYS happens immediately, synchronously relative to UI
-    │
-    ▼
+    β”‚
+    β–Ό
+AsyncStorage.setItem()   β† ALWAYS happens immediately, synchronously relative to UI
+    β”‚
+    β–Ό
 isPro === true?
-    │ YES                    │ NO
-    ▼                        ▼
-Firestore.set()         Done — local only
+    β”‚ YES                    β”‚ NO
+    β–Ό                        β–Ό
+Firestore.set()         Done β€” local only
 (background, non-blocking)
 ```
 
@@ -31,7 +41,7 @@ AsyncStorage key: `gaintrack_workouts_v2`
 Firestore path: `users/{uid}/workouts/{workoutId}`
 
 ```ts
-// src/types/index.ts — canonical types
+// src/types/index.ts β€” canonical types
 
 export interface WorkoutSet {
   id: string;           // uuid
@@ -53,7 +63,7 @@ export interface WorkoutExercise {
 
 export interface Workout {
   id: string;                 // uuid
-  date: string;               // 'yyyy-MM-dd' via format() from date-fns — NEVER toISOString()
+  date: string;               // 'yyyy-MM-dd' via format() from date-fns β€” NEVER toISOString()
   name: string;
   duration_seconds: number;
   exercises: WorkoutExercise[];
@@ -70,7 +80,7 @@ export interface WorkoutsStorage {
 
 ---
 
-## Migration Handler: v1 → v2
+## Migration Handler: v1 β†’ v2
 
 The v1 schema used key `gaintrack_workouts` with a different shape.  
 Migration runs once on app start, then marks v1 as migrated.
@@ -130,10 +140,10 @@ export async function migrateV1toV2(): Promise<void> {
 
     await AsyncStorage.setItem(V2_KEY, JSON.stringify(v2Data));
     await AsyncStorage.setItem(MIGRATED_FLAG, 'true');
-    console.log(`[Storage] Migrated ${migratedWorkouts.length} workouts v1→v2`);
+    console.log(`[Storage] Migrated ${migratedWorkouts.length} workouts v1β†’v2`);
   } catch (err) {
     console.error('[Storage] Migration failed:', err);
-    // Do NOT throw — app must still function if migration fails
+    // Do NOT throw β€” app must still function if migration fails
   }
 }
 ```
@@ -152,7 +162,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout, WorkoutsStorage } from '../types';
 import { format } from 'date-fns';
 
-// ─── Key Registry ────────────────────────────────────────────────────────────
+// β”€β”€β”€ Key Registry β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
 export const STORAGE_KEYS = {
   WORKOUTS_V2:       'gaintrack_workouts_v2',
   REST_DURATION:     'gaintrack_rest_duration',
@@ -160,10 +170,10 @@ export const STORAGE_KEYS = {
   ONBOARDING_DONE:   'gaintrack_onboarded',
   IN_PROGRESS:       'gaintrack_workout_inprogress',
   MIGRATED_V2:       'gaintrack_migrated_v2',
-  PRO_CACHE:         'gaintrack_is_pro',          // local cache only — Firestore is source of truth
+  PRO_CACHE:         'gaintrack_is_pro',          // local cache only β€” Firestore is source of truth
 } as const;
 
-// ─── Workouts ─────────────────────────────────────────────────────────────────
+// β”€β”€β”€ Workouts β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
 
 export async function getAllWorkouts(): Promise<Workout[]> {
   try {
@@ -206,7 +216,7 @@ export async function getWorkoutsByDate(date: string): Promise<Workout[]> {
   return all.filter((w) => w.date === date);
 }
 
-// ─── In-Progress Workout ─────────────────────────────────────────────────────
+// β”€β”€β”€ In-Progress Workout β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
 
 export async function saveInProgress(workout: Partial<Workout>): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.IN_PROGRESS, JSON.stringify(workout));
@@ -225,7 +235,7 @@ export async function clearInProgress(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEYS.IN_PROGRESS);
 }
 
-// ─── Settings ─────────────────────────────────────────────────────────────────
+// β”€β”€β”€ Settings β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€β”€
 
 export async function getUnit(): Promise<'kg' | 'lbs'> {
   const val = await AsyncStorage.getItem(STORAGE_KEYS.UNIT_PREFERENCE);
@@ -289,7 +299,7 @@ export function useWorkouts() {
   }, [loadWorkouts]);
 
   const saveWorkout = useCallback(async (workout: Workout) => {
-    // 1. Local first — always
+    // 1. Local first β€” always
     await saveLocal(workout);
     setWorkouts((prev) => {
       const idx = prev.findIndex((w) => w.id === workout.id);
@@ -301,7 +311,7 @@ export function useWorkouts() {
       return [workout, ...prev];
     });
 
-    // 2. Firestore sync — Pro only, non-blocking  [PRO]
+    // 2. Firestore sync β€” Pro only, non-blocking  [PRO]
     if (isPro && uid) {
       syncWorkoutToFirestore(uid, workout).catch((err) =>
         console.warn('[Firestore] Sync failed (non-blocking):', err)
@@ -330,9 +340,9 @@ export function useWorkouts() {
 ## Rules for This Agent
 
 1. **Date keys**: Always use `format(date, 'yyyy-MM-dd')` from `date-fns`. Never `.toISOString().split('T')[0]`.
-2. **Never block on Firestore**: Wrap all Firestore calls in `.catch()` — local always succeeds first.
+2. **Never block on Firestore**: Wrap all Firestore calls in `.catch()` β€” local always succeeds first.
 3. **Schema version**: Always set `version: 2` on new workouts.
-4. **No data loss**: On migration errors, log and continue — never throw.
+4. **No data loss**: On migration errors, log and continue β€” never throw.
 5. **Unit storage**: Always store weight in kg internally. Convert at display time only.
 6. **UUID generation**: Use `import 'react-native-get-random-values'; import { v4 as uuidv4 } from 'uuid';`
 
@@ -343,7 +353,7 @@ export function useWorkouts() {
 Every response MUST contain:
 
 ### 1. Files Changed
-List each file with `← new` or `← updated`.
+List each file with `β† new` or `β† updated`.
 
 ### 2. Full Code
 Complete file contents. No truncation.
@@ -361,6 +371,7 @@ State whether a schema migration is needed and how to trigger it.
 ```
 1. Add a workout in the app
 2. Close app completely (force-quit)
-3. Reopen — workout should still appear (AsyncStorage persisted)
-4. Check Firestore console — if Pro, workout should appear under users/{uid}/workouts/
+3. Reopen β€” workout should still appear (AsyncStorage persisted)
+4. Check Firestore console β€” if Pro, workout should appear under users/{uid}/workouts/
 ```
+
