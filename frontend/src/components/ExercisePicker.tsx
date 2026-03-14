@@ -26,6 +26,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 
 import { Exercise } from '../types';
 import { theme } from '../constants/theme';
@@ -39,6 +40,9 @@ import {
 import { Input } from './ui/Input';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
+
+// Free tier: top 50 exercises by library index (IDs 1–50) [PRO]
+const FREE_EXERCISE_LIMIT = 50;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -430,6 +434,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
   const [favoriteIds, setFavoriteIds]   = useState<string[]>([]);
   const [recentlyUsed, setRecentlyUsed] = useState<Exercise[]>([]);
   const [loading, setLoading]           = useState(true);
+  const router = useRouter();
 
   // ── Load persisted state ─────────────────────────────────────────────────
   useEffect(() => {
@@ -446,7 +451,9 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
 
   // ── Filter / search logic ────────────────────────────────────────────────
   const filteredExercises = useMemo(() => {
-    let list = EXERCISES;
+    let list = isPro
+      ? EXERCISES
+      : EXERCISES.filter((ex) => parseInt(ex.id, 10) <= FREE_EXERCISE_LIMIT); // [PRO]
     if (activeMuscle !== 'All') {
       list = list.filter(
         (ex) =>
@@ -477,7 +484,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
       );
     }
     return list;
-  }, [activeMuscle, activeEquipment, query]);
+  }, [activeMuscle, activeEquipment, query, isPro]);
 
   // ── SectionList data: Favorites → Recently Used → All ───────────────────
   const sections = useMemo(() => {
@@ -491,7 +498,12 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
         result.push({ title: `Favorites (${favoriteExercises.length})`, data: favoriteExercises });
       if (recentFiltered.length > 0)
         result.push({ title: 'Recently Used', data: recentFiltered });
-      result.push({ title: `All Exercises (${filteredExercises.length})`, data: filteredExercises });
+      result.push({
+        title: isPro
+          ? `All Exercises (${filteredExercises.length})`
+          : `Free Exercises (${filteredExercises.length} of ${FREE_EXERCISE_LIMIT})`, // [PRO]
+        data: filteredExercises,
+      });
       return result;
     }
 
@@ -503,7 +515,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
         data: filteredExercises,
       },
     ];
-  }, [recentlyUsed, filteredExercises, query, activeMuscle, activeEquipment, favoriteIds]);
+  }, [recentlyUsed, filteredExercises, query, activeMuscle, activeEquipment, favoriteIds, isPro]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleAdd = useCallback(
@@ -650,6 +662,28 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
           maxToRenderPerBatch={20}
           windowSize={10}
           removeClippedSubviews={Platform.OS === 'android'}
+          ListFooterComponent={
+            !isPro ? ( // [PRO]
+              <TouchableOpacity
+                style={styles.proUpsellBanner}
+                onPress={() => router.push('/pro-paywall' as any)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.proUpsellInner}>
+                  <Ionicons name="lock-closed" size={22} color={theme.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.proUpsellTitle}>
+                      {EXERCISES.length - FREE_EXERCISE_LIMIT}+ more exercises in Pro
+                    </Text>
+                    <Text style={styles.proUpsellSubtitle}>
+                      Unlock the full library of {EXERCISES.length} exercises
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={theme.primary} />
+                </View>
+              </TouchableOpacity>
+            ) : null
+          }
         />
       )}
     </SafeAreaView>
@@ -741,6 +775,34 @@ const styles = StyleSheet.create({
 
   listContent: {
     paddingBottom: 32,
+  },
+
+  // Pro upsell footer banner [PRO]
+  proUpsellBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.primary,
+    overflow: 'hidden',
+  },
+  proUpsellInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 12,
+  },
+  proUpsellTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.textPrimary,
+  },
+  proUpsellSubtitle: {
+    fontSize: 13,
+    color: theme.textSecondary,
+    marginTop: 2,
   },
 
   center: {
