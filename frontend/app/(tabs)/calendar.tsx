@@ -23,17 +23,31 @@ export default function CalendarScreen() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [calendarData, setCalendarData] = useState<Record<string, DayData>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        setTimeout(() => reject(new Error('Calendar request timed out')), timeoutMs);
+      }),
+    ]);
+  };
 
   const fetchCalendarData = useCallback(async () => {
     try {
       setIsLoading(true);
+      setErrorMessage(null);
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1; // API expects 1-indexed month
-      const data = await statsApi.getCalendarData(year, month);
-      setCalendarData(data);
+      const data = await withTimeout(statsApi.getCalendarData(year, month), 8000);
+      setCalendarData(data ?? {});
     } catch (error) {
       console.error('Error fetching calendar data:', error);
+      setCalendarData({});
+      setSelectedDate(null);
+      setErrorMessage('Calendar data is unavailable right now. Pull to retry.');
     } finally {
       setIsLoading(false);
     }
@@ -73,6 +87,7 @@ export default function CalendarScreen() {
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   const selectedDayData = selectedDate ? calendarData[selectedDate] : null;
+  const hasAnyEntriesThisMonth = Object.keys(calendarData).length > 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -98,6 +113,31 @@ export default function CalendarScreen() {
         </View>
       ) : (
         <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+          {errorMessage ? (
+            <View style={styles.statusCard}>
+              <View style={styles.statusHeaderRow}>
+                <Ionicons name="warning-outline" size={16} color="#F59E0B" />
+                <Text style={styles.statusTitle}>Unable to refresh calendar</Text>
+              </View>
+              <Text style={styles.statusBody}>{errorMessage}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={fetchCalendarData}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {!errorMessage && !hasAnyEntriesThisMonth ? (
+            <View style={styles.statusCard}>
+              <View style={styles.statusHeaderRow}>
+                <Ionicons name="calendar-clear-outline" size={16} color="#9CA3AF" />
+                <Text style={styles.statusTitle}>No entries this month</Text>
+              </View>
+              <Text style={styles.statusBody}>
+                Log a workout or nutrition entry to see activity dots on the calendar.
+              </Text>
+            </View>
+          ) : null}
+
           {/* Calendar Grid */}
           <View style={styles.calendarCard}>
             {/* Week days header */}
@@ -265,6 +305,43 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  statusCard: {
+    backgroundColor: '#1F2937',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  statusHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  statusTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  statusBody: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  retryButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: '#374151',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   content: {
     flex: 1,

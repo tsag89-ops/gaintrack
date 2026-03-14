@@ -47,6 +47,7 @@ export default function AddFoodScreen() {
   // Open Food Facts search
   const [offResults, setOffResults] = useState<FoodItem[]>([]);
   const [offLoading, setOffLoading] = useState(false);
+  const [onlineSearchUnavailable, setOnlineSearchUnavailable] = useState(false);
   const [selectedOFFFood, setSelectedOFFFood] = useState<FoodItem | null>(null);
   const [servingGrams, setServingGrams] = useState('100');
   const [showScanner, setShowScanner] = useState(false);
@@ -70,15 +71,19 @@ export default function AddFoodScreen() {
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     if (searchQuery.trim().length < 2) {
       setOffResults([]);
+      setOnlineSearchUnavailable(false);
       return;
     }
     debounceTimer.current = setTimeout(async () => {
       try {
         setOffLoading(true);
+        setOnlineSearchUnavailable(false);
         const results = await searchFood(searchQuery.trim());
         setOffResults(results);
       } catch {
-        // silently fail – local results still shown
+        // Keep local food search usable when online lookup is unavailable.
+        setOffResults([]);
+        setOnlineSearchUnavailable(true);
       } finally {
         setOffLoading(false);
       }
@@ -388,6 +393,12 @@ export default function AddFoodScreen() {
             <Ionicons name="barcode-outline" size={22} color="#FF6200" />
           </TouchableOpacity>
         </View>
+
+        {onlineSearchUnavailable && searchQuery.trim().length >= 2 ? (
+          <Text style={styles.offlineSearchNotice}>
+            Online search unavailable. Showing local foods only.
+          </Text>
+        ) : null}
 
         {/* Categories */}
         <ScrollView
@@ -885,6 +896,13 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 8,
     marginTop: 4,
+  },
+  offlineSearchNotice: {
+    color: '#F59E0B',
+    fontSize: 12,
+    fontWeight: '600',
+    marginHorizontal: 20,
+    marginBottom: 8,
   },
   createModalOverlay: {
     flex: 1,

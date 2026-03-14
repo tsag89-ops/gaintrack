@@ -18,6 +18,21 @@ import Constants from 'expo-constants';
 
 const OPENROUTER_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 const AI_MODEL = 'openai/gpt-oss-120b:free';
+const AI_REQUEST_TIMEOUT_MS = 12000;
+
+async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 // -- Resolve the internal API route URL ---------------------------------------
 // Returns null in native production builds where no Expo server is reachable.
@@ -37,7 +52,7 @@ async function fetchFromOpenRouterDirect(
 ): Promise<Response> {
   const apiKey = process.env.EXPO_PUBLIC_AI_API_KEY;
   if (!apiKey) return new Response(JSON.stringify({ error: 'no_key' }), { status: 503 });
-  return fetch(OPENROUTER_ENDPOINT, {
+  return fetchWithTimeout(OPENROUTER_ENDPOINT, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -134,7 +149,7 @@ export async function getAISuggestions(context: AIContext): Promise<AISuggestion
   // Attempt 1: Expo server route
   if (serverUrl) {
     try {
-      res = await fetch(serverUrl, {
+      res = await fetchWithTimeout(serverUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ system, prompt }),

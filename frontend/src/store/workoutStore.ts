@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout, WorkoutExercise, WorkoutSet, Exercise } from '../types';
+import { storage } from '../utils/storage';
 import {
   loadUserWorkouts as fsLoadUserWorkouts,
   createWorkout    as fsCreateWorkout,
@@ -87,7 +87,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   persistInProgress: async (workout, exerciseList, startedAt) => {
     try {
-      await AsyncStorage.setItem(
+      await storage.setItem(
         ACTIVE_WORKOUT_KEY,
         JSON.stringify({ workout, exerciseList, startedAt }),
       );
@@ -98,7 +98,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   restoreInProgress: async () => {
     try {
-      const raw = await AsyncStorage.getItem(ACTIVE_WORKOUT_KEY);
+      const raw = await storage.getItem(ACTIVE_WORKOUT_KEY);
       if (!raw) return null;
       const { workout, exerciseList, startedAt } = JSON.parse(raw) as {
         workout: Workout;
@@ -115,7 +115,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   clearInProgress: async () => {
     try {
-      await AsyncStorage.removeItem(ACTIVE_WORKOUT_KEY);
+      await storage.removeItem(ACTIVE_WORKOUT_KEY);
       set({ currentWorkout: null });
     } catch (err) {
       console.warn('[workoutStore] clearInProgress failed:', err);
@@ -191,7 +191,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     try {
       const workouts = await fsLoadUserWorkouts(uid, limit);
       set({ workouts, isLoading: false });
-      await AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(workouts));
+      await storage.setItem('gaintrack_workouts', JSON.stringify(workouts));
     } catch (err) {
       console.error('[workoutStore] loadUserWorkouts failed:', err);
       set({ isLoading: false });
@@ -203,7 +203,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       const saved = await fsCreateWorkout(uid, data);
       set((state) => {
         const updated = [saved, ...state.workouts];
-        AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
+        storage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
         return { workouts: updated };
       });
       return saved;
@@ -219,7 +219,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       };
       set((state) => {
         const updated = [local, ...state.workouts];
-        AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
+        storage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
         return { workouts: updated };
       });
       return local;
@@ -232,7 +232,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       const updated = state.workouts.map((w) =>
         w.workout_id === workoutId ? { ...w, ...updates } : w
       );
-      AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
+      storage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
       return { workouts: updated };
     });
   },
@@ -241,7 +241,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     await fsDeleteWorkout(uid, workoutId);
     set((state) => {
       const updated = state.workouts.filter((w) => w.workout_id !== workoutId);
-      AsyncStorage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
+      storage.setItem('gaintrack_workouts', JSON.stringify(updated)).catch(() => null);
       return { workouts: updated };
     });
   },

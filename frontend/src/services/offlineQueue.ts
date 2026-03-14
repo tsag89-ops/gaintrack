@@ -10,9 +10,9 @@
  * [PRO] Firestore sync — callers should guard with usePro() where required.
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Workout } from '../types';
 import { createWorkout as fsCreateWorkout } from './workoutFirestore';
+import { storage } from '../utils/storage';
 
 const QUEUE_KEY = 'gaintrack_offline_queue';
 
@@ -26,7 +26,7 @@ export interface QueuedWorkout {
 
 async function readQueue(): Promise<QueuedWorkout[]> {
   try {
-    const raw = await AsyncStorage.getItem(QUEUE_KEY);
+    const raw = await storage.getItem(QUEUE_KEY);
     return raw ? (JSON.parse(raw) as QueuedWorkout[]) : [];
   } catch {
     return [];
@@ -34,7 +34,7 @@ async function readQueue(): Promise<QueuedWorkout[]> {
 }
 
 async function writeQueue(queue: QueuedWorkout[]): Promise<void> {
-  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+  await storage.setItem(QUEUE_KEY, JSON.stringify(queue));
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────

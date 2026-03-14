@@ -3,12 +3,12 @@
 // Follows storage-agent.md offline-first pattern.
 
 import { useState, useEffect, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getWeeklyTotalVolume,
   getMuscleGroupVolumeLatestWeek,
   type VolumeWorkout,
 } from '../utils/volumeCalc';
+import { storage } from '../utils/storage';
 
 const WORKOUTS_KEY = 'gaintrack_workouts';
 
@@ -37,7 +37,7 @@ export function useWorkoutVolume(): UseWorkoutVolumeResult {
     setLoading(true);
     setError(null);
 
-    AsyncStorage.getItem(WORKOUTS_KEY)
+    storage.getItem(WORKOUTS_KEY)
       .then((raw) => {
         if (cancelled) return;
         const parsed = raw ? JSON.parse(raw) : [];

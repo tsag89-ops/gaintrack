@@ -17,18 +17,41 @@ const FAVORITES_KEY        = 'favorite_exercises';        // string[] of exercis
 const RECENTLY_USED_LIMIT  = 20;
 const PRO_STATUS_KEY       = 'gaintrack_pro_status';
 const USER_KEY             = 'user';
+const STORAGE_TIMEOUT_MS   = 8000;
+
+const withStorageTimeout = async <T,>(operation: Promise<T>, label: string): Promise<T> => {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error(`${label} timed out after ${STORAGE_TIMEOUT_MS}ms`));
+        }, STORAGE_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+};
+
+const getItem = (key: string) => withStorageTimeout(AsyncStorage.getItem(key), `AsyncStorage.getItem(${key})`);
+const setItem = (key: string, value: string) => withStorageTimeout(AsyncStorage.setItem(key, value), `AsyncStorage.setItem(${key})`);
 
 // ─── Helpers (non-hook context) ───────────────────────────────────────────────
 
 /** Reads the stored Pro status without requiring a hook. */
 const _isPro = async (): Promise<boolean> => {
-  const val = await AsyncStorage.getItem(PRO_STATUS_KEY);
+  const val = await getItem(PRO_STATUS_KEY);
   return val === 'true';
 };
 
 /** Reads the stored user id without requiring a hook. */
 const _getUserId = async (): Promise<string | null> => {
-  const raw = await AsyncStorage.getItem(USER_KEY);
+  const raw = await getItem(USER_KEY);
   if (!raw) return null;
   try {
     const user = JSON.parse(raw) as { id?: string; user_id?: string };
@@ -42,31 +65,31 @@ const _getUserId = async (): Promise<string | null> => {
 
 export const initializeData = async (): Promise<void> => {
   const [foodsExist, exercisesExist] = await Promise.all([
-    AsyncStorage.getItem(FOODS_KEY),
-    AsyncStorage.getItem(EXERCISES_KEY),
+    getItem(FOODS_KEY),
+    getItem(EXERCISES_KEY),
   ]);
 
   if (!foodsExist) {
-    await AsyncStorage.setItem(FOODS_KEY, JSON.stringify(seedFoods));
+    await setItem(FOODS_KEY, JSON.stringify(seedFoods));
   }
 
   // Always seed from the canonical constants list (replaces old 6-entry seed)
   if (!exercisesExist) {
-    await AsyncStorage.setItem(EXERCISES_KEY, JSON.stringify(EXERCISES));
+    await setItem(EXERCISES_KEY, JSON.stringify(EXERCISES));
   }
 };
 
 // ─── Foods ───────────────────────────────────────────────────────────────────
 
 export const getFoods = async (): Promise<Food[]> => {
-  const data = await AsyncStorage.getItem(FOODS_KEY);
+  const data = await getItem(FOODS_KEY);
   return data ? JSON.parse(data) : [];
 };
 
 // ─── Exercises ───────────────────────────────────────────────────────────────
 
 export const getExercises = async (): Promise<Exercise[]> => {
-  const data = await AsyncStorage.getItem(EXERCISES_KEY);
+  const data = await getItem(EXERCISES_KEY);
   // Fall back to the in-memory constants so the picker always has data
   return data ? JSON.parse(data) : EXERCISES;
 };
@@ -75,7 +98,7 @@ export const getExercises = async (): Promise<Exercise[]> => {
 
 /** Returns up to RECENTLY_USED_LIMIT Exercise objects, most-recent first */
 export const getRecentlyUsedExercises = async (): Promise<Exercise[]> => {
-  const raw = await AsyncStorage.getItem(RECENTLY_USED_KEY);
+  const raw = await getItem(RECENTLY_USED_KEY);
   if (!raw) return [];
   const ids: string[] = JSON.parse(raw);
   const all = await getExercises();
@@ -85,20 +108,20 @@ export const getRecentlyUsedExercises = async (): Promise<Exercise[]> => {
 
 /** Records that an exercise was used. Prepends and deduplicates, capped at RECENTLY_USED_LIMIT. */
 export const recordRecentlyUsedExercise = async (exerciseId: string): Promise<void> => {
-  const raw = await AsyncStorage.getItem(RECENTLY_USED_KEY);
+  const raw = await getItem(RECENTLY_USED_KEY);
   const ids: string[] = raw ? JSON.parse(raw) : [];
   const deduped = [exerciseId, ...ids.filter((id) => id !== exerciseId)].slice(
     0,
     RECENTLY_USED_LIMIT,
   );
-  await AsyncStorage.setItem(RECENTLY_USED_KEY, JSON.stringify(deduped));
+  await setItem(RECENTLY_USED_KEY, JSON.stringify(deduped));
 };
 
 // ─── Favorites ────────────────────────────────────────────────────────────────
 
 /** Returns the set of favourite exercise ids */
 export const getFavoriteIds = async (): Promise<string[]> => {
-  const raw = await AsyncStorage.getItem(FAVORITES_KEY);
+  const raw = await getItem(FAVORITES_KEY);
   return raw ? JSON.parse(raw) : [];
 };
 
@@ -108,7 +131,7 @@ export const toggleFavoriteExercise = async (exerciseId: string): Promise<string
   const next = ids.includes(exerciseId)
     ? ids.filter((id) => id !== exerciseId)
     : [...ids, exerciseId];
-  await AsyncStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
+  await setItem(FAVORITES_KEY, JSON.stringify(next));
   return next;
 };
 
@@ -124,7 +147,7 @@ export const getFavoriteExercises = async (): Promise<Exercise[]> => {
 
 /** Returns all locally stored workouts, newest first. */
 export const getWorkoutsLocal = async (): Promise<Workout[]> => {
-  const data = await AsyncStorage.getItem(WORKOUTS_KEY);
+  const data = await getItem(WORKOUTS_KEY);
   return data ? JSON.parse(data) : [];
 };
 
@@ -140,7 +163,7 @@ export const saveWorkout = async (workout: Workout): Promise<void> => {
     idx >= 0
       ? existing.map((w) => (w.workout_id === workout.workout_id ? workout : w))
       : [workout, ...existing];
-  await AsyncStorage.setItem(WORKOUTS_KEY, JSON.stringify(updated));
+  await setItem(WORKOUTS_KEY, JSON.stringify(updated));
 
   // [PRO] background Firestore sync
   const [pro, userId] = await Promise.all([_isPro(), _getUserId()]);
@@ -158,7 +181,7 @@ export const saveWorkout = async (workout: Workout): Promise<void> => {
 export const deleteWorkout = async (workoutId: string): Promise<void> => {
   const existing = await getWorkoutsLocal();
   const updated = existing.filter((w) => w.workout_id !== workoutId);
-  await AsyncStorage.setItem(WORKOUTS_KEY, JSON.stringify(updated));
+  await setItem(WORKOUTS_KEY, JSON.stringify(updated));
 };
 
 // ─── Custom Exercise write (with Firestore sync) ──────────────────────────────
@@ -175,7 +198,7 @@ export const saveCustomExercise = async (exercise: Exercise): Promise<void> => {
     idx >= 0
       ? existing.map((ex) => ((ex.exercise_id || ex.id) === id ? exercise : ex))
       : [exercise, ...existing];
-  await AsyncStorage.setItem(EXERCISES_KEY, JSON.stringify(updated));
+  await setItem(EXERCISES_KEY, JSON.stringify(updated));
 
   // [PRO] background Firestore sync
   const [pro, userId] = await Promise.all([_isPro(), _getUserId()]);
@@ -193,14 +216,14 @@ export const saveCustomExercise = async (exercise: Exercise): Promise<void> => {
  * Keyed by entry.date (ISO string). [PRO] Firestore sync
  */
 export const saveProgress = async (entry: ProgressEntry): Promise<void> => {
-  const raw = await AsyncStorage.getItem('progress');
+  const raw = await getItem('progress');
   const existing: ProgressEntry[] = raw ? JSON.parse(raw) : [];
   const idx = existing.findIndex((p) => p.date === entry.date);
   const updated =
     idx >= 0
       ? existing.map((p) => (p.date === entry.date ? { ...p, ...entry } : p))
       : [entry, ...existing];
-  await AsyncStorage.setItem('progress', JSON.stringify(updated));
+  await setItem('progress', JSON.stringify(updated));
 
   // [PRO] background Firestore sync
   const [pro, userId] = await Promise.all([_isPro(), _getUserId()]);
@@ -213,7 +236,7 @@ export const saveProgress = async (entry: ProgressEntry): Promise<void> => {
 
 /** Reads all locally stored progress entries. */
 export const getProgressLocal = async (): Promise<ProgressEntry[]> => {
-  const raw = await AsyncStorage.getItem('progress');
+  const raw = await getItem('progress');
   return raw ? JSON.parse(raw) : [];
 };
 
@@ -223,7 +246,7 @@ const PROGRAMS_KEY = 'programs_v1';
 
 /** Returns all locally stored programs. */
 export const getPrograms = async (): Promise<WorkoutProgram[]> => {
-  const data = await AsyncStorage.getItem(PROGRAMS_KEY);
+  const data = await getItem(PROGRAMS_KEY);
   return data ? JSON.parse(data) : [];
 };
 
@@ -236,7 +259,7 @@ export const saveProgram = async (program: WorkoutProgram): Promise<void> => {
   const idx = all.findIndex((p) => p.id === program.id);
   const updated =
     idx >= 0 ? all.map((p) => (p.id === program.id ? program : p)) : [...all, program];
-  await AsyncStorage.setItem(PROGRAMS_KEY, JSON.stringify(updated));
+  await setItem(PROGRAMS_KEY, JSON.stringify(updated));
 
   // [PRO] background Firestore sync
   const [pro, userId] = await Promise.all([_isPro(), _getUserId()]);
@@ -255,7 +278,7 @@ export const saveProgram = async (program: WorkoutProgram): Promise<void> => {
 /** Deletes a program by id from local storage. */
 export const deleteProgram = async (id: string): Promise<void> => {
   const all = await getPrograms();
-  await AsyncStorage.setItem(PROGRAMS_KEY, JSON.stringify(all.filter((p) => p.id !== id)));
+  await setItem(PROGRAMS_KEY, JSON.stringify(all.filter((p) => p.id !== id)));
 };
 
 // ─── Physique Progress Photos ─────────────────────────────────────────────────
@@ -265,7 +288,7 @@ export const MAX_PHOTOS_PER_DAY = 5;
 
 /** Returns all physique photos, newest first. */
 export const getPhysiquePhotos = async (): Promise<PhysiquePhoto[]> => {
-  const raw = await AsyncStorage.getItem(PHYSIQUE_PHOTOS_KEY);
+  const raw = await getItem(PHYSIQUE_PHOTOS_KEY);
   return raw ? JSON.parse(raw) : [];
 };
 
@@ -286,13 +309,13 @@ export const savePhysiquePhoto = async (photo: PhysiquePhoto): Promise<void> => 
     throw new Error(`Maximum ${MAX_PHOTOS_PER_DAY} photos allowed per day.`);
   }
   const updated = [photo, ...all];
-  await AsyncStorage.setItem(PHYSIQUE_PHOTOS_KEY, JSON.stringify(updated));
+  await setItem(PHYSIQUE_PHOTOS_KEY, JSON.stringify(updated));
 };
 
 /** Deletes a physique photo entry by id. Does NOT delete the file — caller handles that. */
 export const deletePhysiquePhoto = async (id: string): Promise<void> => {
   const all = await getPhysiquePhotos();
   const updated = all.filter((p) => p.id !== id);
-  await AsyncStorage.setItem(PHYSIQUE_PHOTOS_KEY, JSON.stringify(updated));
+  await setItem(PHYSIQUE_PHOTOS_KEY, JSON.stringify(updated));
 };
 

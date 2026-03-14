@@ -3,6 +3,7 @@
 
 import { storage } from '../utils/storage';
 import { seedFoods } from '../data/seedData';
+import { format as formatDate } from 'date-fns';
 
 // Storage keys
 const WORKOUTS_KEY       = 'gaintrack_workouts';
@@ -14,11 +15,51 @@ const FOODS_VERSION_KEY  = 'gaintrack_foods_version';
 const CURRENT_FOODS_VERSION = 2; // bump when seedFoods changes
 const RECENT_FOODS_KEY   = 'gaintrack_recent_foods';
 const RECENT_LIMIT       = 10;
+const STORAGE_IO_TIMEOUT_MS = 8000;
+
+const withStorageTimeout = async <T,>(operation: Promise<T>, label: string): Promise<T> => {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => {
+          reject(new Error(`${label} timed out after ${STORAGE_IO_TIMEOUT_MS}ms`));
+        }, STORAGE_IO_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+};
+
+const safeGetItem = async (key: string): Promise<string | null> =>
+  withStorageTimeout(storage.getItem(key), `storage.getItem(${key})`);
+
+const safeSetItem = async (key: string, value: string): Promise<void> =>
+  withStorageTimeout(storage.setItem(key, value), `storage.setItem(${key})`);
+
+const toDateKey = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) return formatDate(parsed, 'yyyy-MM-dd');
+    return null;
+  }
+
+  const parsed = new Date(value as string | number | Date);
+  if (isNaN(parsed.getTime())) return null;
+  return formatDate(parsed, 'yyyy-MM-dd');
+};
 
 // Helper functions
 const getStoredData = async <T,>(key: string): Promise<T[]> => {
   try {
-    const data = await storage.getItem(key);
+    const data = await safeGetItem(key);
     return data ? JSON.parse(data) : [];
   } catch (error) {
     console.error(`Error reading ${key}:`, error);
@@ -28,7 +69,7 @@ const getStoredData = async <T,>(key: string): Promise<T[]> => {
 
 const storeData = async <T,>(key: string, data: T[]): Promise<void> => {
   try {
-    await storage.setItem(key, JSON.stringify(data));
+    await safeSetItem(key, JSON.stringify(data));
   } catch (error) {
     console.error(`Error storing ${key}:`, error);
     throw error;
@@ -70,12 +111,12 @@ const initializeExercises = async () => {
 initializeExercises();
 
 const initializeFoods = async () => {
-  const storedVersion = await storage.getItem(FOODS_VERSION_KEY);
+  const storedVersion = await safeGetItem(FOODS_VERSION_KEY);
   const foods = await getStoredData(FOODS_KEY);
   // Re-seed whenever the food DB version is outdated or missing
   if (foods.length === 0 || Number(storedVersion) < CURRENT_FOODS_VERSION) {
     await storeData(FOODS_KEY, seedFoods);
-    await storage.setItem(FOODS_VERSION_KEY, String(CURRENT_FOODS_VERSION));
+    await safeSetItem(FOODS_VERSION_KEY, String(CURRENT_FOODS_VERSION));
   }
 };
 initializeFoods();
@@ -148,6 +189,12 @@ export const workoutApi = {
 export const nutritionApi = {
   getFoods: async (category?: string, search?: string) => {
     let foods = await getStoredData<any>(FOODS_KEY);
+    // Ensure Add Food always has a local catalog even if initialization races/fails.
+    if (foods.length === 0) {
+      foods = seedFoods;
+      await storeData(FOODS_KEY, foods);
+      await safeSetItem(FOODS_VERSION_KEY, String(CURRENT_FOODS_VERSION));
+    }
     if (category) {
       foods = foods.filter((f: any) => f.category === category);
     }
@@ -206,18 +253,18 @@ export const measurementApi = {
 // User API
 export const userApi = {
   updateGoals: async (goals: any) => {
-    const userStr = await storage.getItem('user');
+    const userStr = await safeGetItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
       user.goals = goals;
-      await storage.setItem('user', JSON.stringify(user));
+      await safeSetItem('user', JSON.stringify(user));
       // Persist independently of session so prefs survive logout/login
       const uid = user.id ?? user.user_id;
       if (uid) {
-        const prefsStr = await storage.getItem(`user_prefs_${uid}`);
+        const prefsStr = await safeGetItem(`user_prefs_${uid}`);
         const prefs = prefsStr ? JSON.parse(prefsStr) : {};
         prefs.goals = goals;
-        await storage.setItem(`user_prefs_${uid}`, JSON.stringify(prefs));
+        await safeSetItem(`user_prefs_${uid}`, JSON.stringify(prefs));
       }
       return { message: 'Goals updated', goals };
     }
@@ -225,18 +272,18 @@ export const userApi = {
   },
 
   updateEquipment: async (equipment: string[]) => {
-    const userStr = await storage.getItem('user');
+    const userStr = await safeGetItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
       user.equipment = equipment;
-      await storage.setItem('user', JSON.stringify(user));
+      await safeSetItem('user', JSON.stringify(user));
       // Persist independently of session so prefs survive logout/login
       const uid = user.id ?? user.user_id;
       if (uid) {
-        const prefsStr = await storage.getItem(`user_prefs_${uid}`);
+        const prefsStr = await safeGetItem(`user_prefs_${uid}`);
         const prefs = prefsStr ? JSON.parse(prefsStr) : {};
         prefs.equipment = equipment;
-        await storage.setItem(`user_prefs_${uid}`, JSON.stringify(prefs));
+        await safeSetItem(`user_prefs_${uid}`, JSON.stringify(prefs));
       }
       return { message: 'Equipment updated', equipment };
     }
@@ -244,18 +291,18 @@ export const userApi = {
   },
 
   updateUnits: async (units: { weight: 'kg' | 'lbs'; height: 'cm' | 'in'; distance: 'km' | 'mi' }) => {
-    const userStr = await storage.getItem('user');
+    const userStr = await safeGetItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
       user.units = units;
-      await storage.setItem('user', JSON.stringify(user));
+      await safeSetItem('user', JSON.stringify(user));
       // Persist independently of session so prefs survive logout/login
       const uid = user.id ?? user.user_id;
       if (uid) {
-        const prefsStr = await storage.getItem(`user_prefs_${uid}`);
+        const prefsStr = await safeGetItem(`user_prefs_${uid}`);
         const prefs = prefsStr ? JSON.parse(prefsStr) : {};
         prefs.units = units;
-        await storage.setItem(`user_prefs_${uid}`, JSON.stringify(prefs));
+        await safeSetItem(`user_prefs_${uid}`, JSON.stringify(prefs));
       }
       return { message: 'Units updated', units };
     }
@@ -268,6 +315,7 @@ export const userApi = {
 export const foodApi = {
   getFoods: nutritionApi.getFoods,
   getAll: async () => nutritionApi.getFoods(),
+  search: async (query: string, category?: string) => nutritionApi.getFoods(category, query),
 
   deleteMealEntry: async (date: string, mealType: string, entryIndex: number) => {
     const nutrition = await getStoredData<any>(NUTRITION_KEY);
@@ -339,14 +387,14 @@ export const foodApi = {
   },
 
   recordRecentFood: async (foodId: string) => {
-    const raw = await storage.getItem(RECENT_FOODS_KEY);
+    const raw = await safeGetItem(RECENT_FOODS_KEY);
     const ids: string[] = raw ? JSON.parse(raw) : [];
     const deduped = [foodId, ...ids.filter((id: string) => id !== foodId)].slice(0, RECENT_LIMIT);
-    await storage.setItem(RECENT_FOODS_KEY, JSON.stringify(deduped));
+    await safeSetItem(RECENT_FOODS_KEY, JSON.stringify(deduped));
   },
 
   getRecentFoods: async () => {
-    const raw = await storage.getItem(RECENT_FOODS_KEY);
+    const raw = await safeGetItem(RECENT_FOODS_KEY);
     if (!raw) return [];
     const ids: string[] = JSON.parse(raw);
     const foods = await getStoredData<any>(FOODS_KEY);
@@ -387,13 +435,11 @@ export const statsApi = {
       getStoredData<any>(NUTRITION_KEY),
     ]);
     const result: Record<string, any> = {};
+    const monthPrefix = `${year}-${String(month).padStart(2, '0')}-`;
 
     workouts.forEach((w: any) => {
-      if (!w.date) return;
-      const d = new Date(w.date);
-      if (isNaN(d.getTime())) return;
-      if (d.getFullYear() !== year || d.getMonth() + 1 !== month) return;
-      const key = d.toISOString().split('T')[0];
+      const key = toDateKey(w.date);
+      if (!key || !key.startsWith(monthPrefix)) return;
       if (!result[key]) result[key] = { workouts: [], nutrition: null };
       result[key].workouts.push({
         workout_id: w.workout_id,
@@ -403,13 +449,11 @@ export const statsApi = {
     });
 
     nutrition.forEach((n: any) => {
-      if (!n.date) return;
-      const d = new Date(n.date);
-      if (isNaN(d.getTime())) return;
-      if (d.getFullYear() !== year || d.getMonth() + 1 !== month) return;
-      if (!result[n.date]) result[n.date] = { workouts: [], nutrition: null };
+      const key = toDateKey(n.date);
+      if (!key || !key.startsWith(monthPrefix)) return;
+      if (!result[key]) result[key] = { workouts: [], nutrition: null };
       if ((n.total_calories ?? 0) > 0) {
-        result[n.date].nutrition = {
+        result[key].nutrition = {
           calories: n.total_calories ?? 0,
           protein: n.total_protein ?? 0,
         };

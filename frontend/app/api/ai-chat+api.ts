@@ -7,6 +7,22 @@ const json = (body: unknown, status = 200): Response =>
     headers: { 'Content-Type': 'application/json' },
   });
 
+const AI_ROUTE_TIMEOUT_MS = 12000;
+
+async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AI_ROUTE_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 export async function POST(request: Request): Promise<Response> {
   try {
     let body: { prompt?: string; system?: string };
@@ -22,7 +38,7 @@ export async function POST(request: Request): Promise<Response> {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) return json({ error: 'API key not configured' }, 500);
 
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,

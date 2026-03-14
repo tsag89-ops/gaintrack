@@ -723,7 +723,7 @@ const ActiveWorkoutScreen: React.FC = () => {
       const updatedWorkout = { ...currentWorkout, exercises: validExercises, duration: durationSeconds };
       const savedWorkout = await createWorkout(uid, updatedWorkout);
       const isOffline = savedWorkout.workout_id.startsWith('offline_');
-      const newPRs = isOffline ? [] : await detectAndSavePRs(validExercises);
+      const newPRs = await detectAndSavePRs(validExercises);
       await clearInProgress();
 
       // Write per-exercise last-sets cache so next session prefill always works
@@ -1007,7 +1007,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                       <Text style={styles.warmupNumText}>🔥</Text>
                     </View>
                   ) : (
-                    <Text style={styles.setNum}>Set {item.sets.filter((s) => !s.is_warmup).indexOf(set) + 1}</Text>
+                    <Text style={styles.setNum}>Set {item.sets.filter((s: WorkoutSet) => !s.is_warmup).indexOf(set) + 1}</Text>
                   )}
                   <TextInput
                     style={styles.input}
@@ -1109,7 +1109,7 @@ const ActiveWorkoutScreen: React.FC = () => {
         ListEmptyComponent={<Text style={styles.emptyText}>No exercises added.</Text>}
         ListFooterComponent={
           <View style={styles.finishBtnFooter}>
-            <TouchableOpacity style={styles.finishBtn} onPress={finishWorkout} disabled={saving}>
+            <TouchableOpacity style={styles.finishBtn} onPress={() => { void finishWorkout(); }} disabled={saving}>
               <Text style={styles.finishBtnText}>{saving ? 'Saving...' : 'Finish Workout'}</Text>
             </TouchableOpacity>
           </View>

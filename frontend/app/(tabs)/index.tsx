@@ -208,6 +208,11 @@ export default function HomeScreen() {
     router.push(`/workout/${workout.workout_id}`);
   };
 
+  const handleBodyGoalPress = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/body-composition-goal' as any);
+  };
+
   // ── Greeting ──────────────────────────────────────────────────────────────
   const hour = new Date().getHours();
   const greeting =
@@ -237,7 +242,7 @@ export default function HomeScreen() {
         </View>
         <TouchableOpacity
           style={styles.programsBtn}
-          onPress={() => router.push('/programs')}
+          onPress={() => router.push('/(tabs)/calendar')}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="calendar-outline" size={22} color={theme.textSecondary} />
@@ -288,6 +293,21 @@ export default function HomeScreen() {
           Not possible while another workout session is in progress.
         </Text>
       )}
+
+      <TouchableOpacity
+        style={styles.bodyGoalCard}
+        onPress={handleBodyGoalPress}
+        activeOpacity={0.82}
+      >
+        <View style={styles.bodyGoalLeft}>
+          <Ionicons name="body-outline" size={18} color={theme.primary} />
+          <View>
+            <Text style={styles.bodyGoalTitle}>Body Composition Goal</Text>
+            <Text style={styles.bodyGoalSubtitle}>Set targets and projected timeline</Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+      </TouchableOpacity>
 
       {/* ── Weekly volume chart ── */}
       <Card style={styles.chartCard} noPadding>
@@ -500,6 +520,35 @@ const styles = StyleSheet.create({
     marginTop: -6,
     marginBottom: 14,
     paddingHorizontal: 4,
+  },
+  bodyGoalCard: {
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  bodyGoalLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  bodyGoalTitle: {
+    color: theme.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  bodyGoalSubtitle: {
+    color: theme.textSecondary,
+    fontSize: 12,
+    marginTop: 1,
   },
   ctaInner: {
     flexDirection: 'row',

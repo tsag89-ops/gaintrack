@@ -7,9 +7,9 @@
 //   flushCrashQueue(userId)   ← call after successful auth
 
 import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { db } from '../config/firebase';
+import { storage } from '../utils/storage';
 
 const CRASH_QUEUE_KEY = 'gaintrack_crash_queue';
 const MAX_QUEUE = 20; // cap local queue to avoid unbounded storage
@@ -64,12 +64,12 @@ async function writeToFirestore(report: CrashReport): Promise<void> {
 
 async function enqueueLocally(report: CrashReport): Promise<void> {
   try {
-    const raw = await AsyncStorage.getItem(CRASH_QUEUE_KEY);
+    const raw = await storage.getItem(CRASH_QUEUE_KEY);
     const queue: CrashReport[] = raw ? JSON.parse(raw) : [];
     queue.push(report);
     // Keep newest MAX_QUEUE entries
     const trimmed = queue.slice(-MAX_QUEUE);
-    await AsyncStorage.setItem(CRASH_QUEUE_KEY, JSON.stringify(trimmed));
+    await storage.setItem(CRASH_QUEUE_KEY, JSON.stringify(trimmed));
   } catch {
     // Storage failure — silently ignore; crash log is best-effort
   }
@@ -103,12 +103,12 @@ export async function logCrash(error: unknown, opts: LogCrashOptions = {}): Prom
  */
 export async function flushCrashQueue(userId: string): Promise<void> {
   try {
-    const raw = await AsyncStorage.getItem(CRASH_QUEUE_KEY);
+    const raw = await storage.getItem(CRASH_QUEUE_KEY);
     if (!raw) return;
     const queue: CrashReport[] = JSON.parse(raw);
     if (queue.length === 0) return;
 
-    await AsyncStorage.removeItem(CRASH_QUEUE_KEY);
+    await storage.removeItem(CRASH_QUEUE_KEY);
 
     for (const report of queue) {
       writeToFirestore({ ...report, userId }).catch(() => {});

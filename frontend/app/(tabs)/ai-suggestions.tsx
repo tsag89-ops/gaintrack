@@ -23,7 +23,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -34,6 +33,7 @@ import { usePro } from '../../src/hooks/usePro';
 import type { BodyCompositionGoals } from '../../src/types/bodyGoals';
 import { AISuggestionCard } from '../../src/components/AISuggestionCard';
 import { useAISuggestions } from '../../src/hooks/useAISuggestions'; // [PRO]
+import { storage } from '../../src/utils/storage';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const AI_HISTORY_KEY   = 'gaintrack_ai_history';
@@ -46,6 +46,7 @@ const WORKOUTS_KEY     = 'gaintrack_workouts';
 const NUTRITION_KEY    = 'gaintrack_nutrition';
 const MAX_CONTEXT      = 10;
 const MAX_HISTORY      = 20;
+const AI_REQUEST_TIMEOUT_MS = 12000;
 
 // ── Static coaching suggestions (free = first 4, pro-locked = rest) ──────────
 const STATIC_SUGGESTIONS = [
@@ -149,6 +150,20 @@ function getApiUrl(): string | null {
   return null; // production APK/IPA
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 // ── Typing indicator ───────────────────────────────────────────────────────────
 function TypingIndicator() {
   const dot1 = useRef(new Animated.Value(0)).current;
@@ -236,7 +251,7 @@ export default function AISuggestions() {
   // ── Load consent state on mount and on every tab focus ───────────────────────
   useFocusEffect(
     useCallback(() => {
-      AsyncStorage.getItem(AI_CONSENT_KEY)
+      storage.getItem(AI_CONSENT_KEY)
         .then((val) => setConsentGiven(val === 'true'))
         .catch(() => setConsentGiven(false));
     }, []),
@@ -254,13 +269,13 @@ export default function AISuggestions() {
   const loadAll = async () => {
     try {
       const [histRaw, usageRaw, goalsRaw, bwRaw, mRaw, wRaw, nRaw] = await Promise.all([
-        AsyncStorage.getItem(AI_HISTORY_KEY),
-        AsyncStorage.getItem(AI_USAGE_KEY),
-        AsyncStorage.getItem(BODY_GOALS_KEY),
-        AsyncStorage.getItem(BODYWEIGHT_KEY),
-        AsyncStorage.getItem(MEASUREMENTS_KEY),
-        AsyncStorage.getItem(WORKOUTS_KEY),
-        AsyncStorage.getItem(NUTRITION_KEY),
+        storage.getItem(AI_HISTORY_KEY),
+        storage.getItem(AI_USAGE_KEY),
+        storage.getItem(BODY_GOALS_KEY),
+        storage.getItem(BODYWEIGHT_KEY),
+        storage.getItem(MEASUREMENTS_KEY),
+        storage.getItem(WORKOUTS_KEY),
+        storage.getItem(NUTRITION_KEY),
       ]);
 
       if (histRaw)  setMessages(JSON.parse(histRaw));
@@ -373,7 +388,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
     if (!isPro) {
       const newUsage: DailyUsage = { date: today, count: dailyUsage.count + 1 };
       setDailyUsage(newUsage);
-      AsyncStorage.setItem(AI_USAGE_KEY, JSON.stringify(newUsage)).catch(() => {});
+      storage.setItem(AI_USAGE_KEY, JSON.stringify(newUsage)).catch(() => {});
     }
 
     setIsLoading(true);
@@ -397,7 +412,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
       // Attempt 1: Expo server route (web + native dev)
       if (serverUrl) {
         try {
-          res = await fetch(serverUrl, {
+          res = await fetchWithTimeout(serverUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body,
@@ -412,7 +427,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
         const apiKey = process.env.EXPO_PUBLIC_AI_API_KEY;
         if (!apiKey) throw Object.assign(new Error('no_api_key'), { errorType: 'no_api_key' as const });
         const model = process.env.EXPO_PUBLIC_AI_MODEL ?? 'meta-llama/llama-3.1-8b-instruct:free';
-        res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${apiKey}`,
@@ -460,7 +475,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
       };
       const finalMessages = [...newMessages, aiMsg];
       setMessages(finalMessages);
-      AsyncStorage.setItem(
+      storage.setItem(
         AI_HISTORY_KEY,
         JSON.stringify(finalMessages.slice(-MAX_HISTORY)),
       ).catch(() => {});
@@ -493,7 +508,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
   // ── Clear chat ─────────────────────────────────────────────────────────────
   const clearChat = async () => {
     setMessages([]);
-    await AsyncStorage.removeItem(AI_HISTORY_KEY);
+    await storage.removeItem(AI_HISTORY_KEY);
     if (Platform.OS !== 'web') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
@@ -502,7 +517,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
   // ── Consent handlers ──────────────────────────────────────────────────────
   const handleConsentAgree = async () => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await AsyncStorage.setItem(AI_CONSENT_KEY, 'true');
+    await storage.setItem(AI_CONSENT_KEY, 'true');
     setConsentGiven(true);
   };
 

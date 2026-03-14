@@ -17,6 +17,7 @@ import axios from 'axios';
 import { storage } from '../src/utils/storage';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const PROGRAMS_REQUEST_TIMEOUT_MS = 10000;
 
 interface WorkoutTemplate {
   template_id: string;
@@ -50,14 +51,26 @@ export default function ProgramsScreen() {
   const [selectedTemplate, setSelectedTemplate] = useState<WorkoutTemplate | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fetchTemplates = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`${API_URL}/api/templates`);
+      setErrorMessage(null);
+      if (!API_URL) {
+        setTemplates([]);
+        setErrorMessage('Programs are unavailable right now. Backend URL is not configured.');
+        return;
+      }
+
+      const response = await axios.get(`${API_URL}/api/templates`, {
+        timeout: PROGRAMS_REQUEST_TIMEOUT_MS,
+      });
       setTemplates(response.data);
     } catch (error) {
       console.error('Error fetching templates:', error);
+      setTemplates([]);
+      setErrorMessage('Unable to load programs right now. Pull to retry.');
     } finally {
       setIsLoading(false);
     }
@@ -84,11 +97,17 @@ export default function ProgramsScreen() {
     try {
       setIsStarting(true);
       const token = await storage.getItem('sessionToken');
+
+      if (!API_URL) {
+        Alert.alert('Unavailable', 'Programs backend is not configured.');
+        return;
+      }
       
       const response = await axios.post(
         `${API_URL}/api/templates/${selectedTemplate.template_id}/start`,
         {},
         {
+          timeout: PROGRAMS_REQUEST_TIMEOUT_MS,
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -152,6 +171,29 @@ export default function ProgramsScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10B981" />
           }
         >
+          {errorMessage ? (
+            <View style={styles.statusCard}>
+              <View style={styles.statusHeaderRow}>
+                <Ionicons name="warning-outline" size={16} color="#F59E0B" />
+                <Text style={styles.statusTitle}>Programs unavailable</Text>
+              </View>
+              <Text style={styles.statusBody}>{errorMessage}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={fetchTemplates}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {!errorMessage && templates.length === 0 ? (
+            <View style={styles.statusCard}>
+              <View style={styles.statusHeaderRow}>
+                <Ionicons name="barbell-outline" size={16} color="#9CA3AF" />
+                <Text style={styles.statusTitle}>No templates available</Text>
+              </View>
+              <Text style={styles.statusBody}>Pull to refresh and try again.</Text>
+            </View>
+          ) : null}
+
           {templates.map((template) => (
             <TouchableOpacity
               key={template.template_id}
@@ -320,6 +362,43 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  statusCard: {
+    backgroundColor: '#1F2937',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#374151',
+  },
+  statusHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  statusTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  statusBody: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  retryButton: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: '#374151',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   content: {
     flex: 1,

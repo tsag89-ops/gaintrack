@@ -6,10 +6,10 @@
 //   – exposes useInActiveWorkout() to send the result to the Active Workout screen
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { calculatePlates } from '../utils/plateCalculator';
 import { Unit, Plate, PlateCalcResult } from '../types/plates';
+import { storage } from '../utils/storage';
 
 // ── AsyncStorage keys ────────────────────────────────────────────────────────
 const KEY_UNIT     = 'gaintrack_plate_calc_unit';
@@ -78,14 +78,19 @@ export function usePlateCalculator() {
   useEffect(() => {
     async function load() {
       try {
-        const [savedUnit, savedBar, savedTarget, savedKg, savedLb] =
-          await Promise.all([
-            AsyncStorage.getItem(KEY_UNIT),
-            AsyncStorage.getItem(KEY_BAR),
-            AsyncStorage.getItem(KEY_TARGET),
-            AsyncStorage.getItem(KEY_PLATES_KG),
-            AsyncStorage.getItem(KEY_PLATES_LB),
-          ]);
+        const entries = await storage.multiGet([
+          KEY_UNIT,
+          KEY_BAR,
+          KEY_TARGET,
+          KEY_PLATES_KG,
+          KEY_PLATES_LB,
+        ]);
+        const map = Object.fromEntries(entries);
+        const savedUnit = map[KEY_UNIT];
+        const savedBar = map[KEY_BAR];
+        const savedTarget = map[KEY_TARGET];
+        const savedKg = map[KEY_PLATES_KG];
+        const savedLb = map[KEY_PLATES_LB];
 
         if (savedUnit === 'kg' || savedUnit === 'lb') {
           setUnitState(savedUnit);
@@ -116,7 +121,7 @@ export function usePlateCalculator() {
     setBarWeightState(defaultBar);
     setTargetState('');
     try {
-      await AsyncStorage.multiSet([
+      await storage.multiSet([
         [KEY_UNIT, u],
         [KEY_BAR, String(defaultBar)],
         [KEY_TARGET, ''],
@@ -130,7 +135,7 @@ export function usePlateCalculator() {
   const setBarWeight = useCallback(async (w: number) => {
     setBarWeightState(w);
     try {
-      await AsyncStorage.setItem(KEY_BAR, String(w));
+      await storage.setItem(KEY_BAR, String(w));
     } catch (e) {
       console.warn('[PlateCalc] save bar weight failed:', e);
     }
@@ -141,7 +146,7 @@ export function usePlateCalculator() {
     const str = typeof value === 'number' ? String(value) : value;
     setTargetState(str);
     try {
-      await AsyncStorage.setItem(KEY_TARGET, str);
+      await storage.setItem(KEY_TARGET, str);
     } catch (e) {
       console.warn('[PlateCalc] save target failed:', e);
     }
@@ -156,7 +161,7 @@ export function usePlateCalculator() {
         );
         setPlatesKg(updated);
         try {
-          await AsyncStorage.setItem(KEY_PLATES_KG, JSON.stringify(updated));
+          await storage.setItem(KEY_PLATES_KG, JSON.stringify(updated));
         } catch (e) {
           console.warn('[PlateCalc] save kg plates failed:', e);
         }
@@ -166,7 +171,7 @@ export function usePlateCalculator() {
         );
         setPlatesLb(updated);
         try {
-          await AsyncStorage.setItem(KEY_PLATES_LB, JSON.stringify(updated));
+          await storage.setItem(KEY_PLATES_LB, JSON.stringify(updated));
         } catch (e) {
           console.warn('[PlateCalc] save lb plates failed:', e);
         }
@@ -183,7 +188,7 @@ export function usePlateCalculator() {
     setPlatesKg(DEFAULT_PLATES.kg);
     setPlatesLb(DEFAULT_PLATES.lb);
     try {
-      await AsyncStorage.multiRemove([
+      await storage.multiRemove([
         KEY_UNIT, KEY_BAR, KEY_TARGET, KEY_PLATES_KG, KEY_PLATES_LB,
       ]);
     } catch (e) {

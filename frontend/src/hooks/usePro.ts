@@ -5,8 +5,8 @@
 
 import { useState, useEffect } from 'react';
 import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../store/authStore';
+import { storage } from '../utils/storage';
 
 const PRO_STATUS_KEY = 'gaintrack_pro_status';
 
@@ -18,7 +18,7 @@ export const usePro = () => {
 
   useEffect(() => {
     if (isWeb) return;
-    AsyncStorage.getItem(PRO_STATUS_KEY)
+    storage.getItem(PRO_STATUS_KEY)
       .then((val) => setAsyncIsPro(val === 'true'))
       .finally(() => setLoading(false));
   }, [isWeb]);
@@ -30,7 +30,7 @@ export const usePro = () => {
   /** Persist pro status — called after a RevenueCat purchase completes */
   const setPro = async (status: boolean): Promise<void> => {
     if (!isWeb) {
-      await AsyncStorage.setItem(PRO_STATUS_KEY, String(status));
+      await storage.setItem(PRO_STATUS_KEY, String(status));
       setAsyncIsPro(status);
     }
   };

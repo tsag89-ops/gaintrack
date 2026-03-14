@@ -1,8 +1,8 @@
 // src/hooks/useAISuggestions.ts
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAISuggestions, AISuggestion, AIContext } from '../services/aiService';
+import { storage } from '../utils/storage';
 
 const CACHE_KEY     = 'aiSuggestions';
 const TIMESTAMP_KEY = 'aiSuggestionsTimestamp';
@@ -37,8 +37,8 @@ export function useAISuggestions(context: AIContext = DEFAULT_CONTEXT): AISugges
       const now   = new Date();
       setSuggestions(fresh);
       setLastUpdated(now);
-      await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(fresh));
-      await AsyncStorage.setItem(TIMESTAMP_KEY, now.toISOString());
+      await storage.setItem(CACHE_KEY, JSON.stringify(fresh));
+      await storage.setItem(TIMESTAMP_KEY, now.toISOString());
     } catch (err: any) {
       setError(err?.message ?? 'Failed to load AI suggestions.');
     }
@@ -48,8 +48,8 @@ export function useAISuggestions(context: AIContext = DEFAULT_CONTEXT): AISugges
     setLoading(true);
     try {
       const [cached, timestamp] = await Promise.all([
-        AsyncStorage.getItem(CACHE_KEY),
-        AsyncStorage.getItem(TIMESTAMP_KEY),
+        storage.getItem(CACHE_KEY),
+        storage.getItem(TIMESTAMP_KEY),
       ]);
 
       if (cached && timestamp) {
