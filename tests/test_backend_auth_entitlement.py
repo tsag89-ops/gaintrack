@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 from fastapi import HTTPException
-from jose import JWTError
+from jwt import InvalidTokenError
 from starlette.requests import Request
 
 
@@ -56,7 +56,10 @@ async def test_get_current_user_rejects_bad_bearer_tokens(backend_server, monkey
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("jwt_error", [JWTError("Signature has expired"), JWTError("Signature verification failed")])
+@pytest.mark.parametrize(
+    "jwt_error",
+    [InvalidTokenError("Signature has expired"), InvalidTokenError("Signature verification failed")],
+)
 async def test_verify_firebase_payload_returns_none_on_jwt_error(backend_server, monkeypatch, jwt_error):
     monkeypatch.setattr(backend_server, "FIREBASE_PROJECT_ID", "gaintrack-test")
     monkeypatch.setattr(

@@ -11,7 +11,8 @@ from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
-from jose import jwt, JWTError
+import jwt
+from jwt import InvalidTokenError
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -642,7 +643,7 @@ async def verify_firebase_token_payload(token: str) -> Optional[Dict[str, Any]]:
         if not user_id:
             return None
         return payload
-    except JWTError as e:
+    except InvalidTokenError as e:
         logger.warning(f"Firebase token verification failed: {e}")
         return None
     except Exception as e:
