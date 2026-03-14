@@ -69,3 +69,26 @@ Signoff fields:
 - Notes:
 	- Local scans that include non-tracked/generated files and historical git content produce noisy findings; release gate evaluation is based on tracked HEAD content plus CI workflow enforcement.
 	- Direct GitHub Actions status lookup from this shell was unavailable because `gh` CLI is not installed.
+
+## Phase 4 Security and Quality Operations Baseline
+
+Status: IMPLEMENTED
+Updated: 2026-03-14
+
+Implemented release gates:
+
+1. OWASP MASVS cadence artifact and category mapping:
+	- `test_reports/security/masvs-cadence.md` (storage, authentication, network, privacy)
+	- Enforced by workflow job `masvs-cadence-gate` in `.github/workflows/security-quality-ops.yml`
+2. Policy regression release gate:
+	- Tests at `tests/test_policy_regression_gates.py`
+	- Enforced by workflow job `policy-regression-gate` in `.github/workflows/security-quality-ops.yml`
+3. Dependency/SCA gates:
+	- Frontend gate: `npm audit --omit=dev --audit-level=high` (`frontend-sca` job)
+	- Backend gate: `pip-audit -r backend/requirements.txt` (`backend-sca` job)
+	- Workflow: `.github/workflows/security-quality-ops.yml`
+
+Verification notes:
+
+- Local execution of new Python-based tests is blocked in this shell because no Python runtime is installed/configured.
+- CI is configured to run all gates on pull requests, pushes to `main`, weekly schedule, and manual dispatch.

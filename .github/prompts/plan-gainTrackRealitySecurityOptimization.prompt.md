@@ -113,8 +113,11 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Completed: friend discovery + invite lifecycle APIs added in `backend/server.py` (`/social/friends/discover`, `/social/friends/invite`, `/social/friends/invites`, `/social/friends/invites/{invite_id}/respond`) and surfaced in `frontend/app/social-leaderboard.tsx` via `frontend/src/services/social.ts`.
 	- Completed: richer workout share card templates (compact/detailed/milestone) added in `frontend/src/services/social.ts` and selectable from `frontend/app/workout-history.tsx`.
 	- Scope note: full community feed remains excluded for now; lightweight social baseline target is complete.
-10. Phase 4 - Security and quality operations: IN PROGRESS
-	- Notes: secret scanning now added; OWASP MASVS cadence, SCA gates, and policy regression release gates still pending.
+10. Phase 4 - Security and quality operations: COMPLETED
+	- Completed: OWASP MASVS cadence artifact added at `test_reports/security/masvs-cadence.md` with explicit mappings for storage/authentication/network/privacy.
+	- Completed: consolidated CI workflow added at `.github/workflows/security-quality-ops.yml` with MASVS cadence gate, policy regression gate, frontend SCA gate (`npm audit --omit=dev --audit-level=high`), and backend SCA gate (`pip-audit -r backend/requirements.txt`).
+	- Completed: policy regression tests added at `tests/test_policy_regression_gates.py` to enforce Privacy Policy/Terms route availability from login/profile and artifact coverage validation.
+	- Note: local execution of new Python tests is blocked in current shell due missing Python runtime; CI gates are configured to enforce verification on PR/push/schedule.
 
 ### Next Active Step
-- Continue Phase 4 security and quality operations: add OWASP MASVS cadence artifacts, dependency/SCA checks, and policy regression release gates.
+- Trigger and capture first `Security Quality Operations` workflow run evidence on `main` (run URL + artifacts), then begin post-plan enhancement backlog prioritization.
