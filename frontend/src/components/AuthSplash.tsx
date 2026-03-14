@@ -16,7 +16,8 @@
  */
 
 import React, { useEffect } from 'react';
-import { Dimensions, Image, Platform, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   cancelAnimation,
   Easing,
@@ -138,11 +139,9 @@ export default function AuthSplash({ message }: AuthSplashProps) {
     <View style={styles.container}>
       {/* Logo */}
       <Animated.View style={[styles.logoWrapper, logoStyle]}>
-        <Image
-          source={require('../../assets/images/splash-image.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
+        <View style={styles.logoContainer}>
+          <Ionicons name="fitness" size={60} color="#FF6200" />
+        </View>
       </Animated.View>
 
       {/* App name */}
@@ -177,9 +176,13 @@ const styles = StyleSheet.create({
   logoWrapper: {
     marginBottom: 28,
   },
-  logo: {
-    width:  120,
-    height: 120,
+  logoContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 24,
+    backgroundColor: '#FF620020',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   appName: {
     fontFamily:   typography.fontFamily,
