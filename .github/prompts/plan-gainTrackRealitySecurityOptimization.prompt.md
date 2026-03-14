@@ -117,7 +117,8 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Completed: OWASP MASVS cadence artifact added at `test_reports/security/masvs-cadence.md` with explicit mappings for storage/authentication/network/privacy.
 	- Completed: consolidated CI workflow added at `.github/workflows/security-quality-ops.yml` with MASVS cadence gate, policy regression gate, frontend SCA gate (`npm audit --omit=dev --audit-level=high`), and backend SCA gate (`pip-audit -r backend/requirements.txt`).
 	- Completed: policy regression tests added at `tests/test_policy_regression_gates.py` to enforce Privacy Policy/Terms route availability from login/profile and artifact coverage validation.
+	- Completed: first `Security Quality Operations` workflow evidence captured on `main` (run: `23094523822`, commit `ae39b64b0502a65184fb2b9b4c084791819ed078`) with MASVS/policy gates passing and SCA gates failing.
 	- Note: local execution of new Python tests is blocked in current shell due missing Python runtime; CI gates are configured to enforce verification on PR/push/schedule.
 
 ### Next Active Step
-- Trigger and capture first `Security Quality Operations` workflow run evidence on `main` (run URL + artifacts), then begin post-plan enhancement backlog prioritization.
+- Triage and remediate `Security Quality Operations` SCA failures (frontend npm audit + backend pip-audit), then rerun workflow and attach passing evidence URLs/artifacts.

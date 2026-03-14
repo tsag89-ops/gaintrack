@@ -92,3 +92,16 @@ Verification notes:
 
 - Local execution of new Python-based tests is blocked in this shell because no Python runtime is installed/configured.
 - CI is configured to run all gates on pull requests, pushes to `main`, weekly schedule, and manual dispatch.
+
+First main-branch evidence run (commit `ae39b64b0502a65184fb2b9b4c084791819ed078`):
+
+- Security Quality Operations: https://github.com/tsag89-ops/gaintrack/actions/runs/23094523822
+	- MASVS Cadence Gate: success
+	- Policy Regression Gate: success
+	- Frontend SCA Gate: failure
+	- Backend SCA Gate: failure
+- Artifacts API: https://api.github.com/repos/tsag89-ops/gaintrack/actions/runs/23094523822/artifacts
+
+Follow-up required:
+
+- Triage and remediate dependency/SCA failures (frontend npm audit + backend pip-audit) before enabling security-quality run status as a release-pass criterion.
