@@ -221,6 +221,23 @@ def test_generate_lifecycle_jobs_day1_when_no_workout(backend_server):
     assert "day_1" in day_keys
 
 
+def test_generate_lifecycle_jobs_day3_when_no_workout(backend_server):
+    now = datetime(2026, 3, 14, tzinfo=timezone.utc)
+    created_at = datetime(2026, 3, 10, tzinfo=timezone.utc)
+
+    jobs = backend_server.generate_lifecycle_jobs_for_profile(
+        now=now,
+        user_id="u-lifecycle-3",
+        created_at=created_at,
+        sent_days=["day_1"],
+        has_workouts=False,
+        has_recent_workout=False,
+    )
+
+    day_keys = {job["day_key"] for job in jobs}
+    assert "day_3" in day_keys
+
+
 def test_generate_lifecycle_jobs_skips_sent_and_recent_activity(backend_server):
     now = datetime(2026, 3, 14, tzinfo=timezone.utc)
     created_at = datetime(2026, 2, 1, tzinfo=timezone.utc)
@@ -232,6 +249,44 @@ def test_generate_lifecycle_jobs_skips_sent_and_recent_activity(backend_server):
         sent_days=["day_1", "day_7"],
         has_workouts=True,
         has_recent_workout=True,
+    )
+
+    assert jobs == []
+
+
+def test_generate_paywall_recovery_jobs_requires_aged_cta_without_purchase(backend_server):
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    paywall_events = [
+        {"event_type": "view", "created_at": datetime(2026, 3, 11, 8, 0, tzinfo=timezone.utc)},
+        {"event_type": "cta_click", "created_at": datetime(2026, 3, 12, 8, 0, tzinfo=timezone.utc)},
+    ]
+
+    jobs = backend_server.generate_paywall_recovery_jobs_for_profile(
+        now=now,
+        user_id="u-paywall-1",
+        sent_days=[],
+        paywall_events=paywall_events,
+        min_age_hours=48,
+    )
+
+    assert len(jobs) == 1
+    assert jobs[0]["source"] == "paywall_recovery"
+    assert jobs[0]["day_key"].startswith("paywall_recovery_")
+
+
+def test_generate_paywall_recovery_jobs_skips_after_purchase(backend_server):
+    now = datetime(2026, 3, 14, 12, 0, tzinfo=timezone.utc)
+    paywall_events = [
+        {"event_type": "cta_click", "created_at": datetime(2026, 3, 12, 8, 0, tzinfo=timezone.utc)},
+        {"event_type": "purchase_completed", "created_at": datetime(2026, 3, 12, 10, 0, tzinfo=timezone.utc)},
+    ]
+
+    jobs = backend_server.generate_paywall_recovery_jobs_for_profile(
+        now=now,
+        user_id="u-paywall-2",
+        sent_days=[],
+        paywall_events=paywall_events,
+        min_age_hours=48,
     )
 
     assert jobs == []

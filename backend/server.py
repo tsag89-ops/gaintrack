@@ -56,6 +56,7 @@ CRON_INTERNAL_KEY = os.getenv("CRON_INTERNAL_KEY")
 
 LIFECYCLE_DAY_KEYS = {
     1: "day_1",
+    3: "day_3",
     7: "day_7",
     30: "day_30",
 }
@@ -63,6 +64,10 @@ LIFECYCLE_TEMPLATES = {
     "day_1": {
         "title": "Welcome to GainTrack",
         "body": "Start your first workout today and build momentum.",
+    },
+    "day_3": {
+        "title": "Keep your momentum",
+        "body": "Quick check-in: log a short workout today to lock in your routine.",
     },
     "day_7": {
         "title": "One Week In",
@@ -153,6 +158,8 @@ def generate_lifecycle_jobs_for_profile(
         should_send = False
         if day_key == "day_1":
             should_send = not has_workouts
+        elif day_key == "day_3":
+            should_send = not has_workouts
         elif day_key == "day_7":
             should_send = not has_recent_workout
         elif day_key == "day_30":
@@ -171,6 +178,62 @@ def generate_lifecycle_jobs_for_profile(
             )
 
     return jobs
+
+
+def generate_paywall_recovery_jobs_for_profile(
+    now: datetime,
+    user_id: str,
+    sent_days: Optional[List[str]],
+    paywall_events: List[Dict[str, Any]],
+    min_age_hours: int = 48,
+) -> List[Dict[str, Any]]:
+    sent_day_set = set(sent_days or [])
+    if not paywall_events:
+        return []
+
+    latest_cta_at: Optional[datetime] = None
+    latest_purchase_after_cta = False
+
+    normalized_events = []
+    for event in paywall_events:
+        event_type = str(event.get("event_type", "")).strip().lower()
+        created_at_raw = event.get("created_at")
+        if event_type not in {"cta_click", "purchase_completed"} or not created_at_raw:
+            continue
+        created_at = _normalize_datetime(created_at_raw)
+        normalized_events.append((event_type, created_at))
+
+    if not normalized_events:
+        return []
+
+    normalized_events.sort(key=lambda item: item[1])
+    for event_type, created_at in normalized_events:
+        if event_type == "cta_click":
+            latest_cta_at = created_at
+            latest_purchase_after_cta = False
+        elif event_type == "purchase_completed" and latest_cta_at and created_at >= latest_cta_at:
+            latest_purchase_after_cta = True
+
+    if not latest_cta_at or latest_purchase_after_cta:
+        return []
+
+    if (now - latest_cta_at) < timedelta(hours=min_age_hours):
+        return []
+
+    recovery_key = f"paywall_recovery_{latest_cta_at.date().isoformat()}"
+    if recovery_key in sent_day_set:
+        return []
+
+    return [
+        {
+            "user_id": user_id,
+            "day_key": recovery_key,
+            "title": "Need help unlocking Pro?",
+            "body": "Your Pro features are one tap away. Continue where you left off and unlock full progress insights.",
+            "scheduled_at": now,
+            "source": "paywall_recovery",
+        }
+    ]
 
 
 async def require_internal_cron(request: Request) -> None:
@@ -417,6 +480,8 @@ class PushTokenUpsert(BaseModel):
 class LifecycleDispatchRequest(BaseModel):
     dry_run: bool = True
     user_limit: int = Field(default=500, ge=1, le=5000)
+    include_paywall_recovery: bool = True
+    paywall_recovery_min_age_hours: int = Field(default=48, ge=24, le=168)
 
 
 class FirstWorkoutTelemetry(BaseModel):
@@ -2075,6 +2140,24 @@ async def preview_lifecycle_jobs(request: Request, _: None = Depends(require_int
         )
         jobs.extend(pending)
 
+        paywall_events = await db.paywall_events.find(
+            {
+                "user_id": user_id,
+                "event_type": {"$in": ["cta_click", "purchase_completed"]},
+                "created_at": {"$gte": now - timedelta(days=14)},
+            },
+            {"_id": 0, "event_type": 1, "created_at": 1},
+        ).to_list(length=200)
+
+        paywall_jobs = generate_paywall_recovery_jobs_for_profile(
+            now=now,
+            user_id=user_id,
+            sent_days=profile.get("lifecycle_sent_days", []),
+            paywall_events=paywall_events,
+            min_age_hours=48,
+        )
+        jobs.extend(paywall_jobs)
+
     return {
         "generated_at": now.isoformat(),
         "job_count": len(jobs),
@@ -2126,6 +2209,25 @@ async def dispatch_lifecycle_jobs(
             has_recent_workout=has_recent_workout,
         )
 
+        if payload.include_paywall_recovery:
+            paywall_events = await db.paywall_events.find(
+                {
+                    "user_id": user_id,
+                    "event_type": {"$in": ["cta_click", "purchase_completed"]},
+                    "created_at": {"$gte": now - timedelta(days=14)},
+                },
+                {"_id": 0, "event_type": 1, "created_at": 1},
+            ).to_list(length=200)
+            jobs.extend(
+                generate_paywall_recovery_jobs_for_profile(
+                    now=now,
+                    user_id=user_id,
+                    sent_days=profile.get("lifecycle_sent_days", []),
+                    paywall_events=paywall_events,
+                    min_age_hours=payload.paywall_recovery_min_age_hours,
+                )
+            )
+
         if not jobs:
             continue
 
@@ -2156,7 +2258,11 @@ async def dispatch_lifecycle_jobs(
                         "title": job["title"],
                         "body": job["body"],
                         "sound": "default",
-                        "data": {"user_id": job["user_id"], "day_key": job["day_key"], "source": "lifecycle"},
+                        "data": {
+                            "user_id": job["user_id"],
+                            "day_key": job["day_key"],
+                            "source": job.get("source", "lifecycle"),
+                        },
                     }
                     for job in valid_jobs
                 ]

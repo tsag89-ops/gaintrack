@@ -13,6 +13,23 @@ permissions:
   contents: read
 
 jobs:
+  secret-scan-gate:
+    name: Secret Scan Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
+          GITLEAKS_ENABLE_COMMENTS: "false"
+
   masvs-cadence-gate:
     name: MASVS Cadence Gate
     runs-on: ubuntu-latest
