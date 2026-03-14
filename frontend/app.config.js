@@ -76,7 +76,7 @@ module.exports = ({ config }) => {
   const existingPlugins = (config.plugins ?? []).filter(
     (p) => {
       const name = Array.isArray(p) ? p[0] : p;
-      return name !== '@react-native-google-signin/google-signin';
+      return name !== '@react-native-google-signin/google-signin' && name !== 'react-native-health-connect';
     },
   );
   const googleSignInPlugin = [
@@ -88,7 +88,7 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
-    plugins: [...existingPlugins, googleSignInPlugin],
+    plugins: [...existingPlugins, 'react-native-health-connect', googleSignInPlugin],
     android: {
       ...config.android,
       googleServicesFile:
@@ -102,6 +102,12 @@ module.exports = ({ config }) => {
         process.env.GOOGLE_SERVICES_PLIST ?? config.ios?.googleServicesFile,
       infoPlist: {
         ...config.ios?.infoPlist,
+        NSHealthShareUsageDescription:
+          config.ios?.infoPlist?.NSHealthShareUsageDescription ||
+          'GainTrack reads workout and activity data to improve your training insights.',
+        NSHealthUpdateUsageDescription:
+          config.ios?.infoPlist?.NSHealthUpdateUsageDescription ||
+          'GainTrack may write completed workouts to keep your health records in sync.',
         // Register the REVERSED_CLIENT_ID URL scheme required for Google Sign-In
         // redirect on iOS. EAS build injects the real value from the plist.
         CFBundleURLTypes: mergedUrlTypes,

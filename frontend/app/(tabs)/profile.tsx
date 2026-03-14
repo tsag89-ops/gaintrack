@@ -26,6 +26,17 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { deleteAccount, signOut as nativeSignOut, REQUIRES_RECENT_LOGIN } from '../../src/services/authBridge';
 import { usePro } from '../../src/hooks/usePro'; // [PRO]
 import PlateCalculator from '../../src/components/PlateCalculator'; // [PRO]
+import {
+  HealthProvider,
+  HealthSyncSettings,
+  connectHealthProvider,
+  getHealthSyncSettings,
+  getProviderLabel,
+  getSupportedProvidersForDevice,
+  setHealthProviderEnabled,
+  setHealthSyncConsent,
+  syncHealthProviderBaseline,
+} from '../../src/services/healthSync'; // [PRO]
 
 const EQUIPMENT_OPTIONS = [
   { id: 'dumbbells', icon: 'fitness-outline' },
@@ -86,6 +97,9 @@ export default function ProfileScreen() {
   const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
   const [restDuration, setRestDuration] = useState(90);
   const [aiConsent, setAiConsent] = useState(false);
+  const [healthSyncSettings, setHealthSyncSettings] = useState<HealthSyncSettings | null>(null); // [PRO]
+  const [healthSyncProviderLoading, setHealthSyncProviderLoading] = useState<HealthProvider | null>(null); // [PRO]
+  const supportedHealthProviders = getSupportedProvidersForDevice(); // [PRO]
 
   useEffect(() => {
     AsyncStorage.getItem(AUTO_REST_KEY)
@@ -97,7 +111,107 @@ export default function ProfileScreen() {
     AsyncStorage.getItem(AI_CONSENT_KEY)
       .then((v) => setAiConsent(v === 'true'))
       .catch(() => null);
+
+    getHealthSyncSettings()
+      .then(setHealthSyncSettings)
+      .catch(() => null);
   }, []);
+
+  const refreshHealthSyncSettings = async () => {
+    const next = await getHealthSyncSettings();
+    setHealthSyncSettings(next);
+  };
+
+  const requireProForHealthSync = async (): Promise<boolean> => {
+    if (isPro) return true;
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    Alert.alert(
+      'Pro Feature',
+      'HealthKit and Google Fit sync are available with GainTrack Pro ($4.99/yr).',
+      [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Go Pro', onPress: () => router.push('/pro-paywall') },
+      ],
+    );
+    return false;
+  };
+
+  const toggleHealthConsent = async (value: boolean) => {
+    if (value && !(await requireProForHealthSync())) return;
+
+    if (!value) {
+      Alert.alert(
+        'Disable Health Sync?',
+        'This stops importing health data from connected providers until you enable it again.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Disable',
+            style: 'destructive',
+            onPress: async () => {
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              const next = await setHealthSyncConsent(false);
+              setHealthSyncSettings(next);
+            },
+          },
+        ],
+      );
+      return;
+    }
+
+    await Haptics.selectionAsync();
+    const next = await setHealthSyncConsent(true);
+    setHealthSyncSettings(next);
+  };
+
+  const handleConnectHealthProvider = async (provider: HealthProvider) => {
+    if (!(await requireProForHealthSync())) return;
+
+    if (!healthSyncSettings?.consentGiven) {
+      Alert.alert('Consent required', 'Enable Health Data consent first.');
+      return;
+    }
+
+    setHealthSyncProviderLoading(provider);
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const result = await connectHealthProvider(provider);
+      await refreshHealthSyncSettings();
+      Alert.alert(result.ok ? 'Connected' : 'Connection issue', result.message);
+    } finally {
+      setHealthSyncProviderLoading(null);
+    }
+  };
+
+  const handleToggleHealthProvider = async (provider: HealthProvider, value: boolean) => {
+    if (!(await requireProForHealthSync())) return;
+
+    const next = await setHealthProviderEnabled(provider, value);
+    setHealthSyncSettings(next);
+    await Haptics.selectionAsync();
+  };
+
+  const handleSyncHealthProviderNow = async (provider: HealthProvider) => {
+    if (!(await requireProForHealthSync())) return;
+
+    setHealthSyncProviderLoading(provider);
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const result = await syncHealthProviderBaseline(provider);
+      await refreshHealthSyncSettings();
+
+      if (result.ok && result.snapshot) {
+        Alert.alert(
+          'Sync complete',
+          `${getProviderLabel(provider)} synced.\nProvider records: ${result.snapshot.providerRecordsRead}\nWorkouts: ${result.snapshot.workoutsImported}\nNutrition days: ${result.snapshot.nutritionDaysImported}\nMeasurements: ${result.snapshot.measurementsImported}`,
+        );
+      } else {
+        Alert.alert('Sync unavailable', result.message);
+      }
+    } finally {
+      setHealthSyncProviderLoading(null);
+    }
+  };
 
   const toggleAutoRestTimer = async (value: boolean) => {
     setAutoStartRestTimer(value);
@@ -165,6 +279,9 @@ export default function ProfileScreen() {
       'gaintrack_auto_rest_timer',
       'gaintrack_rest_duration',
       'gaintrack_ai_consent',
+      'gaintrack_health_sync_settings',
+      'gaintrack_health_sync_snapshot_apple_health',
+      'gaintrack_health_sync_snapshot_google_fit',
       'gaintrack_weight_unit',
       'gaintrack_height_unit',
       'gaintrack_distance_unit',
@@ -287,6 +404,9 @@ const handleExportMyData = async () => {
       'gaintrack_auto_rest_timer',
       'gaintrack_rest_duration',
       'gaintrack_ai_consent',
+      'gaintrack_health_sync_settings',
+      'gaintrack_health_sync_snapshot_apple_health',
+      'gaintrack_health_sync_snapshot_google_fit',
       'gaintrack_weight_unit',
       'gaintrack_height_unit',
       'gaintrack_distance_unit',
@@ -702,6 +822,99 @@ const handleExportMyData = async () => {
           </TouchableOpacity>
         </View>
 
+        {/* Health Integrations Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Health Integrations</Text>
+          <View style={styles.settingItem}>
+            <View style={styles.settingLeft}>
+              <Ionicons name="heart-outline" size={22} color="#FF6200" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Health Data Consent</Text>
+                <Text style={styles.settingValue}>
+                  {healthSyncSettings?.consentGiven ? 'Enabled for connected providers' : 'Disabled'}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={Boolean(healthSyncSettings?.consentGiven)}
+              onValueChange={toggleHealthConsent}
+              trackColor={{ false: '#3A3A3A', true: '#FF6200' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          {supportedHealthProviders.length === 0 ? (
+            <View style={[styles.settingItem, styles.healthProviderCard]}>
+              <View style={styles.settingLeft}>
+                <Ionicons name="phone-portrait-outline" size={20} color="#6B7280" />
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>No provider on this platform</Text>
+                  <Text style={styles.settingValue}>Health sync is available on iOS and Android devices.</Text>
+                </View>
+              </View>
+            </View>
+          ) : (
+            supportedHealthProviders.map((provider) => {
+              const providerState = healthSyncSettings?.providers[provider];
+              const isBusy = healthSyncProviderLoading === provider;
+
+              return (
+                <View key={provider} style={[styles.settingItem, styles.healthProviderCard]}>
+                  <View style={styles.healthProviderHeader}>
+                    <View style={styles.settingLeft}>
+                      <Ionicons
+                        name={provider === 'apple_health' ? 'logo-apple' : 'logo-google'}
+                        size={20}
+                        color="#FF6200"
+                      />
+                      <View style={styles.settingInfo}>
+                        <Text style={styles.settingLabel}>{getProviderLabel(provider)}</Text>
+                        <Text style={styles.settingValue}>
+                          {providerState?.connected ? 'Connected' : 'Not connected'}
+                          {providerState?.lastSyncAt ? ` • Last sync ${new Date(providerState.lastSyncAt).toLocaleDateString()}` : ''}
+                        </Text>
+                      </View>
+                    </View>
+                    <Switch
+                      value={Boolean(providerState?.enabled)}
+                      onValueChange={(value) => handleToggleHealthProvider(provider, value)}
+                      trackColor={{ false: '#3A3A3A', true: '#FF6200' }}
+                      thumbColor="#FFFFFF"
+                    />
+                  </View>
+
+                  {!providerState?.nativeBridgeAvailable ? (
+                    <Text style={styles.healthWarningText}>
+                      Native bridge not found in this build. Install native health modules to enable direct device reads.
+                    </Text>
+                  ) : null}
+
+                  <View style={styles.healthProviderActions}>
+                    <TouchableOpacity
+                      style={[styles.healthActionButton, isBusy && styles.healthActionButtonDisabled]}
+                      onPress={() => handleConnectHealthProvider(provider)}
+                      disabled={isBusy}
+                    >
+                      <Text style={styles.healthActionText}>{isBusy ? 'Working...' : 'Connect'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.healthActionButton, isBusy && styles.healthActionButtonDisabled]}
+                      onPress={() => handleSyncHealthProviderNow(provider)}
+                      disabled={isBusy}
+                    >
+                      <Text style={styles.healthActionText}>{isBusy ? 'Syncing...' : 'Sync now'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })
+          )}
+
+          <Text style={styles.hint}>
+            Health integrations are Pro-only and require explicit consent. Connection state is stored locally and can be revoked anytime.
+          </Text>
+        </View>
+
         {/* Privacy Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Privacy</Text>
@@ -1018,4 +1231,18 @@ const styles = StyleSheet.create({
   activityPillTextActive: { color: '#FF6200' },
   tdeeCalcBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#FF6200', paddingVertical: 12, borderRadius: 10, marginTop: 8 },
   tdeeCalcBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
+  healthProviderCard: { flexDirection: 'column', alignItems: 'stretch', gap: 10 },
+  healthProviderHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  healthProviderActions: { flexDirection: 'row', gap: 10 },
+  healthActionButton: {
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#374151',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  healthActionButtonDisabled: { opacity: 0.6 },
+  healthActionText: { color: '#FF6200', fontSize: 13, fontWeight: '700' },
+  healthWarningText: { color: '#F59E0B', fontSize: 12 },
 });

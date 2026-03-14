@@ -96,7 +96,12 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Completed: milestone unlock prompt + success haptic on workout completion added in `frontend/app/workout/active.tsx` for thresholds (1, 5, 10, 25, 50, 100, 200).
 	- Completed: streak-preservation intervention added on Home momentum card to detect "worked out today" and surface a "Protect" CTA when streak is at risk.
 	- Completed: weekly recap CTA now provides in-app weekly summary (workout days, nutrition days, total volume, streak) before linking to full Progress analytics.
-7. Phase 3 - Competitive integrations: NOT STARTED
+7. Phase 3 - Competitive integrations: IN PROGRESS
+	- Completed: Pro-gated health integration baseline added in `frontend/src/services/healthSync.ts` with explicit consent state, provider enable/disable state, connection lifecycle, and sync result snapshots.
+	- Completed: explicit permission UX and connect/sync controls added in `frontend/app/(tabs)/profile.tsx` for Apple Health (iOS) and Google Fit (Android).
+	- Completed: native bridge packages installed in `frontend/package.json` (`react-native-health`, `react-native-health-connect`) and Expo config updated at `frontend/app.config.js` for Health Connect plugin + iOS HealthKit usage descriptions.
+	- Completed: direct provider read baseline wired (`react-native-health` step count reads on iOS, `react-native-health-connect` steps reads on Android) and surfaced in sync results.
+	- Pending: Strava/wearable extension decision gate using adoption telemetry from this baseline.
 8. Phase 3 - Analytics depth for advanced users: IN PROGRESS
 	- Notes: progression and trend analytics are partially present, but fatigue/deload and periodization views are not fully implemented.
 9. Phase 4 - Network effects: NOT STARTED
@@ -104,4 +109,4 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Notes: secret scanning now added; OWASP MASVS cadence, SCA gates, and policy regression release gates still pending.
 
 ### Next Active Step
-- Start Phase 3 competitive integrations: implement HealthKit + Google Fit read sync baseline behind Pro-aware controls and explicit permission UX.
+- Continue Phase 3 competitive integrations: evaluate Strava/wearable extension scope using telemetry from HealthKit/Google Fit adoption.
