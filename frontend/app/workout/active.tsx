@@ -29,7 +29,7 @@ import { useWeightUnit } from '../../src/hooks/useWeightUnit';
 import { seedExercises } from '../../src/data/seedData';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
-import { sendFirstWorkoutCompletedTelemetry, sendSupersetTelemetry } from '../../src/services/notifications';
+import { sendEngagementTelemetry, sendFirstWorkoutCompletedTelemetry, sendSupersetTelemetry } from '../../src/services/notifications';
 
 const DEFAULT_REST_SECONDS = 90;
 const REST_DURATION_KEY = 'gaintrack_rest_duration';
@@ -137,6 +137,11 @@ const ActiveWorkoutScreen: React.FC = () => {
         sets: previousSets,
       },
     ]);
+    sendEngagementTelemetry({
+      feature: 'workout_active',
+      action: 'exercise_added',
+      context: exerciseId,
+    });
     if (previousSets.length > 0) {
       setPrefilledFromLastSession((prev) => new Set(prev).add(exerciseId));
     }
@@ -357,6 +362,12 @@ const ActiveWorkoutScreen: React.FC = () => {
 
   // Auto-init; restore in-progress or start fresh; request notification permissions [Feature 1]
   useEffect(() => {
+    sendEngagementTelemetry({
+      feature: 'workout_active',
+      action: 'screen_view',
+      context: 'active_workout',
+    });
+
     Notifications.requestPermissionsAsync().catch(() => null);
     AsyncStorage.getItem('gaintrack_auto_rest_timer').then((v) => {
       if (v !== null) setAutoStartRestTimer(JSON.parse(v));
@@ -768,6 +779,11 @@ const ActiveWorkoutScreen: React.FC = () => {
             text: 'Discard Workout',
             style: 'destructive',
             onPress: async () => {
+              sendEngagementTelemetry({
+                feature: 'workout_active',
+                action: 'empty_workout_discarded',
+                context: currentWorkout?.name || workoutTitle || 'Quick Workout',
+              });
               await clearInProgress();
               setCurrentWorkout(null);
               router.replace('/');
@@ -778,6 +794,11 @@ const ActiveWorkoutScreen: React.FC = () => {
       return;
     }
     setSaving(true);
+    sendEngagementTelemetry({
+      feature: 'workout_active',
+      action: 'finish_attempted',
+      context: skipIncompleteCheck ? 'skip_incomplete_true' : 'skip_incomplete_false',
+    });
     cancelRestNotif();
     try {
       let priorWorkoutCount = 0;
@@ -797,6 +818,12 @@ const ActiveWorkoutScreen: React.FC = () => {
       const updatedWorkout = { ...currentWorkout, exercises: validExercises, duration: durationSeconds };
       const savedWorkout = await createWorkout(uid, updatedWorkout);
       const isOffline = savedWorkout.workout_id.startsWith('offline_');
+
+      sendEngagementTelemetry({
+        feature: 'workout_active',
+        action: isOffline ? 'workout_saved_offline' : 'workout_saved',
+        context: savedWorkout.workout_id,
+      });
 
       const supersetSummary = summarizeCompletedSupersets(validExercises);
       const hasCompletedSuperset = supersetSummary.groupsCount > 0;
@@ -1002,6 +1029,11 @@ const ActiveWorkoutScreen: React.FC = () => {
               });
               // [PRO] unlimited templates; free tier capped at 3
               await AsyncStorage.setItem('gaintrack_templates', JSON.stringify(templates.slice(0, 10)));
+              sendEngagementTelemetry({
+                feature: 'workout_active',
+                action: 'template_saved',
+                context: currentWorkout.name,
+              });
             },
           },
           { text: 'Skip', style: 'cancel' },
@@ -1048,6 +1080,11 @@ const ActiveWorkoutScreen: React.FC = () => {
       }
       router.replace('/');
     } catch (e) {
+      sendEngagementTelemetry({
+        feature: 'workout_active',
+        action: 'workout_save_failed',
+        context: String(e),
+      });
       console.error('Save workout error:', e);
       Alert.alert('Error saving workout', String(e));
     } finally {
@@ -1077,15 +1114,20 @@ const ActiveWorkoutScreen: React.FC = () => {
       </View>
       <TouchableOpacity
         style={styles.addExerciseBtn}
-        onPress={() =>
+        onPress={() => {
+          sendEngagementTelemetry({
+            feature: 'workout_active',
+            action: 'add_exercise_opened',
+            context: currentWorkout?.name || workoutTitle || 'Quick Workout',
+          });
           router.push({
             pathname: '/(tabs)/exercises',
             params: {
               fromWorkout: '1',
               workoutName: currentWorkout?.name || workoutTitle || 'Quick Workout',
             },
-          })
-        }
+          });
+        }}
       >
         <Text style={styles.addExerciseText}>+ Add Exercise</Text>
       </TouchableOpacity>
@@ -1270,7 +1312,14 @@ const ActiveWorkoutScreen: React.FC = () => {
         ListEmptyComponent={<Text style={styles.emptyText}>No exercises added.</Text>}
         ListFooterComponent={
           <View style={styles.finishBtnFooter}>
-            <TouchableOpacity style={styles.finishBtn} onPress={() => { void finishWorkout(); }} disabled={saving}>
+            <TouchableOpacity style={styles.finishBtn} onPress={() => {
+              sendEngagementTelemetry({
+                feature: 'workout_active',
+                action: 'finish_cta_tapped',
+                context: currentWorkout?.name || workoutTitle || 'Quick Workout',
+              });
+              void finishWorkout();
+            }} disabled={saving}>
               <Text style={styles.finishBtnText}>{saving ? 'Saving...' : 'Finish Workout'}</Text>
             </TouchableOpacity>
           </View>
