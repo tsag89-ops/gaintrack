@@ -120,7 +120,9 @@ Legend: `COMPLETED`, `IN PROGRESS`, `BLOCKED`, `NOT STARTED`
 	- Completed: first `Security Quality Operations` workflow evidence captured on `main` (run: `23094523822`, commit `ae39b64b0502a65184fb2b9b4c084791819ed078`) with MASVS/policy gates passing and SCA gates failing.
 	- Completed: frontend SCA high findings remediated by workspace root dependency overrides in `package.json` (`tar` >= 7.5.11, `undici` >= 6.24.0); local `npm audit --omit=dev --audit-level=high` now passes with no high/critical findings.
 	- Completed: post-remediation CI evidence captured (run: `23094626097`, commit `5ec4442b40f6a0346a96144f8e3a1880e1956a7b`) with MASVS/policy/frontend-SCA gates passing; backend-SCA remains the only failing gate.
+	- Completed: backend-SCA remediated by runtime dependency cleanup/upgrade and JWT stack migration (`python-jose` -> `PyJWT`) in `backend/requirements.txt` + `backend/server.py`.
+	- Completed: fully passing `Security Quality Operations` evidence captured (run: `23094799454`, commit `c63ed3bfc6be397ccd881af93054f322b2ce2655`) with MASVS/policy/frontend-SCA/backend-SCA all passing.
 	- Note: local execution of new Python tests is blocked in current shell due missing Python runtime; CI gates are configured to enforce verification on PR/push/schedule.
 
 ### Next Active Step
-- Triage and remediate remaining backend `pip-audit` failures, rerun `Security Quality Operations`, and attach fully passing run/artifact evidence.
+- Begin post-plan enhancement backlog prioritization (retention + conversion lift opportunities) using latest security baseline as release gate.
