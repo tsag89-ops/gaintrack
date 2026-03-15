@@ -19,19 +19,14 @@ const path = require('path');
 
 // ── Brand colours ──────────────────────────────────────────────────────────
 const BG    = [26,  26,  26,  255];  // #1A1A1A background
-const CARD  = [57,  32,  22,  255];  // warm dark brown card behind logo
+const CARD  = [255, 98,  0,   32];   // #FF620020 login-style translucent tile
 const OG    = [255, 98,  0,   255];  // #FF6200 orange heart
-const PULSE = [45,  45,  45,  255];  // charcoal pulse line
 const WH    = [255, 255, 255, 255];  // white (notification icon)
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function dist(x1, y1, x2, y2) {
   return Math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2);
-}
-
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, v));
 }
 
 function setPixel(png, x, y, rgba) {
@@ -71,29 +66,6 @@ function roundRect(png, x1, y1, x2, y2, radius, rgba) {
   circle(png, x2 - radius, y2 - radius, radius, rgba);
 }
 
-/** Draw a thick line segment between two points. */
-function line(png, x1, y1, x2, y2, thickness, rgba) {
-  const minX = Math.floor(Math.min(x1, x2) - thickness);
-  const maxX = Math.ceil(Math.max(x1, x2) + thickness);
-  const minY = Math.floor(Math.min(y1, y2) - thickness);
-  const maxY = Math.ceil(Math.max(y1, y2) + thickness);
-
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len2 = dx * dx + dy * dy || 1;
-
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const t = clamp(((x - x1) * dx + (y - y1) * dy) / len2, 0, 1);
-      const px = x1 + t * dx;
-      const py = y1 + t * dy;
-      if (dist(x, y, px, py) <= thickness / 2) {
-        setPixel(png, x, y, rgba);
-      }
-    }
-  }
-}
-
 /** Save a PNG to disk */
 function save(png, filename) {
   const buf = PNG.sync.write(png);
@@ -113,8 +85,8 @@ function flattenVisibleToColor(png, rgba) {
   }
 }
 
-// ── Draw a heart + pulse logo ───────────────────────────────────────────────
-function drawHeartPulseLogo(png, transparent) {
+// ── Draw a login-style heart logo ────────────────────────────────────────────
+function drawLoginHeartLogo(png, transparent) {
   const S = png.width;      // canvas size (assumed square)
   const mid = S / 2;
 
@@ -133,7 +105,7 @@ function drawHeartPulseLogo(png, transparent) {
   // x and y are normalized in [-1, 1].
   const heartCx = mid;
   const heartCy = S * 0.52;
-  const heartScale = S * 0.28;
+  const heartScale = S * 0.24;
 
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
@@ -146,29 +118,10 @@ function drawHeartPulseLogo(png, transparent) {
     }
   }
 
-  // Pulse line across the heart.
-  const stroke = Math.max(2, Math.round(S * 0.045));
-  const points = [
-    [S * 0.24, S * 0.56],
-    [S * 0.38, S * 0.56],
-    [S * 0.45, S * 0.43],
-    [S * 0.51, S * 0.63],
-    [S * 0.58, S * 0.50],
-    [S * 0.66, S * 0.56],
-    [S * 0.78, S * 0.56],
-  ];
-
-  for (let i = 0; i < points.length - 1; i++) {
-    const [x1, y1] = points[i];
-    const [x2, y2] = points[i + 1];
-    line(png, x1, y1, x2, y2, stroke, transparent ? WH : PULSE);
+  // For transparent assets, ensure visible pixels are white-only where required.
+  if (transparent) {
+    flattenVisibleToColor(png, WH);
   }
-
-  // Rounded pulse endpoints.
-  const [sx, sy] = points[0];
-  const [ex, ey] = points[points.length - 1];
-  circle(png, sx, sy, stroke / 2, transparent ? WH : PULSE);
-  circle(png, ex, ey, stroke / 2, transparent ? WH : PULSE);
 }
 
 // ── Generate icons ─────────────────────────────────────────────────────────
@@ -178,21 +131,21 @@ const OUT = path.resolve(__dirname, '../assets/images');
 // 1. App icon — 1024x1024 on dark bg
 ;(() => {
   const png = new PNG({ width: 1024, height: 1024 });
-  drawHeartPulseLogo(png, false);
+  drawLoginHeartLogo(png, false);
   save(png, path.join(OUT, 'icon.png'));
 })();
 
 // 2. Adaptive icon foreground — 1024x1024 transparent bg
 ;(() => {
   const png = new PNG({ width: 1024, height: 1024 });
-  drawHeartPulseLogo(png, true);
+  drawLoginHeartLogo(png, true);
   save(png, path.join(OUT, 'adaptive-icon.png'));
 })();
 
 // 2b. Adaptive monochrome icon — 1024x1024 transparent bg (Android 13 themed icon)
 ;(() => {
   const png = new PNG({ width: 1024, height: 1024 });
-  drawHeartPulseLogo(png, true);
+  drawLoginHeartLogo(png, true);
   flattenVisibleToColor(png, WH);
   save(png, path.join(OUT, 'adaptive-monochrome.png'));
 })();
@@ -200,7 +153,7 @@ const OUT = path.resolve(__dirname, '../assets/images');
 // 3. Splash image (used as fallback logo reference) — 240x240
 ;(() => {
   const png = new PNG({ width: 240, height: 240 });
-  drawHeartPulseLogo(png, false);
+  drawLoginHeartLogo(png, false);
   save(png, path.join(OUT, 'splash-image.png'));
 })();
 
@@ -208,7 +161,7 @@ const OUT = path.resolve(__dirname, '../assets/images');
 ;(() => {
   const png = new PNG({ width: 96, height: 96 });
   png.data.fill(0);
-  drawHeartPulseLogo(png, true);
+  drawLoginHeartLogo(png, true);
   flattenVisibleToColor(png, WH);
   save(png, path.join(OUT, 'notification-icon.png'));
 })();
@@ -216,7 +169,7 @@ const OUT = path.resolve(__dirname, '../assets/images');
 // 5. Favicon — 64x64
 ;(() => {
   const png = new PNG({ width: 64, height: 64 });
-  drawHeartPulseLogo(png, false);
+  drawLoginHeartLogo(png, false);
   save(png, path.join(OUT, 'favicon.png'));
 })();
 
