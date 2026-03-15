@@ -92,7 +92,7 @@ export default function WorkoutDetailScreen() {
 
     exercises.forEach((exercise, exerciseIndex) => {
       lines.push(`${exerciseIndex + 1}. ${exercise.exercise_name}`);
-      (exercise.sets ?? []).forEach((set, setIndex) => {
+      (exercise.sets ?? []).filter(s => s.completed).forEach((set, setIndex) => {
         const rpePart = typeof set.rpe === 'number' ? `, RPE ${set.rpe}` : '';
         const warmupPart = set.is_warmup ? ' [Warm-up]' : '';
         lines.push(
@@ -375,7 +375,7 @@ export default function WorkoutDetailScreen() {
         reps,
         weight,
         rpe,
-        completed: false,
+        completed: reps > 0 || weight > 0,
         is_warmup: row.is_warmup,
       });
     }
@@ -599,7 +599,7 @@ export default function WorkoutDetailScreen() {
           </View>
 
           {exercises.map((exercise, exerciseIndex) => {
-            const sets = exercise.sets ?? [];
+            const sets = (exercise.sets ?? []).filter(s => s.completed);
             const exerciseKey = `${exercise.exercise_id}_${exerciseIndex}`;
             const isCollapsed = collapsedExerciseKeys.has(exerciseKey);
 

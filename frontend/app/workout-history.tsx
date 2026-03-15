@@ -248,7 +248,7 @@ export default function WorkoutHistoryScreen() {
         {exercises.length > 0 && (
           <View style={styles.exerciseList}>
             {exercises.slice(0, 4).map((ex, idx) => {
-              const workingSets = (ex.sets ?? []).filter(s => !s.is_warmup);
+              const workingSets = (ex.sets ?? []).filter(s => !s.is_warmup && s.completed);
               return (
                 <View key={idx} style={styles.exerciseBlock}>
                   <View style={styles.exerciseRow}>

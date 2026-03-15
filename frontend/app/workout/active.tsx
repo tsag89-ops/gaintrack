@@ -747,7 +747,7 @@ const ActiveWorkoutScreen: React.FC = () => {
   };
 
   // Finish workout: save to Firestore, detect PRs, stamp duration, prompt template [PRO]
-  const finishWorkout = async (skipIncompleteCheck = false) => {
+  const finishWorkout = async (skipIncompleteCheck = false, overrideExerciseList?: WorkoutExercise[]) => {
     if (!currentWorkout) return;
     if (!uid) {
       Alert.alert('Not signed in', 'Please log in to save workouts.');
@@ -769,15 +769,13 @@ const ActiveWorkoutScreen: React.FC = () => {
               text: 'Discard incomplete & finish',
               style: 'destructive',
               onPress: () => {
-                // Remove sets that aren't marked complete and have data, then finish
-                setExerciseList((prev) =>
-                  prev.map((ex) => ({
-                    ...ex,
-                    sets: ex.sets.filter((s) => s.completed || (Number(s.reps) === 0 && Number(s.weight) === 0)),
-                  }))
-                );
-                // Use setTimeout so state update flushes before saving
-                setTimeout(() => finishWorkout(true), 50);
+                // Build filtered list synchronously — avoids stale closure / setTimeout race
+                const filteredList = exerciseList.map((ex) => ({
+                  ...ex,
+                  sets: ex.sets.filter((s) => s.completed),
+                }));
+                setExerciseList(filteredList); // keep UI in sync
+                finishWorkout(true, filteredList);
               },
             },
           ],
@@ -786,7 +784,7 @@ const ActiveWorkoutScreen: React.FC = () => {
       }
     }
 
-    const validExercises = exerciseList.filter((ex) => ex.sets.length > 0);
+    const validExercises = (overrideExerciseList ?? exerciseList).filter((ex) => ex.sets.length > 0);
     const hasValidSets = validExercises.some((exercise) =>
       exercise.sets.some(
         (set) => (Number(set.reps) || 0) > 0 && (Number(set.weight) || 0) >= 0,

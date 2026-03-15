@@ -17,7 +17,7 @@ export const calculateWorkoutVolume = (exercises: WorkoutExercise[]): number => 
   let totalVolume = 0;
   for (const exercise of exercises) {
     for (const set of exercise.sets) {
-      if (!set.is_warmup) {
+      if (!set.is_warmup && set.completed) {
         totalVolume += set.weight * set.reps;
       }
     }
@@ -26,7 +26,7 @@ export const calculateWorkoutVolume = (exercises: WorkoutExercise[]): number => 
 };
 
 export const calculateTotalSets = (exercises: WorkoutExercise[]): number => {
-  return exercises.reduce((total, ex) => total + ex.sets.filter(s => !s.is_warmup).length, 0);
+  return exercises.reduce((total, ex) => total + ex.sets.filter(s => !s.is_warmup && s.completed).length, 0);
 };
 
 export const formatVolume = (volume: number): string => {
