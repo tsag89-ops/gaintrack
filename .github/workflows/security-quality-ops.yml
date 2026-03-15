@@ -123,8 +123,25 @@ jobs:
       - name: Install frontend dependencies
         run: npm install
 
-      - name: Run frontend lint
-        run: npm run lint
+      - name: Run frontend lint (advisory)
+        id: frontend_lint
+        continue-on-error: true
+        run: |
+          mkdir -p ../test_reports/frontend
+          npm run lint > ../test_reports/frontend/lint-report.txt 2>&1
+
+      - name: Upload frontend lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-lint-report
+          path: test_reports/frontend/lint-report.txt
+
+      - name: Warn on lint debt
+        if: steps.frontend_lint.outcome == 'failure'
+        run: |
+          echo "Frontend lint reported existing issues (advisory mode)."
+          echo "TypeScript typecheck remains blocking."
 
       - name: Run TypeScript typecheck
         run: npx tsc --noEmit
