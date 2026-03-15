@@ -28,6 +28,7 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
+      "minSdkVersion": 26,
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
