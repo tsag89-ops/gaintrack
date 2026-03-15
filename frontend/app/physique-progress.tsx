@@ -34,7 +34,14 @@ import {
   MAX_PHOTOS_PER_DAY,
   getPhysiquePhotos,
 } from '../src/services/storage';
-import { PhysiquePhoto, PhysiqueWorkoutSummary } from '../src/types';
+import {
+  PhysiquePhoto,
+  PhysiqueWorkoutLogSnapshot,
+  PhysiqueWorkoutSummary,
+  Workout,
+  WorkoutExercise,
+  WorkoutSet,
+} from '../src/types';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -64,24 +71,59 @@ async function getTodayWorkoutSummary(date: string): Promise<PhysiqueWorkoutSumm
       return d === date;
     });
     if (dayWorkouts.length === 0) return null;
+    const detailedWorkouts: PhysiqueWorkoutLogSnapshot[] = dayWorkouts.map((w: Workout) => {
+      const detailedExercises = (w.exercises ?? [])
+        .map((exercise: WorkoutExercise) => {
+          const completedSets = (exercise.sets ?? [])
+            .filter((set: WorkoutSet) => set.completed)
+            .map((set: WorkoutSet, index: number) => ({
+              setNumber: Number(set.set_number ?? index + 1),
+              reps: Number(set.reps ?? 0),
+              weight: Number(set.weight ?? 0),
+              rpe: typeof set.rpe === 'number' ? set.rpe : undefined,
+              isWarmup: Boolean(set.is_warmup),
+            }));
+
+          return {
+            exerciseName: exercise.exercise_name,
+            notes: exercise.notes,
+            sets: completedSets,
+          };
+        })
+        .filter((exercise) => exercise.sets.length > 0);
+
+      return {
+        workoutId: String(w.workout_id ?? generateId()),
+        name: w.name ?? 'Workout',
+        date: w.date,
+        exercises: detailedExercises,
+      };
+    });
+
     // Aggregate across all workouts for the day
     let exerciseCount = 0;
     let totalSets = 0;
     let totalVolume = 0;
     let workoutName = dayWorkouts[0]?.name ?? 'Workout';
-    dayWorkouts.forEach((w: any) => {
-      const exercises: any[] = w.exercises ?? [];
+    detailedWorkouts.forEach((w) => {
+      const exercises = w.exercises ?? [];
       exerciseCount += exercises.length;
-      exercises.forEach((ex: any) => {
-        const sets: any[] = ex.sets ?? [];
+      exercises.forEach((ex) => {
+        const sets = ex.sets ?? [];
         totalSets += sets.length;
-        sets.forEach((s: any) => {
+        sets.forEach((s) => {
           totalVolume += (s.weight ?? 0) * (s.reps ?? 0);
         });
       });
     });
     if (dayWorkouts.length > 1) workoutName = `${dayWorkouts.length} workouts`;
-    return { name: workoutName, exerciseCount, totalSets, totalVolume };
+    return {
+      name: workoutName,
+      exerciseCount,
+      totalSets,
+      totalVolume,
+      workouts: detailedWorkouts,
+    };
   } catch {
     return null;
   }
@@ -128,6 +170,48 @@ function WorkoutSummaryCard({ summary }: { summary: PhysiqueWorkoutSummary }) {
           <Text style={styles.workoutStatLabel}>kg volume</Text>
         </View>
       </View>
+    </View>
+  );
+}
+
+function WorkoutDetailedLog({ summary }: { summary: PhysiqueWorkoutSummary }) {
+  const workouts = summary.workouts ?? [];
+
+  return (
+    <View style={styles.workoutDetailsWrap}>
+      <WorkoutSummaryCard summary={summary} />
+
+      {workouts.map((workout, workoutIndex) => (
+        <View key={`${workout.workoutId}_${workoutIndex}`} style={styles.workoutDetailsCard}>
+          <Text style={styles.workoutDetailsTitle}>{workout.name || `Workout ${workoutIndex + 1}`}</Text>
+
+          {workout.exercises.map((exercise, exerciseIndex) => (
+            <View key={`${workout.workoutId}_${exercise.exerciseName}_${exerciseIndex}`} style={styles.exerciseDetailsCard}>
+              <Text style={styles.exerciseDetailsTitle}>{exercise.exerciseName}</Text>
+              {exercise.notes ? <Text style={styles.exerciseDetailsNotes}>{exercise.notes}</Text> : null}
+
+              <View style={styles.exerciseTableHeader}>
+                <Text style={[styles.exerciseTableHeaderText, styles.exerciseColSet]}>Set</Text>
+                <Text style={[styles.exerciseTableHeaderText, styles.exerciseColReps]}>Reps</Text>
+                <Text style={[styles.exerciseTableHeaderText, styles.exerciseColWeight]}>Weight</Text>
+                <Text style={[styles.exerciseTableHeaderText, styles.exerciseColRpe]}>RPE</Text>
+              </View>
+
+              {exercise.sets.map((set, setIndex) => (
+                <View key={`${exercise.exerciseName}_${set.setNumber}_${setIndex}`} style={styles.exerciseSetRow}>
+                  <Text style={[styles.exerciseCellText, styles.exerciseColSet]}>
+                    {set.setNumber}
+                    {set.isWarmup ? ' W' : ''}
+                  </Text>
+                  <Text style={[styles.exerciseCellText, styles.exerciseColReps]}>{set.reps}</Text>
+                  <Text style={[styles.exerciseCellText, styles.exerciseColWeight]}>{set.weight}</Text>
+                  <Text style={[styles.exerciseCellText, styles.exerciseColRpe]}>{typeof set.rpe === 'number' ? set.rpe : '-'}</Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      ))}
     </View>
   );
 }
@@ -204,7 +288,7 @@ function PhotoViewer({
           {/* Workout summary */}
           {photo.workoutSummary ? (
             <View style={styles.viewerWorkout}>
-              <WorkoutSummaryCard summary={photo.workoutSummary} />
+              <WorkoutDetailedLog summary={photo.workoutSummary} />
             </View>
           ) : null}
         </SafeAreaView>
@@ -522,7 +606,7 @@ export default function PhysiqueProgressScreen() {
             {workoutSummary && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Today's Workout</Text>
-                <WorkoutSummaryCard summary={workoutSummary} />
+                <WorkoutDetailedLog summary={workoutSummary} />
               </View>
             )}
 
@@ -803,6 +887,75 @@ const styles = StyleSheet.create({
     width: 1,
     height: 32,
     backgroundColor: colors.divider,
+  },
+
+  workoutDetailsWrap: {
+    gap: spacing[3],
+  },
+  workoutDetailsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    padding: spacing[3],
+    gap: spacing[3],
+  },
+  workoutDetailsTitle: {
+    fontSize: typography.fontSize.base,
+    fontWeight: typography.fontWeight.bold as any,
+    color: colors.textPrimary,
+  },
+  exerciseDetailsCard: {
+    backgroundColor: colors.charcoal,
+    borderRadius: radii.md,
+    padding: spacing[3],
+    gap: spacing[2],
+  },
+  exerciseDetailsTitle: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold as any,
+    color: colors.textPrimary,
+  },
+  exerciseDetailsNotes: {
+    fontSize: typography.fontSize.xs,
+    color: colors.textSecondary,
+    marginBottom: spacing[1],
+  },
+  exerciseTableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+    paddingBottom: spacing[1],
+  },
+  exerciseTableHeaderText: {
+    fontSize: typography.fontSize.xs,
+    color: colors.textSecondary,
+    fontWeight: typography.fontWeight.medium as any,
+  },
+  exerciseSetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing[1],
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  exerciseCellText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textPrimary,
+  },
+  exerciseColSet: {
+    width: 48,
+  },
+  exerciseColReps: {
+    width: 56,
+  },
+  exerciseColWeight: {
+    flex: 1,
+  },
+  exerciseColRpe: {
+    width: 48,
+    textAlign: 'right',
   },
 
   // Notes

@@ -153,6 +153,28 @@ export interface PhysiqueWorkoutSummary {
   exerciseCount: number;
   totalSets: number;
   totalVolume: number; // kg
+  workouts?: PhysiqueWorkoutLogSnapshot[];
+}
+
+export interface PhysiqueWorkoutLogSetSnapshot {
+  setNumber: number;
+  reps: number;
+  weight: number;
+  rpe?: number;
+  isWarmup: boolean;
+}
+
+export interface PhysiqueWorkoutLogExerciseSnapshot {
+  exerciseName: string;
+  notes?: string;
+  sets: PhysiqueWorkoutLogSetSnapshot[];
+}
+
+export interface PhysiqueWorkoutLogSnapshot {
+  workoutId: string;
+  name: string;
+  date: string;
+  exercises: PhysiqueWorkoutLogExerciseSnapshot[];
 }
 
 export interface PhysiquePhoto {
