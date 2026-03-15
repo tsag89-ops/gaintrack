@@ -69,6 +69,14 @@
           "backgroundColor": "#000000"
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ],
       "@react-native-firebase/app",
       "@react-native-firebase/auth"
     ],
