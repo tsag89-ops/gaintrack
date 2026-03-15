@@ -1,0 +1,26 @@
+title = "GainTrack Gitleaks Baseline"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated reports and build artifacts"
+paths = [
+  '''^test_reports/.*''',
+  '''^frontend/dist/.*''',
+  '''^frontend/.expo/.*''',
+  '''^frontend/coverage/.*''',
+]
+
+[[allowlists]]
+description = "Intentional placeholder tokens in committed sample config files"
+paths = [
+  '''^frontend/google-services\.json$''',
+  '''^frontend/GoogleService-Info\.plist$''',
+  '''^frontend/credentials\.json$''',
+  '''^frontend/\.env\.example$''',
+]
+regexes = [
+  '''REPLACE_WITH_[A-Z0-9_]+''',
+  '''PLACEHOLDER''',
+]
