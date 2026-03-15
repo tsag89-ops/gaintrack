@@ -19,7 +19,8 @@
     "icons:verify": "node ./scripts/verify-icons.js",
     "icons:check": "npm run icons:generate && npm run icons:verify",
     "test:firestore:rules": "node --test tests/firestore.rules.test.js",
-    "test:firestore:rules:emulator": "firebase emulators:exec --only firestore \"npm run test:firestore:rules\""
+    "test:firestore:rules:emulator": "firebase emulators:exec --only firestore \"npm run test:firestore:rules\"",
+    "postinstall": "node ./scripts/apply-patches.js"
   },
   "dependencies": {
     "@babel/runtime": "^7.20.6",
@@ -93,6 +94,7 @@
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "firebase-tools": "^14.22.0",
+    "patch-package": "^8.0.0",
     "typescript": "~5.9.3"
   },
   "private": true,
