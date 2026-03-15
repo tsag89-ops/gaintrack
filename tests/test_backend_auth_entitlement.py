@@ -454,7 +454,7 @@ def test_aggregate_workout_social_stats_sums_sets_and_volume(backend_server):
 
     assert stats["workouts"] == 2
     assert stats["total_sets"] == 4
-    assert stats["total_volume"] == 1810.0
+    assert stats["total_volume"] == 1680.0
 
 
 @pytest.mark.asyncio

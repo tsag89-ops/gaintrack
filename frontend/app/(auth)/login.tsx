@@ -401,11 +401,11 @@ export default function LoginScreen() {
 
           <Text style={styles.terms}>
             By continuing, you agree to our{' '}
-            <Text style={styles.termsLink} onPress={() => router.push('/terms' as any)}>
+            <Text style={styles.termsLink} onPress={() => router.push('/terms')}>
               Terms
             </Text>{' '}
             and{' '}
-            <Text style={styles.termsLink} onPress={() => router.push('/privacy-policy' as any)}>
+            <Text style={styles.termsLink} onPress={() => router.push('/privacy-policy')}>
               Privacy Policy
             </Text>
             .
