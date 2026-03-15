@@ -14,6 +14,7 @@ import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 import com.google.firebase.firestore.ListenerRegistration
+import dev.matinzd.healthconnect.permissions.HealthConnectPermissionDelegate
 
 import expo.modules.ReactActivityDelegateWrapper
 import kotlinx.coroutines.launch
@@ -39,6 +40,10 @@ class MainActivity : ReactActivity() {
     // This is required for expo-splash-screen.
     setTheme(R.style.AppTheme)
     super.onCreate(null)
+
+    // Required by react-native-health-connect to wire ActivityResult launcher
+    // before requestPermission() is invoked from JS.
+    HealthConnectPermissionDelegate.setPermissionDelegate(this)
 
     // ── Observe AuthViewModel (DEBUG only) ───────────────────────────────────
     // When the auth state transitions to Authenticated, run the workout demo.
