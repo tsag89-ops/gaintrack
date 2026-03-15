@@ -35,7 +35,6 @@ import {
   getHealthSyncSettings,
   getProviderLabel,
   getSupportedProvidersForDevice,
-  getStravaWearableReadiness,
   setHealthProviderEnabled,
   setHealthSyncConsent,
   syncHealthProviderBaseline,
@@ -103,7 +102,6 @@ export default function ProfileScreen() {
   const [healthSyncSettings, setHealthSyncSettings] = useState<HealthSyncSettings | null>(null); // [PRO]
   const [healthSyncSnapshots, setHealthSyncSnapshots] = useState<Partial<Record<HealthProvider, Awaited<ReturnType<typeof getHealthSyncSnapshot>>>>>({}); // [PRO]
   const [healthSyncProviderLoading, setHealthSyncProviderLoading] = useState<HealthProvider | null>(null); // [PRO]
-  const [healthReadinessLoading, setHealthReadinessLoading] = useState(false); // [PRO]
   const supportedHealthProviders = getSupportedProvidersForDevice(); // [PRO]
 
   useEffect(() => {
@@ -265,34 +263,6 @@ export default function ProfileScreen() {
       }
     } finally {
       setHealthSyncProviderLoading(null);
-    }
-  };
-
-  const handleEvaluateWearableScope = async () => {
-    if (!(await requireProForHealthSync())) return;
-
-    setHealthReadinessLoading(true);
-    try {
-      await Haptics.selectionAsync();
-      const readiness = await getStravaWearableReadiness(30);
-      if (!readiness) {
-        Alert.alert('Not available', 'Readiness evaluation is not available right now. Try again after syncing.');
-        return;
-      }
-
-      const recommendationLabel =
-        readiness.evaluation.recommendation === 'proceed_now'
-          ? 'Proceed now'
-          : readiness.evaluation.recommendation === 'validate_further'
-            ? 'Validate further'
-            : 'Defer';
-
-      Alert.alert(
-        'Strava/Wearable Readiness',
-        `Score: ${readiness.evaluation.score}/100\nRecommendation: ${recommendationLabel}\nAdoption: ${readiness.metrics.adoption_rate_percent}%\nAvg syncs/user: ${readiness.metrics.avg_sync_events_per_adopted_user}\n\n${readiness.evaluation.rationale}`,
-      );
-    } finally {
-      setHealthReadinessLoading(false);
     }
   };
 
@@ -1031,16 +1001,6 @@ const handleExportMyData = async () => {
           <Text style={styles.hint}>
             Health integrations are Pro-only and require explicit consent. Connection state is stored locally and can be revoked anytime.
           </Text>
-          <TouchableOpacity
-            style={[styles.healthReadinessButton, healthReadinessLoading && styles.healthActionButtonDisabled]}
-            onPress={handleEvaluateWearableScope}
-            disabled={healthReadinessLoading}
-          >
-            <Ionicons name="stats-chart-outline" size={16} color="#FFFFFF" />
-            <Text style={styles.healthReadinessButtonText}>
-              {healthReadinessLoading ? 'Evaluating...' : 'Evaluate Strava/Wearable Scope'}
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* Privacy Section */}
@@ -1396,16 +1356,5 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   healthWarningText: { color: '#F59E0B', fontSize: 12 },
-  healthReadinessButton: {
-    marginTop: 10,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#FF6200',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  healthReadinessButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
 });
+
