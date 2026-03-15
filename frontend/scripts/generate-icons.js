@@ -7,6 +7,7 @@
  * Generates:
  *   assets/images/icon.png            1024x1024  (App Store / Play Store)
  *   assets/images/adaptive-icon.png   1024x1024  (Android adaptive foreground)
+ *   assets/images/adaptive-monochrome.png 1024x1024 (Android 13 themed icon)
  *   assets/images/favicon.png           64x64    (Web)
  *   assets/images/splash-image.png     240x240   (Used in AuthSplash fallback)
  *   assets/images/notification-icon.png 96x96    (Android notification)
@@ -100,6 +101,18 @@ function save(png, filename) {
   console.log(`✅  Saved ${filename}`);
 }
 
+/** Convert any visible pixel to a single solid color (used for monochrome assets). */
+function flattenVisibleToColor(png, rgba) {
+  for (let i = 0; i < png.width * png.height * 4; i += 4) {
+    if (png.data[i + 3] > 0) {
+      png.data[i] = rgba[0];
+      png.data[i + 1] = rgba[1];
+      png.data[i + 2] = rgba[2];
+      png.data[i + 3] = rgba[3];
+    }
+  }
+}
+
 // ── Draw a heart + pulse logo ───────────────────────────────────────────────
 function drawHeartPulseLogo(png, transparent) {
   const S = png.width;      // canvas size (assumed square)
@@ -176,6 +189,14 @@ const OUT = path.resolve(__dirname, '../assets/images');
   save(png, path.join(OUT, 'adaptive-icon.png'));
 })();
 
+// 2b. Adaptive monochrome icon — 1024x1024 transparent bg (Android 13 themed icon)
+;(() => {
+  const png = new PNG({ width: 1024, height: 1024 });
+  drawHeartPulseLogo(png, true);
+  flattenVisibleToColor(png, WH);
+  save(png, path.join(OUT, 'adaptive-monochrome.png'));
+})();
+
 // 3. Splash image (used as fallback logo reference) — 240x240
 ;(() => {
   const png = new PNG({ width: 240, height: 240 });
@@ -188,6 +209,7 @@ const OUT = path.resolve(__dirname, '../assets/images');
   const png = new PNG({ width: 96, height: 96 });
   png.data.fill(0);
   drawHeartPulseLogo(png, true);
+  flattenVisibleToColor(png, WH);
   save(png, path.join(OUT, 'notification-icon.png'));
 })();
 

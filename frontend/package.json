@@ -15,6 +15,9 @@
     "build:ios": "expo run:ios --configuration Debug",
     "build:android:release": "expo run:android --variant release",
     "build:ios:release": "expo run:ios --configuration Release",
+    "icons:generate": "node ./scripts/generate-icons.js",
+    "icons:verify": "node ./scripts/verify-icons.js",
+    "icons:check": "npm run icons:generate && npm run icons:verify",
     "test:firestore:rules": "node --test tests/firestore.rules.test.js",
     "test:firestore:rules:emulator": "firebase emulators:exec --only firestore \"npm run test:firestore:rules\""
   },
