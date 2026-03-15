@@ -156,9 +156,41 @@ const connectAppleHealth = async (): Promise<{ ok: boolean; message: string }> =
 };
 
 const connectGoogleFit = async (): Promise<{ ok: boolean; message: string }> => {
+  if (Platform.OS !== 'android') {
+    return { ok: false, message: 'Android Health Connect is only available on Android devices.' };
+  }
+
+  const androidVersion = Number(Platform.Version);
+  if (Number.isFinite(androidVersion) && androidVersion < 26) {
+    return { ok: false, message: 'Android Health Connect requires Android 8.0 (API 26) or newer.' };
+  }
+
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const healthConnect = require('react-native-health-connect');
+
+    // Guard before initialize/requestPermission to avoid native crashes when
+    // Health Connect provider is missing/outdated on certain devices.
+    if (typeof healthConnect?.getSdkStatus === 'function') {
+      const status = await healthConnect.getSdkStatus();
+      const sdkAvailable = healthConnect?.SdkAvailabilityStatus?.SDK_AVAILABLE ?? 3;
+      const sdkUpdateRequired = healthConnect?.SdkAvailabilityStatus?.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ?? 2;
+
+      if (status === sdkUpdateRequired) {
+        return {
+          ok: false,
+          message: 'Health Connect needs to be installed or updated. Open Play Store, update Health Connect, then try Connect again.',
+        };
+      }
+
+      if (status !== sdkAvailable) {
+        return {
+          ok: false,
+          message: 'Health Connect is unavailable on this device right now. Install/update Health Connect and retry.',
+        };
+      }
+    }
+
     const initialized = await healthConnect.initialize();
     if (!initialized) {
       return { ok: false, message: 'Health Connect failed to initialize on this device.' };

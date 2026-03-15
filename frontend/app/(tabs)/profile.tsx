@@ -231,6 +231,11 @@ export default function ProfileScreen() {
       const result = await connectHealthProvider(provider);
       await refreshHealthSyncSettings();
       Alert.alert(result.ok ? 'Connected' : 'Connection issue', result.message);
+    } catch (error: any) {
+      Alert.alert(
+        'Connection issue',
+        error?.message ?? 'Unexpected error during Health Connect setup. Please try again.',
+      );
     } finally {
       setHealthSyncProviderLoading(null);
     }
@@ -261,6 +266,11 @@ export default function ProfileScreen() {
       } else {
         Alert.alert('Sync unavailable', result.message);
       }
+    } catch (error: any) {
+      Alert.alert(
+        'Sync issue',
+        error?.message ?? 'Unexpected error during Health Connect sync. Please try again.',
+      );
     } finally {
       setHealthSyncProviderLoading(null);
     }
