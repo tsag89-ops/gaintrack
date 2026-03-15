@@ -180,7 +180,7 @@ export default function ProfileScreen() {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
       'Pro Feature',
-      'HealthKit and Google Fit sync are available with GainTrack Pro ($4.99/yr).',
+      'HealthKit and Android Health Connect sync are available with GainTrack Pro ($4.99/yr).',
       [
         { text: 'Not now', style: 'cancel' },
         { text: 'Go Pro', onPress: () => router.push('/pro-paywall') },

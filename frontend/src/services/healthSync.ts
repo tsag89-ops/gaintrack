@@ -174,7 +174,7 @@ const connectGoogleFit = async (): Promise<{ ok: boolean; message: string }> => 
       return { ok: false, message: 'No Health Connect permissions were granted.' };
     }
 
-    return { ok: true, message: 'Google Fit (Health Connect) permissions granted.' };
+    return { ok: true, message: 'Android Health Connect permissions granted.' };
   } catch (error: any) {
     return { ok: false, message: error?.message ?? 'Health Connect permission flow failed.' };
   }
@@ -546,7 +546,7 @@ export const getStravaWearableReadiness = async (
 };
 
 export const getProviderLabel = (provider: HealthProvider): string => {
-  return provider === 'apple_health' ? 'Apple Health' : 'Google Fit';
+  return provider === 'apple_health' ? 'Apple Health' : 'Android Health Connect';
 };
 
 export const getHealthSyncSnapshot = async (
