@@ -1030,7 +1030,7 @@ const handleExportMyData = async () => {
           </Text>
           <TouchableOpacity
             style={[styles.settingItem, { marginTop: 8 }]}
-            onPress={() => router.push('/privacy-policy')}
+            onPress={() => router.push('/privacy-policy' as any)}
           >
             <View style={styles.settingLeft}>
               <Ionicons name="document-text-outline" size={22} color="#FF6200" />
@@ -1043,7 +1043,7 @@ const handleExportMyData = async () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.settingItem}
-            onPress={() => router.push('/terms')}
+            onPress={() => router.push('/terms' as any)}
           >
             <View style={styles.settingLeft}>
               <Ionicons name="document-outline" size={22} color="#FF6200" />
