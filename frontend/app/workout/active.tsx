@@ -31,7 +31,20 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { sendEngagementTelemetry, sendFirstWorkoutCompletedTelemetry, sendSupersetTelemetry } from '../../src/services/notifications';
 
+// MUST be set at module level — without this, expo-notifications silently drops all
+// notifications when the app is in the foreground (always the case during an active workout).
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
 const DEFAULT_REST_SECONDS = 90;
+const REST_TIMER_CHANNEL_ID = 'rest-timer-alerts';
 const REST_DURATION_KEY = 'gaintrack_rest_duration';
 const SUPERSET_COLORS = ['#FF6200', '#4CAF50', '#29B6F6', '#FFB300', '#EF5350', '#AB47BC'];
 const WORKOUT_MILESTONES = [1, 5, 10, 25, 50, 100, 200];
@@ -210,7 +223,8 @@ const ActiveWorkoutScreen: React.FC = () => {
           content: {
             title: '\uD83D\uDD14 Rest over!',
             body: offset === 0 ? 'Time for your next set \uD83D\uDCAA' : `Bell ${offset + 1}/3`,
-            sound: true,
+            sound: 'default',
+            ...(Platform.OS === 'android' ? { android: { channelId: REST_TIMER_CHANNEL_ID } } : {}),
           },
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -375,6 +389,19 @@ const ActiveWorkoutScreen: React.FC = () => {
     });
 
     Notifications.requestPermissionsAsync().catch(() => null);
+
+    // Create a dedicated high-importance notification channel for rest timer bells (Android 8+).
+    // Without an explicit channel, Android may suppress sound entirely.
+    if (Platform.OS === 'android') {
+      Notifications.setNotificationChannelAsync(REST_TIMER_CHANNEL_ID, {
+        name: 'Rest Timer Alerts',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF6200',
+      }).catch(() => null);
+    }
+
     AsyncStorage.getItem('gaintrack_auto_rest_timer').then((v) => {
       if (v !== null) setAutoStartRestTimer(JSON.parse(v));
     }).catch(() => null);
