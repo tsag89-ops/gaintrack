@@ -159,7 +159,7 @@ const ActiveWorkoutScreen: React.FC = () => {
   const startedAtRef = useRef<number>(Date.now());
   const pausedTimeRef = useRef<number>(0); // Accumulated paused time in ms
   const pauseStartRef = useRef<number>(0); // When current pause started
-  const notifIdRef = useRef<string | null>(null);
+  const restNotifIdsRef = useRef<string[]>([]);
 
   // Undo-delete state
   type DeletedItem = { exercise: any; index: number };
@@ -187,32 +187,38 @@ const ActiveWorkoutScreen: React.FC = () => {
 
   // Cancel any pending rest-over notification
   const cancelRestNotif = () => {
-    if (notifIdRef.current) {
-      Notifications.cancelScheduledNotificationAsync(notifIdRef.current).catch(() => null);
-      notifIdRef.current = null;
-    }
+    const ids = [...restNotifIdsRef.current];
+    restNotifIdsRef.current = [];
+    ids.forEach((id) => {
+      Notifications.cancelScheduledNotificationAsync(id).catch(() => null);
+    });
   };
 
   // Start rest timer + schedule bell notification [Feature 5]
   const startRestForExercise = async (exerciseId: string) => {
     const ex = exerciseList.find((e) => e.exercise_id === exerciseId);
     const secs = ex?.restSeconds ?? restSeconds;
+    cancelRestNotif();
     setRestTime(secs);
     setActiveRest(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      const id = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: '\uD83D\uDD14 Rest over!',
-          body: 'Time for your next set \uD83D\uDCAA',
-          sound: true,
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: secs,
-        },
-      });
-      notifIdRef.current = id;
+      // Boxing-style 3-bell sequence once rest reaches 0 (0s, +1s, +2s)
+      const bellOffsets = [0, 1, 2];
+      for (const offset of bellOffsets) {
+        const id = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '\uD83D\uDD14 Rest over!',
+            body: offset === 0 ? 'Time for your next set \uD83D\uDCAA' : `Bell ${offset + 1}/3`,
+            sound: true,
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: secs + offset,
+          },
+        });
+        restNotifIdsRef.current.push(id);
+      }
     } catch {}
   };
 
@@ -439,14 +445,14 @@ const ActiveWorkoutScreen: React.FC = () => {
     return () => clearInterval(interval);
   }, [timerPaused]);
 
-  // Countdown — vibrate each tick in last 5 s; cancel notif when done in-app [Feature 5]
+  // Countdown — vibrate each second in the final 3s [Feature 5]
   useEffect(() => {
     if (activeRest && restTime > 0) {
       const interval = setInterval(() => {
         setRestTime((t) => {
           const next = t - 1;
-          if (next > 0 && next <= 5) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => null);
+          if (next > 0 && next <= 3) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => null);
           }
           return next;
         });
@@ -454,7 +460,7 @@ const ActiveWorkoutScreen: React.FC = () => {
       return () => clearInterval(interval);
     } else if (activeRest && restTime === 0) {
       setActiveRest(false);
-      cancelRestNotif();
+      // Do not cancel here — keep scheduled 3-bell notification sequence.
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => null);
     }
   }, [activeRest, restTime]);

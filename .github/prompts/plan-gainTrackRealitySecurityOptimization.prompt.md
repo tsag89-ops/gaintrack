@@ -204,6 +204,13 @@ Legend: `P0 NOW`, `P1 NEXT`, `P2 LATER`
 - All backlog releases must keep `Security Quality Operations` workflow passing on `main` before OTA promotion.
 - Any feature introducing new dependency surfaces must include SCA verification notes in `SECURITY.md`.
 
+### Build Required Checklist (OTA vs Full Build)
+
+- OTA only (no full build needed): UI/layout updates, business logic in TS/TSX, feature flags, paywall copy/layout, chart logic, storage/query logic, and API-call behavior changes that do not add native modules.
+- Full build required: any new native dependency, Expo plugin changes, `app.json`/`app.config.js` permission or capability changes, native Firebase file wiring changes, or updates touching Android/iOS project-level behavior.
+- Pre-release gate for full build candidates: confirm EAS credentials are configured for target profile and verify required file env vars exist in EAS environments before running `eas build`.
+- Safety rule: if a task modifies `frontend/package.json` native dependencies or Expo config plugins, classify it as full-build-required by default.
+
 ### Updated Next Active Step
 - Post-plan backlog execution complete. Continue with KPI monitoring and release validation gates for retention/conversion impact.
 
@@ -275,3 +282,10 @@ Legend: `P0 NOW`, `P1 NEXT`, `P2 LATER`
 - Phone-test build attempt currently blocked by missing configured Android keystore in EAS for this project/profile when running non-interactive builds.
 - One-time manual action required in terminal: run `eas credentials --platform android`, select `production-apk`, and link/upload the existing keystore so subsequent CI/non-interactive builds succeed.
 - Future-risk check identified an additional build warning source: EAS production environment currently logs only `EXPO_PUBLIC_*` vars; ensure file env vars (`GOOGLE_SERVICES_JSON`, optionally `GOOGLE_SERVICES_PLIST`) are present to avoid firebase config upload warnings.
+
+### Progress Note (2026-03-15 - rest timer finish cues)
+- Updated rest timer behavior in `frontend/app/workout/active.tsx`:
+	- Final countdown now vibrates once per second at 3s, 2s, and 1s remaining.
+	- Rest completion now schedules a 3-bell sound notification sequence (boxing-style) at rest end (`+0s`, `+1s`, `+2s`).
+	- Skip/interrupt path still cancels pending rest notifications to avoid stale rings.
+- Validation: file diagnostics clear and frontend type-check passes.
