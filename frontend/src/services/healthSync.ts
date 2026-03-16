@@ -229,13 +229,16 @@ const connectGoogleFit = async (): Promise<{ ok: boolean; message: string }> => 
 
       return {
         ok: false,
-        message: 'No Health Connect permissions were granted. Open Health Connect > App permissions > GainTrack and allow Steps, Exercise sessions, and Calories, then tap Connect again.',
+        message: 'Health permissions are not enabled yet. Open Health Connect and allow access for GainTrack, then try again.',
       };
     }
 
     return { ok: true, message: 'Android Health Connect permissions granted.' };
-  } catch (error: any) {
-    return { ok: false, message: error?.message ?? 'Health Connect permission flow failed.' };
+  } catch {
+    return {
+      ok: false,
+      message: 'Could not connect to Health Connect right now. Please try again in a moment.',
+    };
   }
 };
 
@@ -431,7 +434,7 @@ export const connectHealthProvider = async (provider: HealthProvider): Promise<H
     });
     return {
       ok: false,
-      message: 'Native health bridge is unavailable. Install and prebuild with HealthKit/Health Connect modules to enable direct reads.',
+      message: 'Health connection is unavailable in this app version. Please update the app and try again.',
     };
   }
 
