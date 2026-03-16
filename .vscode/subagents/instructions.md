@@ -1,4 +1,4 @@
-﻿## GainTrack Context Override
+## GainTrack Context Override
 - Stack: Expo managed workflow, React Native, TypeScript
 - No eject, no paid services, free tiers only
 - Local path: C:\gaintrack\gaintrack\frontend\
@@ -64,7 +64,7 @@ OUTPUT_FORMAT:
 
 ## GainTrack Feature Status Table
 
-| Feature | Free | Pro ($4.99/yr) | Status |
+| Feature | Free | Pro (EUR 5.99/mo or EUR 39.99/yr) | Status |
 |---------|------|----------------|--------|
 | Exercise Library | Top 50 | Full 1000+ | β… Free done, Pro locked |
 | Workout Logging | Basic sets/reps | + Supersets, RPE | β… Basic done |

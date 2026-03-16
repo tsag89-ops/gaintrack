@@ -43,13 +43,13 @@ export function getPaywallVariantCopy(variant: PaywallVariant): { title: string;
   if (variant === 'value_first') {
     return {
       title: 'Get stronger with clear progression',
-      subtitle: 'Unlock advanced charts, full exercise library, and smarter coaching to keep momentum week after week.',
+      subtitle: 'Unlock advanced charts, full exercise library, and smarter coaching. Pro plans: EUR 5.99 monthly or EUR 39.99 yearly with a 7-day annual trial.',
     };
   }
 
   return {
     title: 'Unlock all Pro features',
-    subtitle: 'Full 1000+ exercise library, advanced progress analytics, AI coaching, and premium tracking tools.',
+    subtitle: 'Full 1000+ exercise library, advanced analytics, AI coaching, and premium tracking. Best value: EUR 39.99/year (7-day trial) or EUR 5.99/month.',
   };
 }
 

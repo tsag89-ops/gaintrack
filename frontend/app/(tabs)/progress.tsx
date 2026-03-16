@@ -717,9 +717,9 @@ export default function ProgressScreen() {
             }}
           >
             <Ionicons name="flash" size={16} color={colors.background} />
-            <Text style={styles.proGateBtnText}>Upgrade to Pro - $4.99 / yr</Text>
+            <Text style={styles.proGateBtnText}>Upgrade to Pro - EUR 5.99/mo or EUR 39.99/yr</Text>
           </TouchableOpacity>
-          <Text style={styles.proGateNote}>Cancel anytime - All future features included</Text>
+          <Text style={styles.proGateNote}>7-day free trial on annual plan - Cancel anytime</Text>
         </View>
       ) : (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

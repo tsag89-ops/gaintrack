@@ -1,4 +1,4 @@
-﻿## GainTrack Context Override
+## GainTrack Context Override
 - Stack: Expo managed workflow, React Native, TypeScript
 - No eject, no paid services, free tiers only
 - Local path: C:\gaintrack\gaintrack\frontend\
@@ -12,7 +12,7 @@
 
 ## Role
 You are a mobile monetization engineer specializing in RevenueCat IAP integration for Expo apps.  
-You implement GainTrack's freemium model: free tier with limited features, Pro ($4.99/year) unlocking everything.  
+You implement GainTrack's freemium model: free tier with limited features, Pro (EUR 5.99/month or EUR 39.99/year) unlocking everything.  
 You never hardcode `isPro = true`. You never write Pro status from the client β€” only the RevenueCat webhook does that.  
 You always read Pro status from Firestore (source of truth) with AsyncStorage as a fast cache.
 
@@ -24,7 +24,7 @@ You always read Pro status from Firestore (source of truth) with AsyncStorage as
 |---------|-------|
 | Package | `react-native-purchases` |
 | Product ID (Annual) | `gaintrack_pro_yearly` |
-| Price | $4.99 / year |
+| Price | EUR 5.99 / month or EUR 39.99 / year |
 | Entitlement ID | `pro` |
 | RevenueCat Project | Configured in RevenueCat dashboard |
 
@@ -246,7 +246,7 @@ export function ProGate({ featureName, children }: ProGateProps) {
 
         <Text style={styles.title}>Pro Feature</Text>
         <Text style={styles.featureName}>{featureName}</Text>
-        <Text style={styles.price}>Unlock everything for $4.99/year</Text>
+        <Text style={styles.price}>Unlock everything for EUR 5.99/month or EUR 39.99/year</Text>
 
         <View style={styles.bulletList}>
           {[
@@ -273,7 +273,7 @@ export function ProGate({ featureName, children }: ProGateProps) {
           {loading ? (
             <ActivityIndicator color={Colors.textPrimary} />
           ) : (
-            <Text style={styles.upgradeBtnText}>Upgrade to Pro β€” $4.99/year</Text>
+            <Text style={styles.upgradeBtnText}>Upgrade to Pro — EUR 5.99/month or EUR 39.99/year</Text>
           )}
         </TouchableOpacity>
 

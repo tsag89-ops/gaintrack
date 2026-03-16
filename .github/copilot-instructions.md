@@ -98,8 +98,8 @@ tabs/index → workout/new → workout/active
 via: router.push('/workout/active', { params: { name } })
 
 # Pro vs Free Gates
-Feature	Free	Pro ($4.99/yr)
-Feature	Free	Pro ($4.99/yr)
+Feature	Free	Pro (EUR 5.99/mo or EUR 39.99/yr)
+Feature	Free	Pro (EUR 5.99/mo or EUR 39.99/yr)
 Exercise Library	Top 50	Full 1000+
 Workout Logging	✅	✅ + Supersets
 Rest Timer	✅	✅
@@ -193,7 +193,7 @@ TypeScript for all files (.tsx / .ts)
 
 AsyncStorage local-first; Firestore sync for Pro only
 
-Free tiers only — exception: RevenueCat ($4.99/yr)
+Free tiers only — exception: RevenueCat (EUR 5.99/mo or EUR 39.99/yr; yearly is recommended with 7-day trial)
 
 Full copy-paste code blocks only — no partial snippets
 

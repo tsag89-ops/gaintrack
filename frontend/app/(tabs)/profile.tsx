@@ -180,7 +180,7 @@ export default function ProfileScreen() {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
       'Pro Feature',
-      'HealthKit and Android Health Connect sync are available with GainTrack Pro ($4.99/yr).',
+      'HealthKit and Android Health Connect sync are available with GainTrack Pro (EUR 5.99/mo or EUR 39.99/yr).',
       [
         { text: 'Not now', style: 'cancel' },
         { text: 'Go Pro', onPress: () => router.push('/pro-paywall') },
@@ -655,7 +655,7 @@ const handleExportMyData = async () => {
               onPress={() => router.push('/pro-paywall')}
             >
               <Ionicons name="flash" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.goProText}>Go Pro — $4.99 / year</Text>
+              <Text style={styles.goProText}>Go Pro — EUR 5.99/mo or EUR 39.99/yr</Text>
             </TouchableOpacity>
           )}
         </View>

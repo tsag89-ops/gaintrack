@@ -44,7 +44,7 @@ export function OneRMChart({ exerciseName, workouts }: Props) {
           onPress={() => router.push('/pro-paywall' as any)}
         >
           <Ionicons name="flash" size={14} color={colors.background} />
-          <Text style={styles.proGateBtnText}>Upgrade — $4.99/yr</Text>
+          <Text style={styles.proGateBtnText}>Upgrade — EUR 5.99/mo or EUR 39.99/yr</Text>
         </TouchableOpacity>
       </View>
     );

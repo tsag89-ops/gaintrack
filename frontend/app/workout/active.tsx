@@ -310,7 +310,7 @@ const ActiveWorkoutScreen: React.FC = () => {
         isPro: false,
         context: 'active_workout_toggle',
       });
-      Alert.alert('Pro Feature', 'Supersets are available with GainTrack Pro ($4.99/yr).', [
+      Alert.alert('Pro Feature', 'Supersets are available with GainTrack Pro (EUR 5.99/mo or EUR 39.99/yr).', [
         { text: 'Not now', style: 'cancel' },
         {
           text: 'Upgrade',

@@ -788,7 +788,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
                   router.push('/pro-paywall');
                 }}
               >
-                <Text style={styles.goProBtnText}>Go Pro — $4.99 / year</Text>
+                <Text style={styles.goProBtnText}>Go Pro — EUR 5.99/mo or EUR 39.99/yr</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -815,7 +815,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
               router.push('/pro-paywall');
             }}
           >
-            <Text style={styles.goProBtnText}>Go Pro — $4.99 / year</Text>
+            <Text style={styles.goProBtnText}>Go Pro — EUR 5.99/mo or EUR 39.99/yr</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.backToTipsBtn}
