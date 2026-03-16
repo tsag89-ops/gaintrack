@@ -239,6 +239,43 @@ jobs:
             echo "SKIP_KOTLIN=false" >> $GITHUB_ENV
           fi
 
+      - name: Ensure Android google-services file for prebuild
+        if: env.SKIP_KOTLIN == 'false'
+        run: |
+          if [ ! -f google-services.json ]; then
+            cat > google-services.json <<'EOF'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "ci-placeholder",
+              "storage_bucket": "ci-placeholder.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                  "android_client_info": {
+                    "package_name": "com.tsag89ops.gaintrack"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "CI_PLACEHOLDER_KEY"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+          fi
+
       - name: Generate Android project (prebuild)
         if: env.SKIP_KOTLIN == 'false'
         run: npx expo prebuild --platform android --no-install

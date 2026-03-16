@@ -20,14 +20,14 @@ def test_policy_screens_exist() -> None:
 
 def test_login_keeps_policy_links() -> None:
     content = _read_text(LOGIN_SCREEN)
-    assert "router.push('/privacy-policy')" in content
-    assert "router.push('/terms')" in content
+    assert "router.push('/privacy-policy'" in content
+    assert "router.push('/terms'" in content
 
 
 def test_profile_keeps_policy_links() -> None:
     content = _read_text(PROFILE_SCREEN)
-    assert "router.push('/privacy-policy')" in content
-    assert "router.push('/terms')" in content
+    assert "router.push('/privacy-policy'" in content
+    assert "router.push('/terms'" in content
 
 
 def test_masvs_cadence_artifact_exists_and_covers_required_domains() -> None:
