@@ -12,7 +12,12 @@
   },
   "overrides": {
     "tar": "^7.5.11",
-    "undici": "^6.24.0"
+    "undici": "^6.24.0",
+    "@expo/fingerprint": "0.15.4",
+    "react-native-health": {
+      "@expo/config-plugins": "54.0.4",
+      "@expo/fingerprint": "0.15.4"
+    }
   },
   "version": "1.0.0",
   "dependencies": {
