@@ -196,6 +196,14 @@ const connectGoogleFit = async (): Promise<{ ok: boolean; message: string }> => 
       return { ok: false, message: 'Health Connect failed to initialize on this device.' };
     }
 
+    const existingPermissions = typeof healthConnect?.getGrantedPermissions === 'function'
+      ? await healthConnect.getGrantedPermissions()
+      : [];
+
+    if (Array.isArray(existingPermissions) && existingPermissions.length > 0) {
+      return { ok: true, message: 'Android Health Connect permissions already granted.' };
+    }
+
     const grantedPermissions = await healthConnect.requestPermission([
       { accessType: 'read', recordType: 'Steps' },
       { accessType: 'read', recordType: 'ExerciseSession' },
@@ -203,7 +211,26 @@ const connectGoogleFit = async (): Promise<{ ok: boolean; message: string }> => 
     ]);
 
     if (!Array.isArray(grantedPermissions) || grantedPermissions.length === 0) {
-      return { ok: false, message: 'No Health Connect permissions were granted.' };
+      const afterRequestPermissions = typeof healthConnect?.getGrantedPermissions === 'function'
+        ? await healthConnect.getGrantedPermissions()
+        : [];
+
+      if (Array.isArray(afterRequestPermissions) && afterRequestPermissions.length > 0) {
+        return { ok: true, message: 'Android Health Connect permissions granted.' };
+      }
+
+      if (typeof healthConnect?.openHealthConnectSettings === 'function') {
+        try {
+          healthConnect.openHealthConnectSettings();
+        } catch {
+          // No-op; fallback message below explains manual recovery path.
+        }
+      }
+
+      return {
+        ok: false,
+        message: 'No Health Connect permissions were granted. Open Health Connect > App permissions > GainTrack and allow Steps, Exercise sessions, and Calories, then tap Connect again.',
+      };
     }
 
     return { ok: true, message: 'Android Health Connect permissions granted.' };
