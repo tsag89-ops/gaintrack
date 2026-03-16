@@ -7,6 +7,7 @@ import {
   Text,
   StyleSheet,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -27,6 +28,7 @@ import { usePrograms } from '../../src/hooks/usePrograms';
 import { usePro } from '../../src/hooks/usePro';
 import { ProgramCard } from '../../src/components/programs/ProgramCard';
 import { sendEngagementTelemetry, sendPaywallTelemetry } from '../../src/services/notifications';
+import { PREBUILT_PROGRAMS, createProgramFromTemplate } from '../../src/data/prebuiltPrograms';
 import { WorkoutProgram } from '../../src/types';
 import { colors, typography, radii, spacing, shadows } from '../../src/constants/theme';
 
@@ -88,6 +90,45 @@ export default function ProgramsScreen() {
       router.push(`/programs/${program.id}` as any);
     },
     [router],
+  );
+
+  const handleUseTemplate = useCallback(
+    async (templateId: string) => {
+      const template = PREBUILT_PROGRAMS.find((item) => item.id === templateId);
+      if (!template) {
+        return;
+      }
+
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      if (!isPro && programs.length >= FREE_PROGRAM_LIMIT) {
+        // [PRO] Free tier: max 1 program
+        sendPaywallTelemetry({
+          feature: 'programs',
+          placement: 'program_template_gate',
+          eventType: 'view',
+          context: `count_${programs.length}`,
+        }).catch(() => null);
+        sendPaywallTelemetry({
+          feature: 'programs',
+          placement: 'program_template_gate',
+          eventType: 'cta_click',
+          context: `template_${template.id}`,
+        }).catch(() => null);
+        router.push('/pro-paywall' as any);
+        return;
+      }
+
+      const program = createProgramFromTemplate(template);
+      await saveOne(program);
+      sendEngagementTelemetry({
+        feature: 'programs',
+        action: 'template_started',
+        context: template.id,
+      }).catch(() => null);
+      router.push(`/programs/${program.id}` as any);
+    },
+    [isPro, programs.length, router, saveOne],
   );
 
   const handleCardLongPress = useCallback(
@@ -163,6 +204,49 @@ export default function ProgramsScreen() {
     </View>
   );
 
+  const renderTemplateStrip = () => (
+    <View style={styles.templateSection}>
+      <View style={styles.templateSectionHeader}>
+        <Text style={styles.templateSectionTitle}>Quick Start Templates</Text>
+        <Text style={styles.templateSectionSubtitle}>Pick a proven split and start now</Text>
+      </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.templateRow}>
+        {PREBUILT_PROGRAMS.map((template) => (
+          <TouchableOpacity
+            key={template.id}
+            style={styles.templateCard}
+            onPress={() => handleUseTemplate(template.id)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.templateBadgeRow}>
+              <Text style={styles.templateLevelBadge}>{template.level}</Text>
+              <Text style={styles.templateDuration}>{template.estimatedSessionMinutes} min</Text>
+            </View>
+
+            <Text style={styles.templateName} numberOfLines={1}>{template.name}</Text>
+            <Text style={styles.templateDescription} numberOfLines={2}>{template.description}</Text>
+
+            <View style={styles.templateMetaRow}>
+              <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} />
+              <Text style={styles.templateMetaText}>{template.daysPerWeek} days/week</Text>
+            </View>
+
+            <View style={styles.templateMetaRow}>
+              <Ionicons name="barbell-outline" size={13} color={colors.textSecondary} />
+              <Text style={styles.templateMetaText}>{template.days.reduce((sum, day) => sum + day.exercises.length, 0)} total exercises</Text>
+            </View>
+
+            <View style={styles.templateCtaRow}>
+              <Text style={styles.templateCtaText}>Use template</Text>
+              <Ionicons name="arrow-forward" size={14} color={colors.accent} />
+            </View>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       {/* Header */}
@@ -194,6 +278,7 @@ export default function ProgramsScreen() {
         <FlatList
           data={programs}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={renderTemplateStrip}
           renderItem={({ item, index }) => (
             <Animated.View entering={FadeInDown.delay(index * 60).springify()}>
               <ProgramCard
@@ -272,6 +357,92 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: spacing[4],
     paddingBottom: 100,
+  },
+  templateSection: {
+    marginBottom: spacing[4],
+  },
+  templateSectionHeader: {
+    marginBottom: spacing[2],
+  },
+  templateSectionTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textPrimary,
+  },
+  templateSectionSubtitle: {
+    marginTop: 2,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+  },
+  templateRow: {
+    paddingVertical: spacing[1],
+    paddingRight: spacing[3],
+  },
+  templateCard: {
+    width: 220,
+    marginRight: spacing[3],
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    padding: spacing[3],
+  },
+  templateBadgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing[2],
+  },
+  templateLevelBadge: {
+    fontSize: typography.fontSize.xs,
+    color: colors.accent,
+    backgroundColor: 'rgba(255, 212, 179, 0.14)',
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radii.full,
+    paddingHorizontal: spacing[2],
+    paddingVertical: 2,
+    overflow: 'hidden',
+  },
+  templateDuration: {
+    fontSize: typography.fontSize.xs,
+    color: colors.textSecondary,
+  },
+  templateName: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textPrimary,
+  },
+  templateDescription: {
+    marginTop: 4,
+    minHeight: 34,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  templateMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing[1],
+  },
+  templateMetaText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+  },
+  templateCtaRow: {
+    marginTop: spacing[3],
+    paddingTop: spacing[2],
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  templateCtaText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.accent,
+    fontWeight: typography.fontWeight.semibold,
   },
   emptyContainer: {
     alignItems: 'center',
