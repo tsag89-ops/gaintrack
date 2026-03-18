@@ -154,10 +154,12 @@ jobs:
     steps:
       - name: Check backend health endpoint (if configured)
         env:
-          BACKEND_HEALTHCHECK_URL: ${{ secrets.BACKEND_HEALTHCHECK_URL }}
+          VARS_JSON: ${{ toJSON(vars) }}
         run: |
+          BACKEND_HEALTHCHECK_URL=$(echo "$VARS_JSON" | jq -r '.BACKEND_HEALTHCHECK_URL // empty')
+
           if [ -z "$BACKEND_HEALTHCHECK_URL" ]; then
-            echo "BACKEND_HEALTHCHECK_URL secret is not set; skipping health check gate."
+            echo "BACKEND_HEALTHCHECK_URL variable is not set; skipping health check gate."
             exit 0
           fi
 
@@ -229,18 +231,19 @@ jobs:
         run: npm install
 
       - name: Verify patches directory is not empty
+        id: patch_check
         run: |
           count=$(ls patches/*.patch 2>/dev/null | wc -l)
           echo "Patch files found: $count"
           if [ "$count" -eq 0 ]; then
             echo "No patch files found in frontend/patches/ - skipping Kotlin compile check."
-            echo "SKIP_KOTLIN=true" >> $GITHUB_ENV
+            echo "skip_kotlin=true" >> $GITHUB_OUTPUT
           else
-            echo "SKIP_KOTLIN=false" >> $GITHUB_ENV
+            echo "skip_kotlin=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Ensure Android google-services file for prebuild
-        if: env.SKIP_KOTLIN == 'false'
+        if: steps.patch_check.outputs.skip_kotlin == 'false'
         run: |
           if [ ! -f google-services.json ]; then
             cat > google-services.json <<'EOF'
@@ -277,13 +280,13 @@ jobs:
           fi
 
       - name: Generate Android project (prebuild)
-        if: env.SKIP_KOTLIN == 'false'
+        if: steps.patch_check.outputs.skip_kotlin == 'false'
         run: npx expo prebuild --platform android --no-install
         env:
           EXPO_NO_DOTENV: "1"
 
       - name: Compile Android Kotlin sources
-        if: env.SKIP_KOTLIN == 'false'
+        if: steps.patch_check.outputs.skip_kotlin == 'false'
         working-directory: frontend/android
         run: ./gradlew compileDebugKotlin --no-daemon --stacktrace 2>&1 | tee ../../test_reports/kotlin-compile.txt
 
