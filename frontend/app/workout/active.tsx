@@ -207,7 +207,7 @@ const ActiveWorkoutScreen: React.FC = () => {
     });
   };
 
-  // Start rest timer + schedule bell notification [Feature 5]
+    // Start rest timer and schedule a single completion bell.
   const startRestForExercise = async (exerciseId: string) => {
     const ex = exerciseList.find((e) => e.exercise_id === exerciseId);
     const secs = ex?.restSeconds ?? restSeconds;
@@ -216,23 +216,19 @@ const ActiveWorkoutScreen: React.FC = () => {
     setActiveRest(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      // Boxing-style 3-bell sequence once rest reaches 0 (0s, +1s, +2s)
-      const bellOffsets = [0, 1, 2];
-      for (const offset of bellOffsets) {
         const id = await Notifications.scheduleNotificationAsync({
           content: {
             title: '\uD83D\uDD14 Rest over!',
-            body: offset === 0 ? 'Time for your next set \uD83D\uDCAA' : `Bell ${offset + 1}/3`,
+            body: 'Time for your next set \uD83D\uDCAA',
             sound: 'default',
             ...(Platform.OS === 'android' ? { android: { channelId: REST_TIMER_CHANNEL_ID } } : {}),
           },
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            seconds: secs + offset,
+            seconds: secs,
           },
         });
         restNotifIdsRef.current.push(id);
-      }
     } catch {}
   };
 
@@ -472,7 +468,7 @@ const ActiveWorkoutScreen: React.FC = () => {
     return () => clearInterval(interval);
   }, [timerPaused]);
 
-  // Countdown — vibrate each second in the final 3s [Feature 5]
+  // Countdown — vibrate at 3, 2, and 1 seconds remaining, then fire the finish cue at 0.
   useEffect(() => {
     if (activeRest && restTime > 0) {
       const interval = setInterval(() => {
@@ -487,7 +483,6 @@ const ActiveWorkoutScreen: React.FC = () => {
       return () => clearInterval(interval);
     } else if (activeRest && restTime === 0) {
       setActiveRest(false);
-      // Do not cancel here — keep scheduled 3-bell notification sequence.
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => null);
     }
   }, [activeRest, restTime]);
