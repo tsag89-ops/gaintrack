@@ -30,6 +30,11 @@ write_from_env_var() {
   src_var="$1"
   eval "raw_value=\${$src_var}"
 
+  if [ -f "$raw_value" ]; then
+    cp "$raw_value" "$GOOGLE_SERVICES_PATH"
+    return 0
+  fi
+
   case "$raw_value" in
     \{*)
       printf '%s' "$raw_value" > "$GOOGLE_SERVICES_PATH"
