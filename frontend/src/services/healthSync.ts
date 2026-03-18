@@ -205,9 +205,21 @@ const connectGoogleFit = async (): Promise<{ ok: boolean; message: string }> => 
     }
 
     const grantedPermissions = await healthConnect.requestPermission([
+      // Steps
       { accessType: 'read', recordType: 'Steps' },
-      { accessType: 'read', recordType: 'ExerciseSession' },
+      { accessType: 'write', recordType: 'Steps' },
+      // Distance
+      { accessType: 'read', recordType: 'Distance' },
+      { accessType: 'write', recordType: 'Distance' },
+      // Total Calories Burned
       { accessType: 'read', recordType: 'TotalCaloriesBurned' },
+      { accessType: 'write', recordType: 'TotalCaloriesBurned' },
+      // Weight
+      { accessType: 'read', recordType: 'Weight' },
+      { accessType: 'write', recordType: 'Weight' },
+      // Exercise Sessions
+      { accessType: 'read', recordType: 'ExerciseSession' },
+      { accessType: 'write', recordType: 'ExerciseSession' },
     ]);
 
     if (!Array.isArray(grantedPermissions) || grantedPermissions.length === 0) {
@@ -630,4 +642,512 @@ export const getSupportedProvidersForDevice = (): HealthProvider[] => {
   if (Platform.OS === 'ios') return ['apple_health'];
   if (Platform.OS === 'android') return ['google_fit'];
   return [];
+};
+
+// ===== Health Connect Record Types & Permissions =====
+export enum HealthConnectRecordType {
+  Steps = 'Steps',
+  Distance = 'Distance',
+  TotalCaloriesBurned = 'TotalCaloriesBurned',
+  Weight = 'Weight',
+  ExerciseSession = 'ExerciseSession',
+}
+
+export interface TimeRange {
+  startTime: Date;
+  endTime: Date;
+}
+
+export interface StepsData {
+  totalSteps: number;
+  recordCount: number;
+  averageStepsPerRecord: number;
+}
+
+export interface DistanceData {
+  totalDistance: number; // meters
+  recordCount: number;
+  averageDistancePerRecord: number;
+}
+
+export interface CaloriesData {
+  totalCalories: number;
+  recordCount: number;
+  averageCaloriesPerRecord: number;
+}
+
+export interface WeightData {
+  latestWeight: number; // kg
+  averageWeight: number;
+  recordCount: number;
+  timestamp?: Date;
+}
+
+export interface ExerciseRecord {
+  id: string;
+  title: string;
+  description?: string;
+  startTime: Date;
+  endTime: Date;
+  activityType?: string;
+  distance?: number;
+  totalCaloriesBurned?: number;
+  exerciseType?: string;
+  notes?: string;
+}
+
+export interface ActivityIntensityRecord {
+  recordType: string;
+  intensity: 'low' | 'moderate' | 'high' | 'very_high';
+  startTime: Date;
+  endTime: Date;
+}
+
+// Permission checking helpers
+export const isHealthConnectPermissionGranted = async (
+  recordType: HealthConnectRecordType,
+  accessType: 'read' | 'write' = 'read',
+): Promise<boolean> => {
+  if (Platform.OS !== 'android') return false;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const healthConnect = require('react-native-health-connect');
+
+    const grantedPermissions = typeof healthConnect?.getGrantedPermissions === 'function'
+      ? await healthConnect.getGrantedPermissions()
+      : [];
+
+    if (!Array.isArray(grantedPermissions)) return false;
+
+    return grantedPermissions.some(
+      (perm: any) =>
+        perm?.recordType === recordType && perm?.accessType === accessType,
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const getAllGrantedPermissions = async (): Promise<
+  Array<{ recordType: string; accessType: 'read' | 'write' }>
+> => {
+  if (Platform.OS !== 'android') return [];
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const healthConnect = require('react-native-health-connect');
+
+    const grantedPermissions = typeof healthConnect?.getGrantedPermissions === 'function'
+      ? await healthConnect.getGrantedPermissions()
+      : [];
+
+    return Array.isArray(grantedPermissions) ? grantedPermissions : [];
+  } catch {
+    return [];
+  }
+};
+
+// ===== Read Helpers =====
+
+export const readSteps = async (timeRange: TimeRange): Promise<StepsData> => {
+  if (Platform.OS !== 'android') {
+    return { totalSteps: 0, recordCount: 0, averageStepsPerRecord: 0 };
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const healthConnect = require('react-native-health-connect');
+
+    const hasPermission = await isHealthConnectPermissionGranted(HealthConnectRecordType.Steps, 'read');
+    if (!hasPermission) {
+      throw new Error('Steps read permission not granted');
+    }
+
+    const result = await healthConnect.readRecords(HealthConnectRecordType.Steps, {
+      timeRangeFilter: {
+        operator: 'between',
+        startTime: timeRange.startTime.toISOString(),
+        endTime: timeRange.endTime.toISOString(),
+      },
+    });
+
+    const records = Array.isArray(result?.records) ? result.records : [];
+    const totalSteps = records.reduce((sum: number, record: any) => {
+      const count = Number(record?.count ?? 0);
+      return Number.isFinite(count) ? sum + count : sum;
+    }, 0);
+
+    return {
+      totalSteps,
+      recordCount: records.length,
+      averageStepsPerRecord: records.length > 0 ? totalSteps / records.length : 0,
+    };
+  } catch (error: any) {
+    console.error('[HealthConnect] Error reading steps:', error?.message);
+    return { totalSteps: 0, recordCount: 0, averageStepsPerRecord: 0 };
+  }
+};
+
+export const readDistance = async (timeRange: TimeRange): Promise<DistanceData> => {
+  if (Platform.OS !== 'android') {
+    return { totalDistance: 0, recordCount: 0, averageDistancePerRecord: 0 };
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const healthConnect = require('react-native-health-connect');
+
+    const hasPermission = await isHealthConnectPermissionGranted(HealthConnectRecordType.Distance, 'read');
+    if (!hasPermission) {
+      throw new Error('Distance read permission not granted');
+    }
+
+    const result = await healthConnect.readRecords(HealthConnectRecordType.Distance, {
+      timeRangeFilter: {
+        operator: 'between',
+        startTime: timeRange.startTime.toISOString(),
+        endTime: timeRange.endTime.toISOString(),
+      },
+    });
+
+    const records = Array.isArray(result?.records) ? result.records : [];
+    const totalDistance = records.reduce((sum: number, record: any) => {
+      const distance = Number(record?.distance ?? 0);
+      return Number.isFinite(distance) ? sum + distance : sum;
+    }, 0);
+
+    return {
+      totalDistance,
+      recordCount: records.length,
+      averageDistancePerRecord: records.length > 0 ? totalDistance / records.length : 0,
+    };
+  } catch (error: any) {
+    console.error('[HealthConnect] Error reading distance:', error?.message);
+    return { totalDistance: 0, recordCount: 0, averageDistancePerRecord: 0 };
+  }
+};
+
+export const readTotalCalories = async (timeRange: TimeRange): Promise<CaloriesData> => {
+  if (Platform.OS !== 'android') {
+    return { totalCalories: 0, recordCount: 0, averageCaloriesPerRecord: 0 };
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const healthConnect = require('react-native-health-connect');
+
+    const hasPermission = await isHealthConnectPermissionGranted(
+      HealthConnectRecordType.TotalCaloriesBurned,
+      'read',
+    );
+    if (!hasPermission) {
+      throw new Error('TotalCaloriesBurned read permission not granted');
+    }
+
+    const result = await healthConnect.readRecords(HealthConnectRecordType.TotalCaloriesBurned, {
+      timeRangeFilter: {
+        operator: 'between',
+        startTime: timeRange.startTime.toISOString(),
+        endTime: timeRange.endTime.toISOString(),
+      },
+    });
+
+    const records = Array.isArray(result?.records) ? result.records : [];
+    const totalCalories = records.reduce((sum: number, record: any) => {
+      const calories = Number(record?.energy ?? 0);
+      return Number.isFinite(calories) ? sum + calories : sum;
+    }, 0);
+
+    return {
+      totalCalories,
+      recordCount: records.length,
+      averageCaloriesPerRecord: records.length > 0 ? totalCalories / records.length : 0,
+    };
+  } catch (error: any) {
+    console.error('[HealthConnect] Error reading calories:', error?.message);
+    return { totalCalories: 0, recordCount: 0, averageCaloriesPerRecord: 0 };
+  }
+};
+
+export const readWeight = async (timeRange: TimeRange): Promise<WeightData> => {
+  if (Platform.OS !== 'android') {
+    return {
+      latestWeight: 0,
+      averageWeight: 0,
+      recordCount: 0,
+    };
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const healthConnect = require('react-native-health-connect');
+
+    const hasPermission = await isHealthConnectPermissionGranted(HealthConnectRecordType.Weight, 'read');
+    if (!hasPermission) {
+      throw new Error('Weight read permission not granted');
+    }
+
+    const result = await healthConnect.readRecords(HealthConnectRecordType.Weight, {
+      timeRangeFilter: {
+        operator: 'between',
+        startTime: timeRange.startTime.toISOString(),
+        endTime: timeRange.endTime.toISOString(),
+      },
+      ascendingOrder: false, // Latest first
+    });
+
+    const records = Array.isArray(result?.records) ? result.records : [];
+    const latestWeight = records.length > 0 ? Number(records[0]?.weight ?? 0) : 0;
+    const averageWeight =
+      records.length > 0
+        ? records.reduce((sum: number, record: any) => {
+            const weight = Number(record?.weight ?? 0);
+            return Number.isFinite(weight) ? sum + weight : sum;
+          }, 0) / records.length
+        : 0;
+
+    return {
+      latestWeight,
+      averageWeight,
+      recordCount: records.length,
+      timestamp: records.length > 0 ? new Date(records[0]?.time) : undefined,
+    };
+  } catch (error: any) {
+    console.error('[HealthConnect] Error reading weight:', error?.message);
+    return {
+      latestWeight: 0,
+      averageWeight: 0,
+      recordCount: 0,
+    };
+  }
+};
+
+export const readExerciseSessions = async (
+  timeRange: TimeRange,
+): Promise<ExerciseRecord[]> => {
+  if (Platform.OS !== 'android') {
+    return [];
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const healthConnect = require('react-native-health-connect');
+
+    const hasPermission = await isHealthConnectPermissionGranted(
+      HealthConnectRecordType.ExerciseSession,
+      'read',
+    );
+    if (!hasPermission) {
+      throw new Error('ExerciseSession read permission not granted');
+    }
+
+    const result = await healthConnect.readRecords(HealthConnectRecordType.ExerciseSession, {
+      timeRangeFilter: {
+        operator: 'between',
+        startTime: timeRange.startTime.toISOString(),
+        endTime: timeRange.endTime.toISOString(),
+      },
+      ascendingOrder: false,
+    });
+
+    const records = Array.isArray(result?.records) ? result.records : [];
+    return records.map((record: any) => ({
+      id: record?.metadata?.id ?? '',
+      title: record?.title ?? 'Exercise',
+      description: record?.notes,
+      startTime: new Date(record?.startTime),
+      endTime: new Date(record?.endTime),
+      activityType: record?.exerciseType,
+      distance: record?.distance,
+      totalCaloriesBurned: record?.totalEnergyBurned,
+      exerciseType: record?.exerciseType,
+      notes: record?.notes,
+    }));
+  } catch (error: any) {
+    console.error('[HealthConnect] Error reading exercise sessions:', error?.message);
+    return [];
+  }
+};
+
+export const readExerciseSessionsWithIntensity = async (
+  timeRange: TimeRange,
+): Promise<{
+  exercises: ExerciseRecord[];
+  intensityData: ActivityIntensityRecord[];
+}> => {
+  const exercises = await readExerciseSessions(timeRange);
+  // ActivityIntensity is inferred from ExerciseSession intensity levels
+  // Map exercise sessions to intensity records based on metadata
+  const intensityData: ActivityIntensityRecord[] = exercises.map((exercise) => ({
+    recordType: 'ExerciseSession',
+    intensity: 'moderate', // Default; adjust based on actual HR/effort data
+    startTime: exercise.startTime,
+    endTime: exercise.endTime,
+  }));
+
+  return { exercises, intensityData };
+};
+
+// ===== Write Helpers =====
+
+export interface WriteExerciseSessionParams {
+  title: string;
+  startTime: Date;
+  endTime: Date;
+  exerciseType?: string;
+  notes?: string;
+  distance?: number; // meters
+  totalCaloriesBurned?: number;
+  additionalMetrics?: {
+    steps?: number;
+    distanceAdditional?: number;
+    caloriesAdditional?: number;
+  };
+}
+
+export const writeExerciseSessionWithMetrics = async (
+  params: WriteExerciseSessionParams,
+): Promise<{ ok: boolean; sessionId?: string; message: string }> => {
+  if (Platform.OS !== 'android') {
+    return { ok: false, message: 'Exercise session writing only supported on Android' };
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const healthConnect = require('react-native-health-connect');
+
+    const hasExercisePermission = await isHealthConnectPermissionGranted(
+      HealthConnectRecordType.ExerciseSession,
+      'write',
+    );
+
+    if (!hasExercisePermission) {
+      throw new Error('ExerciseSession write permission not granted');
+    }
+
+    // Build records to insert
+    const recordsToInsert: any[] = [];
+
+    // Add exercise session record
+    const sessionRecord = {
+      recordType: HealthConnectRecordType.ExerciseSession,
+      startTime: params.startTime.toISOString(),
+      endTime: params.endTime.toISOString(),
+      title: params.title,
+      description: params.notes,
+      exerciseType: params.exerciseType || 'UNKNOWN',
+      notes: params.notes,
+    };
+
+    if (params.distance !== undefined) {
+      (sessionRecord as any).distance = { value: params.distance, unit: 'm' };
+    }
+
+    if (params.totalCaloriesBurned !== undefined) {
+      (sessionRecord as any).totalEnergyBurned = {
+        value: params.totalCaloriesBurned,
+        unit: 'kcal',
+      };
+    }
+
+    recordsToInsert.push(sessionRecord);
+
+    // Add optional distance record
+    if (
+      params.distance !== undefined &&
+      (await isHealthConnectPermissionGranted(HealthConnectRecordType.Distance, 'write'))
+    ) {
+      recordsToInsert.push({
+        recordType: HealthConnectRecordType.Distance,
+        distance: { value: params.distance, unit: 'm' },
+        startTime: params.startTime.toISOString(),
+        endTime: params.endTime.toISOString(),
+      });
+    }
+
+    // Add optional calories record
+    if (
+      params.totalCaloriesBurned !== undefined &&
+      (await isHealthConnectPermissionGranted(HealthConnectRecordType.TotalCaloriesBurned, 'write'))
+    ) {
+      recordsToInsert.push({
+        recordType: HealthConnectRecordType.TotalCaloriesBurned,
+        energy: { value: params.totalCaloriesBurned, unit: 'kcal' },
+        startTime: params.startTime.toISOString(),
+        endTime: params.endTime.toISOString(),
+      });
+    }
+
+    // Add optional steps record
+    if (
+      params.additionalMetrics?.steps !== undefined &&
+      (await isHealthConnectPermissionGranted(HealthConnectRecordType.Steps, 'write'))
+    ) {
+      recordsToInsert.push({
+        recordType: HealthConnectRecordType.Steps,
+        count: params.additionalMetrics.steps,
+        startTime: params.startTime.toISOString(),
+        endTime: params.endTime.toISOString(),
+      });
+    }
+
+    // Insert records
+    const result = await healthConnect.insertRecords(recordsToInsert);
+    const sessionId = Array.isArray(result) ? result[0] : result?.id;
+
+    return {
+      ok: true,
+      sessionId,
+      message: `Exercise session and ${recordsToInsert.length - 1} associated metrics uploaded.`,
+    };
+  } catch (error: any) {
+    console.error('[HealthConnect] Error writing exercise session:', error?.message);
+    return {
+      ok: false,
+      message: `Failed to write exercise session: ${error?.message}`,
+    };
+  }
+};
+
+export const writeWeight = async (
+  weight: number, // kg
+  timestamp: Date = new Date(),
+): Promise<{ ok: boolean; message: string }> => {
+  if (Platform.OS !== 'android') {
+    return { ok: false, message: 'Weight writing only supported on Android' };
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const healthConnect = require('react-native-health-connect');
+
+    const hasPermission = await isHealthConnectPermissionGranted(
+      HealthConnectRecordType.Weight,
+      'write',
+    );
+
+    if (!hasPermission) {
+      throw new Error('Weight write permission not granted');
+    }
+
+    const record = {
+      recordType: HealthConnectRecordType.Weight,
+      weight: { value: weight, unit: 'kg' },
+      time: timestamp.toISOString(),
+    };
+
+    await healthConnect.insertRecords([record]);
+
+    return {
+      ok: true,
+      message: `Weight record (${weight} kg) uploaded successfully.`,
+    };
+  } catch (error: any) {
+    console.error('[HealthConnect] Error writing weight:', error?.message);
+    return {
+      ok: false,
+      message: `Failed to write weight: ${error?.message}`,
+    };
+  }
 };
