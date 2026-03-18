@@ -76,7 +76,7 @@ module.exports = ({ config }) => {
   const existingPlugins = (config.plugins ?? []).filter(
     (p) => {
       const name = Array.isArray(p) ? p[0] : p;
-      return name !== '@react-native-google-signin/google-signin' && name !== 'react-native-health-connect' && name !== './plugins/withHealthConnectPermissionDelegate';
+      return name !== '@react-native-google-signin/google-signin' && name !== 'react-native-health-connect' && name !== './plugins/withHealthConnectPermissionDelegate' && name !== './plugins/withGainTrackWidget';
     },
   );
   const googleSignInPlugin = [
@@ -88,7 +88,7 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
-    plugins: [...existingPlugins, 'react-native-health-connect', './plugins/withHealthConnectPermissionDelegate', googleSignInPlugin],
+    plugins: [...existingPlugins, 'react-native-health-connect', './plugins/withHealthConnectPermissionDelegate', './plugins/withGainTrackWidget', googleSignInPlugin],
     android: {
       ...config.android,
       googleServicesFile:

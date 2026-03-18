@@ -8,6 +8,7 @@ import {
   syncProgress as fsSyncProgress,
   ProgressEntry,
 } from './firestore'; // [PRO]
+import { syncWorkoutWidget } from './widgetBridge';
 
 const FOODS_KEY            = 'foods';
 const EXERCISES_KEY        = 'exercises';
@@ -153,7 +154,11 @@ export const getFavoriteExercises = async (): Promise<Exercise[]> => {
 /** Returns all locally stored workouts, newest first. */
 export const getWorkoutsLocal = async (): Promise<Workout[]> => {
   const data = await getItem(WORKOUTS_KEY);
-  return data ? JSON.parse(data) : [];
+  const workouts = data ? JSON.parse(data) : [];
+  syncWorkoutWidget(workouts).catch((err) =>
+    console.warn('[Storage] widget sync error:', err),
+  );
+  return workouts;
 };
 
 /**
@@ -169,6 +174,9 @@ export const saveWorkout = async (workout: Workout): Promise<void> => {
       ? existing.map((w) => (w.workout_id === workout.workout_id ? workout : w))
       : [workout, ...existing];
   await setItem(WORKOUTS_KEY, JSON.stringify(updated));
+  syncWorkoutWidget(updated).catch((err) =>
+    console.warn('[Storage] widget sync error:', err),
+  );
 
   // [PRO] background Firestore sync
   const [pro, userId] = await Promise.all([_isPro(), _getUserId()]);
@@ -187,6 +195,9 @@ export const deleteWorkout = async (workoutId: string): Promise<void> => {
   const existing = await getWorkoutsLocal();
   const updated = existing.filter((w) => w.workout_id !== workoutId);
   await setItem(WORKOUTS_KEY, JSON.stringify(updated));
+  syncWorkoutWidget(updated).catch((err) =>
+    console.warn('[Storage] widget sync error:', err),
+  );
 };
 
 // ─── Custom Exercise write (with Firestore sync) ──────────────────────────────
