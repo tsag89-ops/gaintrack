@@ -206,6 +206,9 @@ jobs:
     name: Native Patch Integrity Gate
     runs-on: ubuntu-latest
 
+    outputs:
+      skip_kotlin: ${{ steps.patch_check.outputs.skip_kotlin }}
+
     defaults:
       run:
         working-directory: frontend
