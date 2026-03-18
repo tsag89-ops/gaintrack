@@ -11,19 +11,14 @@
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-  <!-- Health Connect Permissions: Steps -->
   <uses-permission android:name="android.permission.health.READ_STEPS"/>
   <uses-permission android:name="android.permission.health.WRITE_STEPS"/>
-  <!-- Health Connect Permissions: Distance -->
   <uses-permission android:name="android.permission.health.READ_DISTANCE"/>
   <uses-permission android:name="android.permission.health.WRITE_DISTANCE"/>
-  <!-- Health Connect Permissions: Total Calories Burned -->
   <uses-permission android:name="android.permission.health.READ_TOTAL_CALORIES_BURNED"/>
   <uses-permission android:name="android.permission.health.WRITE_TOTAL_CALORIES_BURNED"/>
-  <!-- Health Connect Permissions: Weight -->
   <uses-permission android:name="android.permission.health.READ_WEIGHT"/>
   <uses-permission android:name="android.permission.health.WRITE_WEIGHT"/>
-  <!-- Health Connect Permissions: Exercise Sessions -->
   <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
   <uses-permission android:name="android.permission.health.WRITE_EXERCISE"/>
   <queries>
