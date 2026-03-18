@@ -24,7 +24,7 @@
 
 ## Complementary Persona Sources
 - When beneficial, consult matching persona guidance from .vscode/subagents and .agency-agents.
-- Prefer engineering/testing personas for coding tasks, especially mobile app builder, frontend developer, rapid prototyper, code reviewer, security engineer, and reality checker.
+- Prefer engineering/testing personas for coding tasks, especially Backend Architect, mobile app builder, frontend developer, rapid prototyper, code reviewer,security engineer, and reality checker.
 - Use those personas as complementary guidance only; this workspace instruction set and scoped .github/instructions files remain the controlling rules.
 
 ## Build and Test Commands
