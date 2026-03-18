@@ -4,7 +4,7 @@
 import { useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useHealthConnectMetrics, useTodayHealthMetrics } from './useHealthConnectMetrics';
-import { sendHealthIntegrationTelemetry } from '../services/healthSync';
+import { sendHealthConnectTelemetry } from '../services/healthConnectTelemetry';
 import { useAuthStore } from '../store/authStore';
 
 export interface CachedHealthSnapshot {
@@ -32,7 +32,7 @@ export const useHealthTrackIntegration = (autoSyncIntervalMs = 600000) => {
       lookbackDays: 7,
     });
 
-  const userId = useAuthStore((state) => state.user?.uid);
+  const userId = useAuthStore((state) => state.user?.id);
 
   // Persist to AsyncStorage whenever metrics update
   useEffect(() => {
@@ -50,11 +50,11 @@ export const useHealthTrackIntegration = (autoSyncIntervalMs = 600000) => {
 
       // Fire telemetry
       if (userId) {
-        sendHealthIntegrationTelemetry('google_fit', {
-          eventType: 'metrics_synced_to_local_store',
+        sendHealthConnectTelemetry({
+          eventType: 'metrics_read_all',
           success: true,
-          nativeBridgeAvailable: true,
-          providerRecordsRead: steps.recordCount + distance.recordCount + calories.recordCount,
+          dataPointCount: steps.recordCount + distance.recordCount + calories.recordCount,
+          userId,
         });
       }
     }
