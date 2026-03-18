@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useLanguage } from '../src/context/LanguageContext';
 import {
   NotificationSettings,
   getNotificationSettings,
@@ -19,8 +19,6 @@ import {
   registerForPushNotificationsAsync,
   sendImmediateNotification,
 } from '../src/services/notifications';
-
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const TIME_OPTIONS = [
   '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
@@ -30,6 +28,7 @@ const TIME_OPTIONS = [
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { locale, t, list } = useLanguage();
   const [settings, setSettings] = useState<NotificationSettings>({
     workoutReminder: true,
     workoutReminderTime: '09:00',
@@ -66,13 +65,13 @@ export default function NotificationsScreen() {
       setIsSaving(true);
       await saveNotificationSettings(settings);
       if (isExpoGo) {
-        Alert.alert('Settings Saved', 'Notification preferences saved! Note: Push notifications require a development build to work on mobile.');
+        Alert.alert(t('notifications.settingsSavedTitle'), t('notifications.settingsSavedExpoGo'));
       } else {
-        Alert.alert('Success', 'Notification settings saved!');
+        Alert.alert(t('common.success'), t('notifications.settingsSaved'));
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      Alert.alert('Error', 'Failed to save notification settings');
+      Alert.alert(t('common.error'), t('notifications.saveFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -81,33 +80,36 @@ export default function NotificationsScreen() {
   const handleTestNotification = async () => {
     if (isExpoGo) {
       Alert.alert(
-        'Not Available in Expo Go',
-        'Push notifications require a development build. Your settings will be saved and work when you build the app.'
+        t('notifications.notAvailableExpoGoTitle'),
+        t('notifications.notAvailableExpoGoMessage')
       );
       return;
     }
     
     try {
       const sent = await sendImmediateNotification(
-        '🔔 Test Notification',
-        'Your notifications are working! Keep crushing those goals!'
+        `🔔 ${t('notifications.testTitle')}`,
+        t('notifications.testBody')
       );
       if (sent) {
-        Alert.alert('Sent!', 'Check your notification panel.');
+        Alert.alert(t('notifications.sentTitle'), t('notifications.sentMessage'));
       } else {
-        Alert.alert('Not Available', 'Push notifications are not available in this environment.');
+        Alert.alert(t('notifications.notAvailableTitle'), t('notifications.notAvailableMessage'));
       }
     } catch (error) {
       console.error('Error sending test notification:', error);
-      Alert.alert('Error', 'Failed to send test notification');
+      Alert.alert(t('common.error'), t('notifications.sendFailed'));
     }
   };
 
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+    const value = new Date();
+    value.setHours(hours, minutes, 0, 0);
+    return new Intl.DateTimeFormat(locale, {
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(value);
   };
 
   const cycleTime = (currentTime: string, direction: 'next' | 'prev') => {
@@ -119,6 +121,9 @@ export default function NotificationsScreen() {
     }
   };
 
+  const dayLabels = list('notifications.daysFull');
+  const dayShortLabels = list('notifications.daysShort');
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -126,8 +131,8 @@ export default function NotificationsScreen() {
           <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <Text style={styles.headerSubtitle}>Stay on track with reminders</Text>
+          <Text style={styles.headerTitle}>{t('notifications.title')}</Text>
+          <Text style={styles.headerSubtitle}>{t('notifications.subtitle')}</Text>
         </View>
       </View>
 
@@ -135,7 +140,7 @@ export default function NotificationsScreen() {
         <View style={styles.expoGoBanner}>
           <Ionicons name="information-circle" size={24} color="#2196F3" />
           <Text style={styles.expoGoText}>
-            Running in Expo Go - Push notifications require a development build. Your settings will still be saved.
+            {t('notifications.expoGoBanner')}
           </Text>
         </View>
       )}
@@ -144,7 +149,7 @@ export default function NotificationsScreen() {
         <View style={styles.permissionBanner}>
           <Ionicons name="warning" size={24} color="#FFC107" />
           <Text style={styles.permissionText}>
-            Notifications are disabled. Please enable them in your device settings.
+            {t('notifications.permissionBanner')}
           </Text>
         </View>
       )}
@@ -157,8 +162,8 @@ export default function NotificationsScreen() {
               <Ionicons name="barbell" size={24} color="#4CAF50" />
             </View>
             <View style={styles.reminderInfo}>
-              <Text style={styles.reminderTitle}>Workout Reminder</Text>
-              <Text style={styles.reminderDesc}>Daily reminder to hit the gym</Text>
+              <Text style={styles.reminderTitle}>{t('notifications.workoutReminder')}</Text>
+              <Text style={styles.reminderDesc}>{t('notifications.workoutReminderDesc')}</Text>
             </View>
             <Switch
               value={settings.workoutReminder}
@@ -170,7 +175,7 @@ export default function NotificationsScreen() {
 
           {settings.workoutReminder && (
             <View style={styles.timeSelector}>
-              <Text style={styles.timeSelectorLabel}>Reminder Time</Text>
+              <Text style={styles.timeSelectorLabel}>{t('notifications.reminderTime')}</Text>
               <View style={styles.timeControls}>
                 <TouchableOpacity
                   onPress={() =>
@@ -207,8 +212,8 @@ export default function NotificationsScreen() {
               <Ionicons name="restaurant" size={24} color="#2196F3" />
             </View>
             <View style={styles.reminderInfo}>
-              <Text style={styles.reminderTitle}>Nutrition Check-In</Text>
-              <Text style={styles.reminderDesc}>Reminder to log your meals</Text>
+              <Text style={styles.reminderTitle}>{t('notifications.nutritionReminder')}</Text>
+              <Text style={styles.reminderDesc}>{t('notifications.nutritionReminderDesc')}</Text>
             </View>
             <Switch
               value={settings.nutritionReminder}
@@ -220,7 +225,7 @@ export default function NotificationsScreen() {
 
           {settings.nutritionReminder && (
             <View style={styles.timeSelector}>
-              <Text style={styles.timeSelectorLabel}>Reminder Time</Text>
+              <Text style={styles.timeSelectorLabel}>{t('notifications.reminderTime')}</Text>
               <View style={styles.timeControls}>
                 <TouchableOpacity
                   onPress={() =>
@@ -257,8 +262,8 @@ export default function NotificationsScreen() {
               <Ionicons name="analytics" size={24} color="#FF6200" />
             </View>
             <View style={styles.reminderInfo}>
-              <Text style={styles.reminderTitle}>Weekly Progress</Text>
-              <Text style={styles.reminderDesc}>Reminder to update measurements</Text>
+              <Text style={styles.reminderTitle}>{t('notifications.progressReminder')}</Text>
+              <Text style={styles.reminderDesc}>{t('notifications.progressReminderDesc')}</Text>
             </View>
             <Switch
               value={settings.progressReminder}
@@ -270,13 +275,13 @@ export default function NotificationsScreen() {
 
           {settings.progressReminder && (
             <View style={styles.daySelector}>
-              <Text style={styles.timeSelectorLabel}>Reminder Day</Text>
+              <Text style={styles.timeSelectorLabel}>{t('notifications.reminderDay')}</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.daysContainer}
               >
-                {DAYS.map((day, index) => (
+                {dayLabels.map((day, index) => (
                   <TouchableOpacity
                     key={day}
                     style={[
@@ -291,7 +296,7 @@ export default function NotificationsScreen() {
                         settings.progressReminderDay === index && styles.dayChipTextActive,
                       ]}
                     >
-                      {day.slice(0, 3)}
+                      {dayShortLabels[index] ?? day.slice(0, 3)}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -303,7 +308,7 @@ export default function NotificationsScreen() {
         {/* Test Notification */}
         <TouchableOpacity style={styles.testButton} onPress={handleTestNotification}>
           <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.testButtonText}>Send Test Notification</Text>
+          <Text style={styles.testButtonText}>{t('notifications.testNotification')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -314,7 +319,7 @@ export default function NotificationsScreen() {
           onPress={handleSave}
           disabled={isSaving}
         >
-          <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save Settings'}</Text>
+          <Text style={styles.saveButtonText}>{isSaving ? t('common.saving') : t('notifications.saveSettings')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -412,11 +417,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+    flexShrink: 1,
   },
   reminderDesc: {
     color: '#B0B0B0',
     fontSize: 12,
     marginTop: 2,
+    flexShrink: 1,
+    lineHeight: 16,
   },
   timeSelector: {
     marginTop: 16,

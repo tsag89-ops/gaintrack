@@ -19,19 +19,12 @@ import rnFirebaseAuth from '@react-native-firebase/auth';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import FormWrapper from '../../src/components/FormWrapper';
 import { sendEngagementTelemetry } from '../../src/services/notifications';
-
-const GOOGLE_ERROR_MAP: Record<string, string> = {
-  'auth/popup-closed-by-user': 'Sign-in cancelled.',
-  'auth/cancelled-popup-request': 'Sign-in cancelled.',
-  'auth/popup-blocked': 'Redirecting to Google…',
-  'auth/operation-not-allowed': 'Google sign-in is not enabled.',
-  'auth/account-exists-with-different-credential': 'Account exists with a different sign-in method.',
-  'auth/unauthorized-domain': 'This domain is not authorised for Google sign-in.',
-};
+import { useLanguage } from '../../src/context/LanguageContext';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { setSession } = useAuthStore();
+  const { t } = useLanguage();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -40,7 +33,15 @@ export default function LoginScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
-  const [redirectChecking, setRedirectChecking] = useState(false);
+
+  const googleErrorMap: Record<string, string> = {
+    'auth/popup-closed-by-user': t('login.googleErrors.popupClosed'),
+    'auth/cancelled-popup-request': t('login.googleErrors.popupCancelled'),
+    'auth/popup-blocked': t('login.googleErrors.popupBlocked'),
+    'auth/operation-not-allowed': t('login.googleErrors.operationNotAllowed'),
+    'auth/account-exists-with-different-credential': t('login.googleErrors.accountExists'),
+    'auth/unauthorized-domain': t('login.googleErrors.unauthorizedDomain'),
+  };
 
   useEffect(() => {
     sendEngagementTelemetry({
@@ -79,17 +80,14 @@ export default function LoginScreen() {
     let cancelled = false;
     (async () => {
       try {
-        setRedirectChecking(true);
         const result = await (auth as any).getGoogleRedirectResult?.();
         if (cancelled || !result) return;
         await applyGoogleUser(result.user);
       } catch (e: any) {
         if (cancelled) return;
         if (e?.code !== 'auth/no-auth-event' && e?.code !== 'auth/null-user') {
-          setGoogleError(GOOGLE_ERROR_MAP[e?.code] ?? e?.message ?? 'Google sign-in failed.');
+          setGoogleError(googleErrorMap[e?.code] ?? e?.message ?? t('login.googleErrors.failed'));
         }
-      } finally {
-        if (!cancelled) setRedirectChecking(false);
       }
     })();
     return () => { cancelled = true; };
@@ -125,7 +123,7 @@ export default function LoginScreen() {
           action: 'google_auth_failed',
           context: e?.code ?? 'native_unknown',
         });
-        setGoogleError(e?.message ?? 'Google sign-in failed.');
+        setGoogleError(e?.message ?? t('login.googleErrors.failed'));
       } finally {
         setGoogleLoading(false);
       }
@@ -147,7 +145,7 @@ export default function LoginScreen() {
         action: 'google_auth_failed',
         context: e?.code ?? 'web_unknown',
       });
-      setGoogleError(GOOGLE_ERROR_MAP[e?.code] ?? e?.message ?? `Google sign-in failed (${e?.code ?? 'unknown'})`);
+      setGoogleError(googleErrorMap[e?.code] ?? e?.message ?? `${t('login.googleErrors.failed')} (${e?.code ?? 'unknown'})`);
     } finally {
       setGoogleLoading(false);
     }
@@ -155,15 +153,15 @@ export default function LoginScreen() {
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Missing Info', 'Please enter your email and password.');
+      Alert.alert(t('login.missingInfoTitle'), t('login.missingEmailPassword'));
       return;
     }
     if (mode === 'signup' && !name.trim()) {
-      Alert.alert('Missing Info', 'Please enter your name.');
+      Alert.alert(t('login.missingInfoTitle'), t('login.missingName'));
       return;
     }
     if (password.length < 6) {
-      Alert.alert('Weak Password', 'Password must be at least 6 characters.');
+      Alert.alert(t('login.weakPasswordTitle'), t('login.weakPasswordMessage'));
       return;
     }
 
@@ -223,14 +221,14 @@ export default function LoginScreen() {
         context: error?.code ?? 'auth_unknown',
       });
       const msg: Record<string, string> = {
-        'auth/user-not-found': 'No account found. Switch to Sign Up.',
-        'auth/wrong-password': 'Incorrect password.',
-        'auth/email-already-in-use': 'Email already in use. Sign in instead.',
-        'auth/invalid-email': 'Invalid email address.',
-        'auth/network-request-failed': 'Network error. Check your connection.',
-        'auth/too-many-requests': 'Too many attempts. Try again later.',
+        'auth/user-not-found': t('login.authErrors.userNotFound'),
+        'auth/wrong-password': t('login.authErrors.wrongPassword'),
+        'auth/email-already-in-use': t('login.authErrors.emailInUse'),
+        'auth/invalid-email': t('login.authErrors.invalidEmail'),
+        'auth/network-request-failed': t('login.authErrors.network'),
+        'auth/too-many-requests': t('login.authErrors.tooManyRequests'),
       };
-      Alert.alert('Auth Error', msg[error?.code] ?? error?.message ?? 'Something went wrong.');
+      Alert.alert(t('login.authErrorTitle'), msg[error?.code] ?? error?.message ?? t('login.authErrors.unknown'));
     } finally {
       setIsSubmitting(false);
     }
@@ -248,26 +246,26 @@ export default function LoginScreen() {
             <View style={styles.logoContainer}>
               <Ionicons name="fitness" size={60} color="#FF6200" />
             </View>
-            <Text style={styles.title}>GainTrack</Text>
-            <Text style={styles.subtitle}>Your complete fitness companion</Text>
+            <Text style={styles.title}>{t('login.title')}</Text>
+            <Text style={styles.subtitle}>{t('login.subtitle')}</Text>
           </View>
 
           <View style={styles.features}>
             <View style={styles.featureItem}>
               <Ionicons name="barbell-outline" size={24} color="#FF6200" />
-              <Text style={styles.featureText}>Track workouts & progress</Text>
+              <Text style={styles.featureText}>{t('login.featureWorkouts')}</Text>
             </View>
             <View style={styles.featureItem}>
               <Ionicons name="restaurant-outline" size={24} color="#2196F3" />
-              <Text style={styles.featureText}>Log meals & macros</Text>
+              <Text style={styles.featureText}>{t('login.featureMeals')}</Text>
             </View>
             <View style={styles.featureItem}>
               <Ionicons name="trending-up-outline" size={24} color="#FFC107" />
-              <Text style={styles.featureText}>Visualize your gains</Text>
+              <Text style={styles.featureText}>{t('login.featureGains')}</Text>
             </View>
             <View style={styles.featureItem}>
               <Ionicons name="home-outline" size={24} color="#FF6200" />
-              <Text style={styles.featureText}>Home gym support</Text>
+              <Text style={styles.featureText}>{t('login.featureHomeGym')}</Text>
             </View>
           </View>
 
@@ -285,7 +283,7 @@ export default function LoginScreen() {
               }}
             >
               <Text style={[styles.modeBtnText, mode === 'signin' && styles.modeBtnTextActive]}>
-                Sign In
+                {t('login.signIn')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -300,7 +298,7 @@ export default function LoginScreen() {
               }}
             >
               <Text style={[styles.modeBtnText, mode === 'signup' && styles.modeBtnTextActive]}>
-                Create Account
+                {t('login.createAccount')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -308,12 +306,12 @@ export default function LoginScreen() {
           <FormWrapper style={styles.form} onSubmit={handleSubmit}>
             {mode === 'signup' && (
               <>
-                <Text style={styles.formLabel}>Your Name</Text>
+                <Text style={styles.formLabel}>{t('login.yourName')}</Text>
                 <TextInput
                   id="name"
                   nativeID="name"
                   style={styles.input}
-                  placeholder="e.g. Alex"
+                  placeholder={t('login.yourNamePlaceholder')}
                   placeholderTextColor="#B0B0B0"
                   value={name}
                   onChangeText={setName}
@@ -322,12 +320,12 @@ export default function LoginScreen() {
                 />
               </>
             )}
-            <Text style={styles.formLabel}>Email Address</Text>
+            <Text style={styles.formLabel}>{t('login.emailAddress')}</Text>
             <TextInput
               id="email"
               nativeID="email"
               style={styles.input}
-              placeholder="e.g. alex@email.com"
+              placeholder={t('login.emailPlaceholder')}
               placeholderTextColor="#B0B0B0"
               value={email}
               onChangeText={setEmail}
@@ -335,13 +333,13 @@ export default function LoginScreen() {
               autoCapitalize="none"
               autoComplete="email"
             />
-            <Text style={styles.formLabel}>Password</Text>
+            <Text style={styles.formLabel}>{t('login.password')}</Text>
             <View style={styles.passwordRow}>
               <TextInput
                 id="password"
                 nativeID="password"
                 style={[styles.input, styles.passwordInput]}
-                placeholder="Min. 6 characters"
+                placeholder={t('login.passwordPlaceholder')}
                 placeholderTextColor="#B0B0B0"
                 value={password}
                 onChangeText={setPassword}
@@ -368,10 +366,10 @@ export default function LoginScreen() {
               <Ionicons name="arrow-forward-circle" size={22} color="#FFFFFF" />
               <Text style={styles.enterButtonText}>
                 {isSubmitting
-                  ? 'Please wait…'
+                  ? t('login.pleaseWait')
                   : mode === 'signup'
-                  ? 'Create Account'
-                  : 'Sign In'}
+                  ? t('login.createAccount')
+                  : t('login.signIn')}
               </Text>
             </TouchableOpacity>
           </FormWrapper>
@@ -379,7 +377,7 @@ export default function LoginScreen() {
           {/* Divider */}
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
+            <Text style={styles.dividerText}>{t('common.or')}</Text>
             <View style={styles.dividerLine} />
           </View>
 
@@ -391,7 +389,7 @@ export default function LoginScreen() {
           >
             <Ionicons name="logo-google" size={20} color="#FFFFFF" />
             <Text style={styles.googleButtonText}>
-              {googleLoading ? 'Signing in…' : 'Continue with Google'}
+              {googleLoading ? t('login.signingIn') : t('login.continueWithGoogle')}
             </Text>
           </TouchableOpacity>
 
@@ -400,13 +398,13 @@ export default function LoginScreen() {
           ) : null}
 
           <Text style={styles.terms}>
-            By continuing, you agree to our{' '}
+            {t('login.byContinuing')}{' '}
             <Text style={styles.termsLink} onPress={() => router.push('/terms' as any)}>
-              Terms
+              {t('login.terms')}
             </Text>{' '}
             and{' '}
             <Text style={styles.termsLink} onPress={() => router.push('/privacy-policy' as any)}>
-              Privacy Policy
+              {t('login.privacyPolicy')}
             </Text>
             .
           </Text>
@@ -454,7 +452,7 @@ const styles = StyleSheet.create({
   },
   featureItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 10,
     backgroundColor: '#252525',
     padding: 14,
@@ -464,6 +462,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     marginLeft: 14,
+    flex: 1,
+    flexShrink: 1,
   },
   modeToggle: {
     flexDirection: 'row',
@@ -485,6 +485,7 @@ const styles = StyleSheet.create({
     color: '#B0B0B0',
     fontSize: 14,
     fontWeight: '600',
+    textAlign: 'center',
   },
   modeBtnTextActive: {
     color: '#FFFFFF',
@@ -585,6 +586,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   errorText: {
     color: '#F44336',

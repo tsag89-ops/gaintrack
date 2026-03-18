@@ -22,11 +22,11 @@ import { useAuthStore } from '../../src/store/authStore';
 import { userApi } from '../../src/services/api';
 import { deleteUserCloudData } from '../../src/services/firestore';
 import { sendOnboardingTelemetry } from '../../src/services/notifications';
-import { getEquipmentLabel } from '../../src/utils/helpers';
-import { useAuth } from '../../src/hooks/useAuth';
 import { deleteAccount, signOut as nativeSignOut, REQUIRES_RECENT_LOGIN } from '../../src/services/authBridge';
 import { usePro } from '../../src/hooks/usePro'; // [PRO]
 import PlateCalculator from '../../src/components/PlateCalculator'; // [PRO]
+import { useLanguage } from '../../src/context/LanguageContext';
+import { SUPPORTED_LANGUAGES, SupportedLocale } from '../../src/i18n/translations';
 import {
   HealthProvider,
   HealthSyncSettings,
@@ -53,6 +53,7 @@ const EQUIPMENT_OPTIONS = [
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, setUser, logout } = useAuthStore();
+  const { locale, setLocale, t } = useLanguage();
 
   // [PRO] Reads user.isPro from authStore (Firestore-backed — updates on every login)
   const { isPro } = usePro();
@@ -103,6 +104,31 @@ export default function ProfileScreen() {
   const [healthSyncSnapshots, setHealthSyncSnapshots] = useState<Partial<Record<HealthProvider, Awaited<ReturnType<typeof getHealthSyncSnapshot>>>>>({}); // [PRO]
   const [healthSyncProviderLoading, setHealthSyncProviderLoading] = useState<HealthProvider | null>(null); // [PRO]
   const supportedHealthProviders = getSupportedProvidersForDevice(); // [PRO]
+  const activityOptions = [
+    { label: t('profile.activitySedentary'), value: 1.2 },
+    { label: t('profile.activityLight'), value: 1.375 },
+    { label: t('profile.activityModerate'), value: 1.55 },
+    { label: t('profile.activityActive'), value: 1.725 },
+    { label: t('profile.activityVery'), value: 1.9 },
+  ];
+
+  const formatLocalDate = (value: string) => new Intl.DateTimeFormat(locale).format(new Date(value));
+  const formatRelativeDays = (days: number) => {
+    try {
+      return new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-days, 'day');
+    } catch {
+      return `${days}`;
+    }
+  };
+  const getLocalizedLanguageLabel = (code: SupportedLocale) => t(`profile.languages.${code}`);
+  const getLocalizedEquipmentLabel = (equipmentId: string) => t(`profile.equipmentLabels.${equipmentId}`);
+  const getRestDurationLabel = (seconds: number) => (seconds >= 60 ? `${seconds / 60}m` : `${seconds}s`);
+
+  const handleLanguageSelect = async (nextLocale: SupportedLocale) => {
+    if (nextLocale === locale) return;
+    await Haptics.selectionAsync();
+    await setLocale(nextLocale);
+  };
 
   useEffect(() => {
     AsyncStorage.getItem(AUTO_REST_KEY)
@@ -133,23 +159,27 @@ export default function ProfileScreen() {
     const snapshot = healthSyncSnapshots[provider];
 
     if (!providerState?.nativeBridgeAvailable) {
-      return { level: 'critical' as const, label: 'Bridge missing', detail: 'Native health bridge is unavailable in this build.' };
+      return { level: 'critical' as const, label: t('profile.health.bridgeMissing'), detail: t('profile.health.bridgeMissingDetail') };
     }
     if (!providerState?.connected) {
-      return { level: 'warning' as const, label: 'Not connected', detail: 'Connect provider to unlock sync-driven coaching.' };
+      return { level: 'warning' as const, label: t('profile.health.notConnected'), detail: t('profile.health.notConnectedDetail') };
     }
     if (providerState.lastSyncStatus === 'failed') {
-      return { level: 'critical' as const, label: 'Sync failed', detail: providerState.lastError || 'Last sync attempt failed.' };
+      return { level: 'critical' as const, label: t('profile.health.syncFailed'), detail: providerState.lastError || t('profile.health.syncFailedDetail') };
     }
     if (!snapshot?.syncedAt) {
-      return { level: 'warning' as const, label: 'No snapshot', detail: 'Run Sync now to generate a health snapshot.' };
+      return { level: 'warning' as const, label: t('profile.health.noSnapshot'), detail: t('profile.health.noSnapshotDetail') };
     }
 
     const daysSinceSync = Math.max(0, Math.floor((Date.now() - new Date(snapshot.syncedAt).getTime()) / (1000 * 60 * 60 * 24)));
     if (daysSinceSync >= 4) {
-      return { level: 'warning' as const, label: 'Sync stale', detail: `Last sync was ${daysSinceSync} day${daysSinceSync === 1 ? '' : 's'} ago.` };
+      return { level: 'warning' as const, label: t('profile.health.syncStale'), detail: formatRelativeDays(daysSinceSync) };
     }
-    return { level: 'good' as const, label: 'Healthy', detail: daysSinceSync === 0 ? 'Snapshot updated today.' : `Snapshot updated ${daysSinceSync}d ago.` };
+    return {
+      level: 'good' as const,
+      label: t('profile.health.healthy'),
+      detail: daysSinceSync === 0 ? t('profile.health.snapshotUpdatedToday') : t('profile.health.snapshotUpdatedDaysAgo', { days: daysSinceSync }),
+    };
   };
 
   const showHealthTroubleshooting = async (provider: HealthProvider) => {
@@ -159,31 +189,35 @@ export default function ProfileScreen() {
     const snapshot = healthSyncSnapshots[provider];
 
     const lines = [
-      `Status: ${quality.label}`,
-      `Detail: ${quality.detail}`,
-      providerState?.lastError ? `Last error: ${providerState.lastError}` : null,
+      t('profile.health.status', { value: quality.label }),
+      t('profile.health.detail', { value: quality.detail }),
+      providerState?.lastError ? t('profile.health.lastError', { value: providerState.lastError }) : null,
       snapshot?.snapshot
-        ? `Records: ${snapshot.snapshot.providerRecordsRead} | Workouts: ${snapshot.snapshot.workoutsImported} | Nutrition: ${snapshot.snapshot.nutritionDaysImported}`
+        ? t('profile.health.records', {
+            records: snapshot.snapshot.providerRecordsRead,
+            workouts: snapshot.snapshot.workoutsImported,
+            nutrition: snapshot.snapshot.nutritionDaysImported,
+          })
         : null,
       '',
-      'Recommended actions:',
-      '1) Confirm Health Data consent is enabled.',
-      '2) Re-run Connect to refresh permissions.',
-      '3) Run Sync now and verify record counts increase.',
+      t('profile.health.recommendedActions'),
+      t('profile.health.action1'),
+      t('profile.health.action2'),
+      t('profile.health.action3'),
     ].filter(Boolean);
 
-    Alert.alert(`${getProviderLabel(provider)} Troubleshooting`, lines.join('\n'));
+    Alert.alert(t('profile.health.troubleshootingTitle', { provider: getProviderLabel(provider) }), lines.join('\n'));
   };
 
   const requireProForHealthSync = async (): Promise<boolean> => {
     if (isPro) return true;
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
-      'Pro Feature',
-      'HealthKit and Android Health Connect sync are available with GainTrack Pro (EUR 5.99/mo or EUR 39.99/yr).',
+      t('profile.health.proFeatureTitle'),
+      t('profile.health.proFeatureMessage'),
       [
-        { text: 'Not now', style: 'cancel' },
-        { text: 'Go Pro', onPress: () => router.push('/pro-paywall') },
+        { text: t('profile.health.notNow'), style: 'cancel' },
+        { text: t('profile.gainTrackPro'), onPress: () => router.push('/pro-paywall') },
       ],
     );
     return false;
@@ -194,12 +228,12 @@ export default function ProfileScreen() {
 
     if (!value) {
       Alert.alert(
-        'Disable Health Sync?',
-        'This stops importing health data from connected providers until you enable it again.',
+        t('profile.health.disableHealthSyncTitle'),
+        t('profile.health.disableHealthSyncMessage'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Disable',
+            text: t('profile.disabled'),
             style: 'destructive',
             onPress: async () => {
               await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -221,7 +255,7 @@ export default function ProfileScreen() {
     if (!(await requireProForHealthSync())) return;
 
     if (!healthSyncSettings?.consentGiven) {
-      Alert.alert('Consent required', 'Enable Health Data consent first.');
+      Alert.alert(t('profile.health.consentRequiredTitle'), t('profile.health.consentRequiredMessage'));
       return;
     }
 
@@ -231,7 +265,7 @@ export default function ProfileScreen() {
       const result = await connectHealthProvider(provider);
       if (!result.ok) {
         await refreshHealthSyncSettings();
-        Alert.alert('Connection issue', result.message);
+        Alert.alert(t('profile.health.connectionIssueTitle'), result.message);
         return;
       }
 
@@ -241,16 +275,22 @@ export default function ProfileScreen() {
 
       if (baseline.ok && baseline.snapshot) {
         Alert.alert(
-          'Connected & Synced',
-          `${result.message}\n\nProvider records: ${baseline.snapshot.providerRecordsRead}\nWorkouts: ${baseline.snapshot.workoutsImported}\nNutrition days: ${baseline.snapshot.nutritionDaysImported}\nMeasurements: ${baseline.snapshot.measurementsImported}`,
+          t('profile.health.connectedAndSyncedTitle'),
+          t('profile.health.connectedSyncedSummary', {
+            message: result.message,
+            records: baseline.snapshot.providerRecordsRead,
+            workouts: baseline.snapshot.workoutsImported,
+            nutrition: baseline.snapshot.nutritionDaysImported,
+            measurements: baseline.snapshot.measurementsImported,
+          }),
         );
       } else {
-        Alert.alert('Connected', `${result.message}\n\n${baseline.message}`);
+        Alert.alert(t('profile.health.connectedTitle'), `${result.message}\n\n${baseline.message}`);
       }
     } catch (error: any) {
       Alert.alert(
-        'Connection issue',
-        error?.message ?? 'Unexpected error during Health Connect setup. Please try again.',
+        t('profile.health.connectionIssueTitle'),
+        error?.message ?? t('profile.health.connectionIssueFallback'),
       );
     } finally {
       setHealthSyncProviderLoading(null);
@@ -276,16 +316,22 @@ export default function ProfileScreen() {
 
       if (result.ok && result.snapshot) {
         Alert.alert(
-          'Sync complete',
-          `${getProviderLabel(provider)} synced.\nProvider records: ${result.snapshot.providerRecordsRead}\nWorkouts: ${result.snapshot.workoutsImported}\nNutrition days: ${result.snapshot.nutritionDaysImported}\nMeasurements: ${result.snapshot.measurementsImported}`,
+          t('profile.health.syncCompleteTitle'),
+          t('profile.health.syncedSummary', {
+            provider: getProviderLabel(provider),
+            records: result.snapshot.providerRecordsRead,
+            workouts: result.snapshot.workoutsImported,
+            nutrition: result.snapshot.nutritionDaysImported,
+            measurements: result.snapshot.measurementsImported,
+          }),
         );
       } else {
-        Alert.alert('Sync unavailable', result.message);
+        Alert.alert(t('profile.health.syncUnavailableTitle'), result.message);
       }
     } catch (error: any) {
       Alert.alert(
-        'Sync issue',
-        error?.message ?? 'Unexpected error during Health Connect sync. Please try again.',
+        t('profile.health.syncIssueTitle'),
+        error?.message ?? t('profile.health.syncIssueFallback'),
       );
     } finally {
       setHealthSyncProviderLoading(null);
@@ -302,12 +348,12 @@ export default function ProfileScreen() {
     if (!value) {
       // Confirm before revoking — AI chat history is unaffected but AI is disabled
       Alert.alert(
-        'Disable AI Coach?',
-        'Revoking consent will disable all AI features immediately. Your chat history is kept on this device. You can re-enable at any time.',
+        t('profile.aiConsent.disableTitle'),
+        t('profile.aiConsent.disableMessage'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Revoke',
+            text: t('profile.aiConsent.revoke'),
             style: 'destructive',
             onPress: async () => {
               setAiConsent(false);
@@ -383,11 +429,11 @@ const handleDeleteAccount = async () => {
   // Step 1: initial confirmation
   const confirmed = await new Promise<boolean>((resolve) =>
     Alert.alert(
-      'Delete Account',
-      'This will permanently delete your account and all data. This cannot be undone.',
+      t('profile.accountAlerts.deleteTitle'),
+      t('profile.accountAlerts.deleteMessage'),
       [
-        { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
-        { text: 'Delete', onPress: () => resolve(true), style: 'destructive' },
+        { text: t('common.cancel'), onPress: () => resolve(false), style: 'cancel' },
+        { text: t('profile.accountAlerts.delete'), onPress: () => resolve(true), style: 'destructive' },
       ],
     )
   );
@@ -412,12 +458,12 @@ const handleDeleteAccount = async () => {
     if (error?.code === REQUIRES_RECENT_LOGIN) {
       // Step 2: stale-session guard — offer to sign out so user can re-authenticate
       Alert.alert(
-        'Re-authentication Required',
-        'For security, Firebase requires a recent sign-in before deleting your account. Sign out now, sign back in, and then delete your account.',
+        t('profile.accountAlerts.reauthTitle'),
+        t('profile.accountAlerts.reauthMessage'),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Sign Out Now',
+            text: t('profile.accountAlerts.signOutNow'),
             style: 'destructive',
             onPress: async () => {
               try {
@@ -433,7 +479,7 @@ const handleDeleteAccount = async () => {
       );
     } else {
       Alert.alert(
-        'Error',
+        t('common.error'),
         error?.message ?? 'Failed to delete account. Please try again.',
       );
     }
@@ -442,11 +488,11 @@ const handleDeleteAccount = async () => {
 
 const handleLogout = async () => {
   const proceed = Platform.OS === 'web'
-    ? window.confirm('Are you sure you want to logout?')
+    ? window.confirm(t('profile.accountAlerts.logoutMessage'))
     : await new Promise((resolve) =>
-        Alert.alert('Logout', 'Are you sure?', [
-          { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
-          { text: 'Logout', onPress: () => resolve(true), style: 'destructive' },
+        Alert.alert(t('profile.accountAlerts.logoutTitle'), t('profile.accountAlerts.logoutMessage'), [
+          { text: t('common.cancel'), onPress: () => resolve(false), style: 'cancel' },
+          { text: t('profile.logout'), onPress: () => resolve(true), style: 'destructive' },
         ])
       );
 
@@ -528,10 +574,10 @@ const handleExportMyData = async () => {
     await FileSystem.writeAsStringAsync(path, jsonString, { encoding: FileSystem.EncodingType.UTF8 });
     await Sharing.shareAsync(path, {
       mimeType: 'application/json',
-      dialogTitle: 'Export GainTrack Data',
+      dialogTitle: t('profile.accountAlerts.exportDialogTitle'),
     });
   } catch (error: any) {
-    Alert.alert('Export failed', error?.message ?? 'Could not export your data.');
+    Alert.alert(t('profile.accountAlerts.exportFailedTitle'), error?.message ?? t('profile.accountAlerts.exportFailedMessage'));
   }
 };
 
@@ -542,7 +588,7 @@ const handleExportMyData = async () => {
     const w = parseFloat(tdeeWeight);
     const h = parseFloat(tdeeHeight);
     const a = parseInt(tdeeAge);
-    if (!w || !h || !a) { Alert.alert('Missing info', 'Enter weight (kg), height (cm), and age.'); return; }
+    if (!w || !h || !a) { Alert.alert(t('profile.goalsAlerts.missingInfoTitle'), t('profile.goalsAlerts.missingInfoMessage')); return; }
     const bmr = tdeeSex === 'male' ? 10 * w + 6.25 * h - 5 * a + 5 : 10 * w + 6.25 * h - 5 * a - 161;
     const tdee = Math.round(bmr * tdeeActivity);
     const prot = Math.round(w * 2.2);
@@ -575,10 +621,10 @@ const handleExportMyData = async () => {
         context: `calories_${goals.daily_calories}`,
       }).catch(() => null);
       setShowGoalsModal(false);
-      Alert.alert('Success', 'Goals updated successfully!');
+      Alert.alert(t('common.success'), t('profile.goalsAlerts.goalsUpdated'));
     } catch (error) {
       console.error('Error saving goals:', error);
-      Alert.alert('Error', 'Failed to save goals');
+      Alert.alert(t('common.error'), t('profile.goalsAlerts.goalsFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -604,10 +650,10 @@ const handleExportMyData = async () => {
         context: `count_${selectedEquipment.length}`,
       }).catch(() => null);
       setShowEquipmentModal(false);
-      Alert.alert('Success', 'Equipment updated! Exercise suggestions will be filtered accordingly.');
+      Alert.alert(t('common.success'), t('profile.goalsAlerts.equipmentUpdated'));
     } catch (error) {
       console.error('Error saving equipment:', error);
-      Alert.alert('Error', 'Failed to save equipment');
+      Alert.alert(t('common.error'), t('profile.goalsAlerts.equipmentFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -621,13 +667,13 @@ const handleExportMyData = async () => {
           <View style={styles.avatar}>
             <Ionicons name="person" size={40} color="#10B981" />
           </View>
-          <Text style={styles.userName}>{user?.name || 'User'}</Text>
+          <Text style={styles.userName}>{user?.name || t('common.user')}</Text>
           <Text style={styles.userEmail}>{user?.email || ''}</Text>
         </View>
 
         {/* ── Subscription Section ── [PRO] ──────────────────────────── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Subscription</Text>
+          <Text style={styles.sectionTitle}>{t('profile.subscription')}</Text>
           <View style={styles.settingItem}>
             <View style={styles.settingLeft}>
               <Ionicons
@@ -637,14 +683,14 @@ const handleExportMyData = async () => {
               />
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>
-                  {isPro ? 'GainTrack Pro' : 'Free Plan'}
+                  {isPro ? t('profile.gainTrackPro') : t('profile.freePlan')}
                 </Text>
                 {isPro ? (
                   <Text style={[styles.settingValue, { color: '#FF6200' }]}>
-                    Thanks for supporting GainTrack Pro! 🎉
+                    {t('profile.proThanks')}
                   </Text>
                 ) : (
-                  <Text style={styles.settingValue}>Unlock all features</Text>
+                  <Text style={styles.settingValue}>{t('profile.unlockAllFeatures')}</Text>
                 )}
               </View>
             </View>
@@ -671,7 +717,7 @@ const handleExportMyData = async () => {
               onPress={() => router.push('/pro-paywall')}
             >
               <Ionicons name="flash" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.goProText}>Go Pro — EUR 5.99/mo or EUR 39.99/yr</Text>
+              <Text style={styles.goProText}>{t('profile.goPro')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -679,7 +725,7 @@ const handleExportMyData = async () => {
 
         {/* Body Measurements Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Body Tracking</Text>
+          <Text style={styles.sectionTitle}>{t('profile.bodyTracking')}</Text>
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => router.push('/measurements')}
@@ -687,8 +733,8 @@ const handleExportMyData = async () => {
             <View style={styles.settingLeft}>
               <Ionicons name="body-outline" size={22} color="#8B5CF6" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Body Measurements</Text>
-                <Text style={styles.settingValue}>Track chest, arms, waist, legs & more</Text>
+                <Text style={styles.settingLabel}>{t('profile.bodyMeasurements')}</Text>
+                <Text style={styles.settingValue}>{t('profile.bodyMeasurementsDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
@@ -700,8 +746,8 @@ const handleExportMyData = async () => {
             <View style={styles.settingLeft}>
               <Ionicons name="trending-down-outline" size={22} color="#FF6200" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Body Composition Goal</Text>
-                <Text style={styles.settingValue}>Set target weight, body fat & timeline</Text>
+                <Text style={styles.settingLabel}>{t('profile.bodyCompositionGoal')}</Text>
+                <Text style={styles.settingValue}>{t('profile.bodyCompositionGoalDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
@@ -713,8 +759,8 @@ const handleExportMyData = async () => {
             <View style={styles.settingLeft}>
               <Ionicons name="camera-outline" size={22} color="#3B82F6" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Physique Progress Photos</Text>
-                <Text style={styles.settingValue}>Track visual changes with progress photos</Text>
+                <Text style={styles.settingLabel}>{t('profile.physiquePhotos')}</Text>
+                <Text style={styles.settingValue}>{t('profile.physiquePhotosDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
@@ -723,11 +769,11 @@ const handleExportMyData = async () => {
 
         {/* Units Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Units</Text>
+          <Text style={styles.sectionTitle}>{t('profile.units')}</Text>
           <View style={styles.settingItem}>
             <View style={styles.settingLeft}>
               <Ionicons name="barbell-outline" size={22} color="#FF6200" />
-              <Text style={styles.settingLabel}>Weight</Text>
+              <Text style={styles.settingLabel}>{t('profile.weight')}</Text>
             </View>
             <View style={styles.unitToggleRow}>
               {(['kg', 'lbs'] as const).map((opt) => (
@@ -744,7 +790,7 @@ const handleExportMyData = async () => {
           <View style={styles.settingItem}>
             <View style={styles.settingLeft}>
               <Ionicons name="resize-outline" size={22} color="#FF6200" />
-              <Text style={styles.settingLabel}>Height</Text>
+              <Text style={styles.settingLabel}>{t('profile.height')}</Text>
             </View>
             <View style={styles.unitToggleRow}>
               {(['cm', 'in'] as const).map((opt) => (
@@ -761,7 +807,7 @@ const handleExportMyData = async () => {
           <View style={styles.settingItem}>
             <View style={styles.settingLeft}>
               <Ionicons name="navigate-outline" size={22} color="#FF6200" />
-              <Text style={styles.settingLabel}>Distance</Text>
+              <Text style={styles.settingLabel}>{t('profile.distance')}</Text>
             </View>
             <View style={styles.unitToggleRow}>
               {(['km', 'mi'] as const).map((opt) => (
@@ -775,11 +821,33 @@ const handleExportMyData = async () => {
               ))}
             </View>
           </View>
+          <View style={[styles.settingItem, { flexDirection: 'column', alignItems: 'flex-start' }]}>
+            <View style={[styles.settingLeft, { marginBottom: 10 }]}>
+              <Ionicons name="language-outline" size={22} color="#FF6200" />
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>{t('profile.language')}</Text>
+                <Text style={styles.settingValue}>{t('profile.languageDesc')}</Text>
+              </View>
+            </View>
+            <View style={[styles.unitToggleRow, { flexWrap: 'wrap' }]}>
+              {SUPPORTED_LANGUAGES.map((entry) => (
+                <TouchableOpacity
+                  key={entry.code}
+                  style={[styles.unitPill, locale === entry.code && styles.unitPillActive, { marginBottom: 8 }]}
+                  onPress={() => handleLanguageSelect(entry.code)}
+                >
+                  <Text style={[styles.unitPillText, locale === entry.code && styles.unitPillTextActive]}>
+                    {getLocalizedLanguageLabel(entry.code)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
         </View>
 
         {/* Goals Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Daily Goals</Text>
+          <Text style={styles.sectionTitle}>{t('profile.dailyGoals')}</Text>
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => setShowGoalsModal(true)}
@@ -787,7 +855,7 @@ const handleExportMyData = async () => {
             <View style={styles.settingLeft}>
               <Ionicons name="nutrition-outline" size={22} color="#10B981" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Macro Targets</Text>
+                <Text style={styles.settingLabel}>{t('profile.macroTargets')}</Text>
                 <Text style={styles.settingValue}>
                   {user?.goals?.daily_calories || 2000} cal | {user?.goals?.protein_grams || 150}g P
                 </Text>
@@ -799,7 +867,7 @@ const handleExportMyData = async () => {
 
         {/* Equipment Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Home Gym Equipment</Text>
+          <Text style={styles.sectionTitle}>{t('profile.homeGymEquipment')}</Text>
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => setShowEquipmentModal(true)}
@@ -807,28 +875,28 @@ const handleExportMyData = async () => {
             <View style={styles.settingLeft}>
               <Ionicons name="barbell-outline" size={22} color="#3B82F6" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>My Equipment</Text>
+                <Text style={styles.settingLabel}>{t('profile.myEquipment')}</Text>
                 <Text style={styles.settingValue}>
-                  {user?.equipment?.length || 0} items selected
+                  {t('profile.itemsSelected', { count: user?.equipment?.length || 0 })}
                 </Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
           </TouchableOpacity>
           <Text style={styles.hint}>
-            Exercises will be filtered based on your available equipment
+            {t('profile.equipmentHint')}
           </Text>
         </View>
 
         {/* Workout Settings Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Workout</Text>
+          <Text style={styles.sectionTitle}>{t('profile.workout')}</Text>
           <View style={styles.settingItem}>
             <View style={styles.settingLeft}>
               <Ionicons name="timer-outline" size={22} color="#FF6200" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Auto-start Rest Timer</Text>
-                <Text style={styles.settingValue}>Starts automatically on every completed set</Text>
+                <Text style={styles.settingLabel}>{t('profile.autoRestTimer')}</Text>
+                <Text style={styles.settingValue}>{t('profile.autoRestTimerDesc')}</Text>
               </View>
             </View>
             <Switch
@@ -842,8 +910,8 @@ const handleExportMyData = async () => {
             <View style={[styles.settingLeft, { marginBottom: 10 }]}>
               <Ionicons name="hourglass-outline" size={22} color="#FF6200" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Default Rest Duration</Text>
-                <Text style={styles.settingValue}>Currently {restDuration >= 60 ? `${restDuration / 60}m` : `${restDuration}s`} — applies to every workout</Text>
+                <Text style={styles.settingLabel}>{t('profile.defaultRestDuration')}</Text>
+                <Text style={styles.settingValue}>{t('profile.currentRestDuration', { duration: getRestDurationLabel(restDuration) })}</Text>
               </View>
             </View>
             <View style={styles.unitToggleRow}>
@@ -862,7 +930,7 @@ const handleExportMyData = async () => {
 
         {/* Tools Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tools</Text>
+          <Text style={styles.sectionTitle}>{t('profile.tools')}</Text>
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => setShowPlateCalc(true)}
@@ -870,8 +938,8 @@ const handleExportMyData = async () => {
             <View style={styles.settingLeft}>
               <Ionicons name="barbell-outline" size={22} color="#FF6200" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Plate Calculator</Text>
-                <Text style={styles.settingValue}>Visual barbell plate breakdown</Text>
+                <Text style={styles.settingLabel}>{t('profile.plateCalculator')}</Text>
+                <Text style={styles.settingValue}>{t('profile.plateCalculatorDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
@@ -883,8 +951,8 @@ const handleExportMyData = async () => {
             <View style={styles.settingLeft}>
               <Ionicons name="trending-up-outline" size={22} color="#FF6200" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Progression Tracker</Text>
-                <Text style={styles.settingValue}>View strength gains over time</Text>
+                <Text style={styles.settingLabel}>{t('profile.progressionTracker')}</Text>
+                <Text style={styles.settingValue}>{t('profile.progressionTrackerDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
@@ -896,8 +964,8 @@ const handleExportMyData = async () => {
             <View style={styles.settingLeft}>
               <Ionicons name="people-outline" size={22} color="#FF6200" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Private Leaderboard</Text>
-                <Text style={styles.settingValue}>Compare with friends over the last 30 days</Text>
+                <Text style={styles.settingLabel}>{t('profile.privateLeaderboard')}</Text>
+                <Text style={styles.settingValue}>{t('profile.privateLeaderboardDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
@@ -906,7 +974,7 @@ const handleExportMyData = async () => {
 
         {/* Notifications Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Reminders</Text>
+          <Text style={styles.sectionTitle}>{t('profile.reminders')}</Text>
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => router.push('/notifications')}
@@ -914,8 +982,8 @@ const handleExportMyData = async () => {
             <View style={styles.settingLeft}>
               <Ionicons name="notifications-outline" size={22} color="#F59E0B" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Push Notifications</Text>
-                <Text style={styles.settingValue}>Workout & nutrition reminders</Text>
+                <Text style={styles.settingLabel}>{t('profile.pushNotifications')}</Text>
+                <Text style={styles.settingValue}>{t('profile.pushNotificationsDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
@@ -924,14 +992,14 @@ const handleExportMyData = async () => {
 
         {/* Health Integrations Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Health Integrations</Text>
+          <Text style={styles.sectionTitle}>{t('profile.healthIntegrations')}</Text>
           <View style={styles.settingItem}>
             <View style={styles.settingLeft}>
               <Ionicons name="heart-outline" size={22} color="#FF6200" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Health Data Consent</Text>
+                <Text style={styles.settingLabel}>{t('profile.healthDataConsent')}</Text>
                 <Text style={styles.settingValue}>
-                  {healthSyncSettings?.consentGiven ? 'Enabled for connected providers' : 'Disabled'}
+                  {healthSyncSettings?.consentGiven ? t('profile.healthDataEnabled') : t('profile.disabled')}
                 </Text>
               </View>
             </View>
@@ -948,8 +1016,8 @@ const handleExportMyData = async () => {
               <View style={styles.settingLeft}>
                 <Ionicons name="phone-portrait-outline" size={20} color="#6B7280" />
                 <View style={styles.settingInfo}>
-                  <Text style={styles.settingLabel}>No provider on this platform</Text>
-                  <Text style={styles.settingValue}>Health sync is available on iOS and Android devices.</Text>
+                  <Text style={styles.settingLabel}>{t('profile.noProvider')}</Text>
+                  <Text style={styles.settingValue}>{t('profile.noProviderDesc')}</Text>
                 </View>
               </View>
             </View>
@@ -972,8 +1040,8 @@ const handleExportMyData = async () => {
                       <View style={styles.settingInfo}>
                         <Text style={styles.settingLabel}>{getProviderLabel(provider)}</Text>
                         <Text style={styles.settingValue}>
-                          {providerState?.connected ? 'Connected' : 'Not connected'}
-                          {providerState?.lastSyncAt ? ` • Last sync ${new Date(providerState.lastSyncAt).toLocaleDateString()}` : ''}
+                          {providerState?.connected ? t('profile.connected') : t('profile.notConnected')}
+                          {providerState?.lastSyncAt ? ` • ${t('profile.lastSync', { date: formatLocalDate(providerState.lastSyncAt) })}` : ''}
                         </Text>
                       </View>
                     </View>
@@ -987,7 +1055,7 @@ const handleExportMyData = async () => {
 
                   {!providerState?.nativeBridgeAvailable ? (
                     <Text style={styles.healthWarningText}>
-                      Native bridge not found in this build. Install native health modules to enable direct device reads.
+                      {t('profile.health.bridgeMissingDetail')}
                     </Text>
                   ) : null}
 
@@ -997,26 +1065,26 @@ const handleExportMyData = async () => {
                       onPress={() => handleConnectHealthProvider(provider)}
                       disabled={isBusy}
                     >
-                      <Text style={styles.healthActionText}>{isBusy ? 'Working...' : 'Connect'}</Text>
+                      <Text style={styles.healthActionText}>{isBusy ? t('profile.working') : t('profile.connect')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.healthActionButton, isBusy && styles.healthActionButtonDisabled]}
                       onPress={() => handleSyncHealthProviderNow(provider)}
                       disabled={isBusy}
                     >
-                      <Text style={styles.healthActionText}>{isBusy ? 'Syncing...' : 'Sync now'}</Text>
+                      <Text style={styles.healthActionText}>{isBusy ? t('profile.syncing') : t('profile.syncNow')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.healthActionButton, styles.healthTroubleshootButton]}
                       onPress={() => showHealthTroubleshooting(provider)}
                     >
-                      <Text style={styles.healthActionText}>Troubleshoot</Text>
+                      <Text style={styles.healthActionText}>{t('profile.troubleshoot')}</Text>
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.healthQualityRow}>
                     <View style={[styles.healthQualityDot, { backgroundColor: qualityColor }]} />
-                    <Text style={styles.healthQualityTitle}>Sync Quality: {quality.label}</Text>
+                    <Text style={styles.healthQualityTitle}>{t('profile.syncQuality', { label: quality.label })}</Text>
                   </View>
                   <Text style={styles.healthQualityDetail}>{quality.detail}</Text>
                 </View>
@@ -1025,22 +1093,22 @@ const handleExportMyData = async () => {
           )}
 
           <Text style={styles.hint}>
-            Health integrations are Pro-only and require explicit consent. Connection state is stored locally and can be revoked anytime.
+            {t('profile.healthHint')}
           </Text>
         </View>
 
         {/* Privacy Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Privacy</Text>
+          <Text style={styles.sectionTitle}>{t('profile.privacy')}</Text>
           <View style={styles.settingItem}>
             <View style={styles.settingLeft}>
               <Ionicons name="shield-checkmark-outline" size={22} color="#FF6200" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>AI Coach Data Sharing</Text>
+                <Text style={styles.settingLabel}>{t('profile.aiCoachDataSharing')}</Text>
                 <Text style={styles.settingValue}>
                   {aiConsent
-                    ? 'Enabled — prompts shared with OpenRouter'
-                    : 'Disabled — AI features are off'}
+                    ? t('profile.aiEnabled')
+                    : t('profile.aiDisabled')}
                 </Text>
               </View>
             </View>
@@ -1052,7 +1120,7 @@ const handleExportMyData = async () => {
             />
           </View>
           <Text style={styles.hint}>
-            When enabled, your AI prompts and replies are shared with OpenRouter for processing. See the AI tab for the full data &amp; health notice.
+            {t('profile.aiHint')}
           </Text>
           <TouchableOpacity
             style={[styles.settingItem, { marginTop: 8 }]}
@@ -1061,8 +1129,8 @@ const handleExportMyData = async () => {
             <View style={styles.settingLeft}>
               <Ionicons name="document-text-outline" size={22} color="#FF6200" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Privacy Policy</Text>
-                <Text style={styles.settingValue}>View data use and rights</Text>
+                <Text style={styles.settingLabel}>{t('profile.privacyPolicy')}</Text>
+                <Text style={styles.settingValue}>{t('profile.privacyPolicyDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
@@ -1074,8 +1142,8 @@ const handleExportMyData = async () => {
             <View style={styles.settingLeft}>
               <Ionicons name="document-outline" size={22} color="#FF6200" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Terms of Service</Text>
-                <Text style={styles.settingValue}>Review app terms</Text>
+                <Text style={styles.settingLabel}>{t('profile.termsOfService')}</Text>
+                <Text style={styles.settingValue}>{t('profile.termsOfServiceDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
@@ -1084,13 +1152,13 @@ const handleExportMyData = async () => {
 
         {/* Account Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
+          <Text style={styles.sectionTitle}>{t('profile.account')}</Text>
           <TouchableOpacity style={styles.settingItem} onPress={handleExportMyData}>
             <View style={styles.settingLeft}>
               <Ionicons name="download-outline" size={22} color="#FF6200" />
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Export My Data</Text>
-                <Text style={styles.settingValue}>Download your account data as JSON</Text>
+                <Text style={styles.settingLabel}>{t('profile.exportMyData')}</Text>
+                <Text style={styles.settingValue}>{t('profile.exportMyDataDesc')}</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#6B7280" />
@@ -1098,15 +1166,15 @@ const handleExportMyData = async () => {
           <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
             <View style={styles.settingLeft}>
               <Ionicons name="log-out-outline" size={22} color="#EF4444" />
-              <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Logout</Text>
+              <Text style={[styles.settingLabel, { color: '#EF4444' }]}>{t('profile.logout')}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity style={styles.settingItem} onPress={handleDeleteAccount}>
             <View style={styles.settingLeft}>
               <Ionicons name="trash-outline" size={22} color="#EF4444" />
               <View style={styles.settingInfo}>
-                <Text style={[styles.settingLabel, { color: '#EF4444' }]}>Delete Account</Text>
-                <Text style={styles.settingValue}>Permanently remove your account and data</Text>
+                <Text style={[styles.settingLabel, { color: '#EF4444' }]}>{t('profile.deleteAccount')}</Text>
+                <Text style={styles.settingValue}>{t('profile.deleteAccountDesc')}</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -1115,7 +1183,7 @@ const handleExportMyData = async () => {
         {/* App Info */}
         <View style={styles.appInfo}>
           <Text style={styles.appName}>GainTrack</Text>
-          <Text style={styles.appVersion}>Version 1.0.0</Text>
+          <Text style={styles.appVersion}>{t('profile.version')}</Text>
         </View>
       </ScrollView>
 
@@ -1124,7 +1192,7 @@ const handleExportMyData = async () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Edit Goals</Text>
+              <Text style={styles.modalTitle}>{t('profile.editGoals')}</Text>
               <TouchableOpacity onPress={() => setShowGoalsModal(false)}>
                 <Ionicons name="close" size={24} color="#9CA3AF" />
               </TouchableOpacity>
@@ -1133,48 +1201,42 @@ const handleExportMyData = async () => {
               {/* TDEE Wizard */}
               <TouchableOpacity style={styles.tdeeToggle} onPress={() => setShowTDEE(v => !v)}>
                 <Ionicons name="calculator-outline" size={18} color="#FF6200" />
-                <Text style={styles.tdeeToggleText}>Calculate with TDEE</Text>
+                <Text style={styles.tdeeToggleText}>{t('profile.calculateWithTdee')}</Text>
                 <Ionicons name={showTDEE ? 'chevron-up' : 'chevron-down'} size={16} color="#B0B0B0" />
               </TouchableOpacity>
               {showTDEE && (
                 <View style={styles.tdeeSection}>
                   <View style={styles.tdeeRow}>
                     <View style={[styles.inputGroup, { flex: 1 }]}>
-                      <Text style={styles.inputLabel}>Weight (kg)</Text>
+                      <Text style={styles.inputLabel}>{t('profile.weightKg')}</Text>
                       <TextInput style={styles.input} value={tdeeWeight} onChangeText={setTdeeWeight} keyboardType="decimal-pad" placeholder="75" placeholderTextColor="#6B7280" />
                     </View>
                     <View style={[styles.inputGroup, { flex: 1 }]}>
-                      <Text style={styles.inputLabel}>Height (cm)</Text>
+                      <Text style={styles.inputLabel}>{t('profile.heightCm')}</Text>
                       <TextInput style={styles.input} value={tdeeHeight} onChangeText={setTdeeHeight} keyboardType="decimal-pad" placeholder="175" placeholderTextColor="#6B7280" />
                     </View>
                   </View>
                   <View style={styles.tdeeRow}>
                     <View style={[styles.inputGroup, { flex: 1 }]}>
-                      <Text style={styles.inputLabel}>Age</Text>
+                      <Text style={styles.inputLabel}>{t('profile.age')}</Text>
                       <TextInput style={styles.input} value={tdeeAge} onChangeText={setTdeeAge} keyboardType="numeric" placeholder="25" placeholderTextColor="#6B7280" />
                     </View>
                     <View style={[styles.inputGroup, { flex: 1 }]}>
-                      <Text style={styles.inputLabel}>Sex</Text>
+                      <Text style={styles.inputLabel}>{t('profile.sex')}</Text>
                       <View style={styles.sexRow}>
                         {(['male', 'female'] as const).map(s => (
                           <TouchableOpacity key={s} style={[styles.sexPill, tdeeSex === s && styles.sexPillActive]} onPress={() => setTdeeSex(s)}>
-                            <Text style={[styles.sexPillText, tdeeSex === s && styles.sexPillTextActive]}>{s === 'male' ? 'Male' : 'Female'}</Text>
+                            <Text style={[styles.sexPillText, tdeeSex === s && styles.sexPillTextActive]}>{s === 'male' ? t('profile.male') : t('profile.female')}</Text>
                           </TouchableOpacity>
                         ))}
                       </View>
                     </View>
                   </View>
                   <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Activity Level</Text>
+                    <Text style={styles.inputLabel}>{t('profile.activityLevel')}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
                       <View style={{ flexDirection: 'row', gap: 8 }}>
-                        {[
-                          { label: 'Sedentary', value: 1.2 },
-                          { label: 'Light', value: 1.375 },
-                          { label: 'Moderate', value: 1.55 },
-                          { label: 'Active', value: 1.725 },
-                          { label: 'Very Active', value: 1.9 },
-                        ].map(opt => (
+                        {activityOptions.map(opt => (
                           <TouchableOpacity key={opt.value} style={[styles.activityPill, tdeeActivity === opt.value && styles.activityPillActive]} onPress={() => setTdeeActivity(opt.value)}>
                             <Text style={[styles.activityPillText, tdeeActivity === opt.value && styles.activityPillTextActive]}>{opt.label}</Text>
                           </TouchableOpacity>
@@ -1184,28 +1246,28 @@ const handleExportMyData = async () => {
                   </View>
                   <TouchableOpacity style={styles.tdeeCalcBtn} onPress={calculateTDEE}>
                     <Ionicons name="flash" size={16} color="#FFFFFF" />
-                    <Text style={styles.tdeeCalcBtnText}>Apply TDEE Goals</Text>
+                    <Text style={styles.tdeeCalcBtnText}>{t('profile.applyTdeeGoals')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Daily Calories</Text>
+                <Text style={styles.inputLabel}>{t('profile.dailyCalories')}</Text>
                 <TextInput style={styles.input} value={calories} onChangeText={setCalories} keyboardType="numeric" placeholder="2000" placeholderTextColor="#6B7280" />
               </View>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Protein (g)</Text>
+                <Text style={styles.inputLabel}>{t('profile.protein')}</Text>
                 <TextInput style={styles.input} value={protein} onChangeText={setProtein} keyboardType="numeric" placeholder="150" placeholderTextColor="#6B7280" />
               </View>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Carbs (g)</Text>
+                <Text style={styles.inputLabel}>{t('profile.carbs')}</Text>
                 <TextInput style={styles.input} value={carbs} onChangeText={setCarbs} keyboardType="numeric" placeholder="200" placeholderTextColor="#6B7280" />
               </View>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Fat (g)</Text>
+                <Text style={styles.inputLabel}>{t('profile.fat')}</Text>
                 <TextInput style={styles.input} value={fat} onChangeText={setFat} keyboardType="numeric" placeholder="65" placeholderTextColor="#6B7280" />
               </View>
               <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={saveGoals} disabled={isSaving}>
-                <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save Goals'}</Text>
+                <Text style={styles.saveButtonText}>{isSaving ? t('common.saving') : t('profile.saveGoals')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.resetButton} onPress={() => {
                 setCalories('2000');
@@ -1213,7 +1275,7 @@ const handleExportMyData = async () => {
                 setCarbs('200');
                 setFat('65');
               }}>
-                <Text style={styles.resetButtonText}>Restore Defaults</Text>
+                <Text style={styles.resetButtonText}>{t('common.restoreDefaults')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -1225,7 +1287,7 @@ const handleExportMyData = async () => {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { paddingBottom: 32 }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Plate Calculator</Text>
+              <Text style={styles.modalTitle}>{t('profile.plateCalculator')}</Text>
               <TouchableOpacity onPress={() => setShowPlateCalc(false)}>
                 <Ionicons name="close" size={24} color="#9CA3AF" />
               </TouchableOpacity>
@@ -1240,12 +1302,12 @@ const handleExportMyData = async () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>My Equipment</Text>
+              <Text style={styles.modalTitle}>{t('profile.myEquipmentTitle')}</Text>
               <TouchableOpacity onPress={() => setShowEquipmentModal(false)}>
                 <Ionicons name="close" size={24} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalSubtitle}>Select the equipment you have at home</Text>
+            <Text style={styles.modalSubtitle}>{t('profile.myEquipmentSubtitle')}</Text>
             <View style={styles.equipmentGrid}>
               {EQUIPMENT_OPTIONS.map((eq) => (
                 <TouchableOpacity
@@ -1255,16 +1317,16 @@ const handleExportMyData = async () => {
                 >
                   <Ionicons name={eq.icon as any} size={28} color={selectedEquipment.includes(eq.id) ? '#10B981' : '#6B7280'} />
                   <Text style={[styles.equipmentLabel, selectedEquipment.includes(eq.id) && styles.equipmentLabelSelected]}>
-                    {getEquipmentLabel(eq.id)}
+                    {getLocalizedEquipmentLabel(eq.id)}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
             <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={saveEquipment} disabled={isSaving}>
-              <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save Equipment'}</Text>
+              <Text style={styles.saveButtonText}>{isSaving ? t('common.saving') : t('profile.saveEquipment')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.resetButton} onPress={() => setSelectedEquipment(['dumbbells', 'barbell', 'pullup_bar'])}>
-              <Text style={styles.resetButtonText}>Restore Defaults</Text>
+              <Text style={styles.resetButtonText}>{t('common.restoreDefaults')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1283,11 +1345,11 @@ const styles = StyleSheet.create({
   userEmail: { color: '#6B7280', fontSize: 14, marginTop: 4 },
   section: { paddingHorizontal: 20, marginBottom: 24 },
   sectionTitle: { color: '#6B7280', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', marginBottom: 12 },
-  settingItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1F2937', padding: 16, borderRadius: 12, marginBottom: 8 },
-  settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  settingInfo: { marginLeft: 4 },
-  settingLabel: { color: '#FFFFFF', fontSize: 16 },
-  settingValue: { color: '#6B7280', fontSize: 12, marginTop: 2 },
+  settingItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1F2937', padding: 16, borderRadius: 12, marginBottom: 8, gap: 12 },
+  settingLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
+  settingInfo: { marginLeft: 4, flex: 1, minWidth: 0 },
+  settingLabel: { color: '#FFFFFF', fontSize: 16, flexShrink: 1 },
+  settingValue: { color: '#6B7280', fontSize: 12, marginTop: 2, flexShrink: 1, lineHeight: 16 },
   hint: { color: '#6B7280', fontSize: 12, marginTop: 8, paddingHorizontal: 4 },
   appInfo: { alignItems: 'center', paddingTop: 32 },
   appName: { color: '#10B981', fontSize: 18, fontWeight: '700' },
@@ -1304,11 +1366,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FF6200',
+    paddingHorizontal: 14,
     paddingVertical: 14,
     borderRadius: 12,
     marginTop: 8,
   },
-  goProText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  goProText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end' },
   modalContent: { flex: 1, backgroundColor: '#1F2937', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingTop: 24, maxHeight: '95%' },
   modalScrollContent: { paddingHorizontal: 0, paddingBottom: 40 },
@@ -1328,10 +1391,10 @@ const styles = StyleSheet.create({
   equipmentLabelSelected: { color: '#10B981' },
   resetButton: { paddingVertical: 12, alignItems: 'center', marginTop: 8 },
   resetButtonText: { color: '#6B7280', fontSize: 14, textDecorationLine: 'underline' },
-  unitToggleRow: { flexDirection: 'row', gap: 8 },
-  unitPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#111827', borderWidth: 1.5, borderColor: '#374151' },
+  unitToggleRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  unitPill: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#111827', borderWidth: 1.5, borderColor: '#374151', minHeight: 36, justifyContent: 'center' },
   unitPillActive: { borderColor: '#FF6200', backgroundColor: '#FF620018' },
-  unitPillText: { color: '#6B7280', fontSize: 13, fontWeight: '600' },
+  unitPillText: { color: '#6B7280', fontSize: 13, fontWeight: '600', flexShrink: 1 },
   unitPillTextActive: { color: '#FF6200' },
   tdeeToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 4, marginBottom: 4 },
   tdeeToggleText: { flex: 1, color: '#FF6200', fontSize: 14, fontWeight: '600' },
@@ -1350,7 +1413,7 @@ const styles = StyleSheet.create({
   tdeeCalcBtnText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   healthProviderCard: { flexDirection: 'column', alignItems: 'stretch', gap: 10 },
   healthProviderHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  healthProviderActions: { flexDirection: 'row', gap: 10 },
+  healthProviderActions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   healthTroubleshootButton: {
     backgroundColor: '#1F2937',
   },
@@ -1361,9 +1424,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 12,
+    minWidth: 92,
   },
   healthActionButtonDisabled: { opacity: 0.6 },
-  healthActionText: { color: '#FF6200', fontSize: 13, fontWeight: '700' },
+  healthActionText: { color: '#FF6200', fontSize: 13, fontWeight: '700', textAlign: 'center', flexShrink: 1 },
   healthQualityRow: {
     flexDirection: 'row',
     alignItems: 'center',

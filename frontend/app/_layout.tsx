@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useNativeAuthState } from '../src/hooks/useAuth';
 import { AuthProvider } from '../src/context/AuthContext';
+import { LanguageProvider } from '../src/context/LanguageContext';
 import { ThemeProvider } from '../src/constants/ThemeProvider';
 import AuthSplash from '../src/components/AuthSplash';
 import { initRevenueCat } from '../src/services/revenueCat'; // [PRO]
@@ -174,41 +175,43 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
     <ThemeProvider>
-      <AuthProvider>
-        <StatusBar style="light" />
-        {/* Stack always renders so expo-router can mark navigation ready
-            and dismiss the native splash screen automatically.
-            backgroundColor on screenOptions prevents the SSR default
-            rgba(242,242,242) from causing a React #418 hydration mismatch. */}
-        <ErrorBoundary>
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="workout-history" options={{ presentation: 'card' }} />
-          <Stack.Screen name="workout/[id]" options={{ presentation: 'card' }} />
-          <Stack.Screen name="workout/active" options={{ presentation: 'card' }} />
-          <Stack.Screen name="add-food" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="programs" options={{ presentation: 'card' }} />
-          <Stack.Screen name="progression" options={{ presentation: 'card' }} />
-          <Stack.Screen name="measurements" options={{ presentation: 'card' }} />
-          <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
-          <Stack.Screen name="body-composition-goal" options={{ presentation: 'card' }} />
-          <Stack.Screen name="body-goals" options={{ presentation: 'card' }} />
-          <Stack.Screen name="pro-paywall" options={{ presentation: 'modal', headerShown: false }} />
-          <Stack.Screen name="privacy-policy" options={{ presentation: 'card' }} />
-          <Stack.Screen name="terms" options={{ presentation: 'card' }} />
-        </Stack>
-        </ErrorBoundary>
-        {/* AuthSplash overlays on top while auth is still resolving, preventing
-            any auth-gated screen from flashing before the redirect fires.
-            `hasMounted` guard ensures the SSR HTML (no overlay) matches the
-            first client render, preventing React hydration mismatch #418. */}
-        {hasMounted && (status === 'loading' || !authReady || otaMessage !== undefined) && (
-          <View style={StyleSheet.absoluteFill}>
-            <AuthSplash message={otaMessage} />
-          </View>
-        )}
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <StatusBar style="light" />
+          {/* Stack always renders so expo-router can mark navigation ready
+              and dismiss the native splash screen automatically.
+              backgroundColor on screenOptions prevents the SSR default
+              rgba(242,242,242) from causing a React #418 hydration mismatch. */}
+          <ErrorBoundary>
+          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="workout-history" options={{ presentation: 'card' }} />
+            <Stack.Screen name="workout/[id]" options={{ presentation: 'card' }} />
+            <Stack.Screen name="workout/active" options={{ presentation: 'card' }} />
+            <Stack.Screen name="add-food" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="programs" options={{ presentation: 'card' }} />
+            <Stack.Screen name="progression" options={{ presentation: 'card' }} />
+            <Stack.Screen name="measurements" options={{ presentation: 'card' }} />
+            <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
+            <Stack.Screen name="body-composition-goal" options={{ presentation: 'card' }} />
+            <Stack.Screen name="body-goals" options={{ presentation: 'card' }} />
+            <Stack.Screen name="pro-paywall" options={{ presentation: 'modal', headerShown: false }} />
+            <Stack.Screen name="privacy-policy" options={{ presentation: 'card' }} />
+            <Stack.Screen name="terms" options={{ presentation: 'card' }} />
+          </Stack>
+          </ErrorBoundary>
+          {/* AuthSplash overlays on top while auth is still resolving, preventing
+              any auth-gated screen from flashing before the redirect fires.
+              `hasMounted` guard ensures the SSR HTML (no overlay) matches the
+              first client render, preventing React hydration mismatch #418. */}
+          {hasMounted && (status === 'loading' || !authReady || otaMessage !== undefined) && (
+            <View style={StyleSheet.absoluteFill}>
+              <AuthSplash message={otaMessage} />
+            </View>
+          )}
+        </AuthProvider>
+      </LanguageProvider>
     </ThemeProvider>
     </GestureHandlerRootView>
   );

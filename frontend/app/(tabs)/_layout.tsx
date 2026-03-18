@@ -4,8 +4,11 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import { initializeData } from '../../src/services/storage';
+import { useLanguage } from '../../src/context/LanguageContext';
 
 export default function TabLayout() {
+  const { t } = useLanguage();
+
   // Run once when the tab layout mounts to seed foods & exercises
   useEffect(() => {
     initializeData();
@@ -34,7 +37,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Workouts',
+          title: t('tabs.workouts'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="barbell-outline" size={size} color={color} />
           ),
@@ -43,7 +46,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="exercises"
         options={{
-          title: 'Exercises',
+          title: t('tabs.exercises'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list-outline" size={size} color={color} />
           ),
@@ -52,7 +55,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="programs"
         options={{
-          title: 'Programs',
+          title: t('tabs.programs'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="layers-outline" size={size} color={color} />
           ),
@@ -61,7 +64,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="nutrition"
         options={{
-          title: 'Nutrition',
+          title: t('tabs.nutrition'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="restaurant-outline" size={size} color={color} />
           ),
@@ -70,7 +73,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="progress"
         options={{
-          title: 'Progress',
+          title: t('tabs.progress'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trending-up-outline" size={size} color={color} />
           ),
@@ -79,7 +82,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Calendar',
+          title: t('tabs.calendar'),
           href: null,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar-outline" size={size} color={color} />
@@ -89,7 +92,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="plates"
         options={{
-          title: 'Plates',
+          title: t('tabs.plates'),
           href: null,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calculator-outline" size={size} color={color} />
@@ -99,7 +102,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="ai-suggestions"
         options={{
-          title: 'AI',
+          title: t('tabs.ai'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="sparkles-outline" size={size} color={color} />
           ),
@@ -108,7 +111,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: t('tabs.profile'),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size} color={color} />
           ),
