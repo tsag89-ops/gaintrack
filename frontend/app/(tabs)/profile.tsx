@@ -1113,91 +1113,93 @@ const handleExportMyData = async () => {
                 <Ionicons name="close" size={24} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
-            {/* TDEE Wizard */}
-            <TouchableOpacity style={styles.tdeeToggle} onPress={() => setShowTDEE(v => !v)}>
-              <Ionicons name="calculator-outline" size={18} color="#FF6200" />
-              <Text style={styles.tdeeToggleText}>Calculate with TDEE</Text>
-              <Ionicons name={showTDEE ? 'chevron-up' : 'chevron-down'} size={16} color="#B0B0B0" />
-            </TouchableOpacity>
-            {showTDEE && (
-              <View style={styles.tdeeSection}>
-                <View style={styles.tdeeRow}>
-                  <View style={[styles.inputGroup, { flex: 1 }]}>
-                    <Text style={styles.inputLabel}>Weight (kg)</Text>
-                    <TextInput style={styles.input} value={tdeeWeight} onChangeText={setTdeeWeight} keyboardType="decimal-pad" placeholder="75" placeholderTextColor="#6B7280" />
-                  </View>
-                  <View style={[styles.inputGroup, { flex: 1 }]}>
-                    <Text style={styles.inputLabel}>Height (cm)</Text>
-                    <TextInput style={styles.input} value={tdeeHeight} onChangeText={setTdeeHeight} keyboardType="decimal-pad" placeholder="175" placeholderTextColor="#6B7280" />
-                  </View>
-                </View>
-                <View style={styles.tdeeRow}>
-                  <View style={[styles.inputGroup, { flex: 1 }]}>
-                    <Text style={styles.inputLabel}>Age</Text>
-                    <TextInput style={styles.input} value={tdeeAge} onChangeText={setTdeeAge} keyboardType="numeric" placeholder="25" placeholderTextColor="#6B7280" />
-                  </View>
-                  <View style={[styles.inputGroup, { flex: 1 }]}>
-                    <Text style={styles.inputLabel}>Sex</Text>
-                    <View style={styles.sexRow}>
-                      {(['male', 'female'] as const).map(s => (
-                        <TouchableOpacity key={s} style={[styles.sexPill, tdeeSex === s && styles.sexPillActive]} onPress={() => setTdeeSex(s)}>
-                          <Text style={[styles.sexPillText, tdeeSex === s && styles.sexPillTextActive]}>{s === 'male' ? 'Male' : 'Female'}</Text>
-                        </TouchableOpacity>
-                      ))}
+            <ScrollView contentContainerStyle={styles.modalScrollContent} showsVerticalScrollIndicator={false}>
+              {/* TDEE Wizard */}
+              <TouchableOpacity style={styles.tdeeToggle} onPress={() => setShowTDEE(v => !v)}>
+                <Ionicons name="calculator-outline" size={18} color="#FF6200" />
+                <Text style={styles.tdeeToggleText}>Calculate with TDEE</Text>
+                <Ionicons name={showTDEE ? 'chevron-up' : 'chevron-down'} size={16} color="#B0B0B0" />
+              </TouchableOpacity>
+              {showTDEE && (
+                <View style={styles.tdeeSection}>
+                  <View style={styles.tdeeRow}>
+                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                      <Text style={styles.inputLabel}>Weight (kg)</Text>
+                      <TextInput style={styles.input} value={tdeeWeight} onChangeText={setTdeeWeight} keyboardType="decimal-pad" placeholder="75" placeholderTextColor="#6B7280" />
+                    </View>
+                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                      <Text style={styles.inputLabel}>Height (cm)</Text>
+                      <TextInput style={styles.input} value={tdeeHeight} onChangeText={setTdeeHeight} keyboardType="decimal-pad" placeholder="175" placeholderTextColor="#6B7280" />
                     </View>
                   </View>
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Activity Level</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      {[
-                        { label: 'Sedentary', value: 1.2 },
-                        { label: 'Light', value: 1.375 },
-                        { label: 'Moderate', value: 1.55 },
-                        { label: 'Active', value: 1.725 },
-                        { label: 'Very Active', value: 1.9 },
-                      ].map(opt => (
-                        <TouchableOpacity key={opt.value} style={[styles.activityPill, tdeeActivity === opt.value && styles.activityPillActive]} onPress={() => setTdeeActivity(opt.value)}>
-                          <Text style={[styles.activityPillText, tdeeActivity === opt.value && styles.activityPillTextActive]}>{opt.label}</Text>
-                        </TouchableOpacity>
-                      ))}
+                  <View style={styles.tdeeRow}>
+                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                      <Text style={styles.inputLabel}>Age</Text>
+                      <TextInput style={styles.input} value={tdeeAge} onChangeText={setTdeeAge} keyboardType="numeric" placeholder="25" placeholderTextColor="#6B7280" />
                     </View>
-                  </ScrollView>
+                    <View style={[styles.inputGroup, { flex: 1 }]}>
+                      <Text style={styles.inputLabel}>Sex</Text>
+                      <View style={styles.sexRow}>
+                        {(['male', 'female'] as const).map(s => (
+                          <TouchableOpacity key={s} style={[styles.sexPill, tdeeSex === s && styles.sexPillActive]} onPress={() => setTdeeSex(s)}>
+                            <Text style={[styles.sexPillText, tdeeSex === s && styles.sexPillTextActive]}>{s === 'male' ? 'Male' : 'Female'}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  </View>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Activity Level</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6 }}>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {[
+                          { label: 'Sedentary', value: 1.2 },
+                          { label: 'Light', value: 1.375 },
+                          { label: 'Moderate', value: 1.55 },
+                          { label: 'Active', value: 1.725 },
+                          { label: 'Very Active', value: 1.9 },
+                        ].map(opt => (
+                          <TouchableOpacity key={opt.value} style={[styles.activityPill, tdeeActivity === opt.value && styles.activityPillActive]} onPress={() => setTdeeActivity(opt.value)}>
+                            <Text style={[styles.activityPillText, tdeeActivity === opt.value && styles.activityPillTextActive]}>{opt.label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  </View>
+                  <TouchableOpacity style={styles.tdeeCalcBtn} onPress={calculateTDEE}>
+                    <Ionicons name="flash" size={16} color="#FFFFFF" />
+                    <Text style={styles.tdeeCalcBtnText}>Apply TDEE Goals</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.tdeeCalcBtn} onPress={calculateTDEE}>
-                  <Ionicons name="flash" size={16} color="#FFFFFF" />
-                  <Text style={styles.tdeeCalcBtnText}>Apply TDEE Goals</Text>
-                </TouchableOpacity>
+              )}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Daily Calories</Text>
+                <TextInput style={styles.input} value={calories} onChangeText={setCalories} keyboardType="numeric" placeholder="2000" placeholderTextColor="#6B7280" />
               </View>
-            )}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Daily Calories</Text>
-              <TextInput style={styles.input} value={calories} onChangeText={setCalories} keyboardType="numeric" placeholder="2000" placeholderTextColor="#6B7280" />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Protein (g)</Text>
-              <TextInput style={styles.input} value={protein} onChangeText={setProtein} keyboardType="numeric" placeholder="150" placeholderTextColor="#6B7280" />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Carbs (g)</Text>
-              <TextInput style={styles.input} value={carbs} onChangeText={setCarbs} keyboardType="numeric" placeholder="200" placeholderTextColor="#6B7280" />
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Fat (g)</Text>
-              <TextInput style={styles.input} value={fat} onChangeText={setFat} keyboardType="numeric" placeholder="65" placeholderTextColor="#6B7280" />
-            </View>
-            <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={saveGoals} disabled={isSaving}>
-              <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save Goals'}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.resetButton} onPress={() => {
-              setCalories('2000');
-              setProtein('150');
-              setCarbs('200');
-              setFat('65');
-            }}>
-              <Text style={styles.resetButtonText}>Restore Defaults</Text>
-            </TouchableOpacity>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Protein (g)</Text>
+                <TextInput style={styles.input} value={protein} onChangeText={setProtein} keyboardType="numeric" placeholder="150" placeholderTextColor="#6B7280" />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Carbs (g)</Text>
+                <TextInput style={styles.input} value={carbs} onChangeText={setCarbs} keyboardType="numeric" placeholder="200" placeholderTextColor="#6B7280" />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Fat (g)</Text>
+                <TextInput style={styles.input} value={fat} onChangeText={setFat} keyboardType="numeric" placeholder="65" placeholderTextColor="#6B7280" />
+              </View>
+              <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={saveGoals} disabled={isSaving}>
+                <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save Goals'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.resetButton} onPress={() => {
+                setCalories('2000');
+                setProtein('150');
+                setCarbs('200');
+                setFat('65');
+              }}>
+                <Text style={styles.resetButtonText}>Restore Defaults</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1292,8 +1294,9 @@ const styles = StyleSheet.create({
   },
   goProText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#1F2937', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalContent: { flex: 1, backgroundColor: '#1F2937', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 24, paddingTop: 24, maxHeight: '95%' },
+  modalScrollContent: { paddingHorizontal: 0, paddingBottom: 40 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, paddingRight: 0 },
   modalTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '700' },
   modalSubtitle: { color: '#9CA3AF', fontSize: 14, marginBottom: 20 },
   inputGroup: { marginBottom: 16 },
