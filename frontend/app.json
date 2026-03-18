@@ -63,8 +63,10 @@
         "expo-notifications",
         {
           "icon": "./assets/images/notification-icon.png",
-          "color": "#10B981",
-          "sounds": []
+          "color": "#FF6200",
+          "sounds": [
+            "./assets/sounds/rest-bell.wav"
+          ]
         }
       ],
       [

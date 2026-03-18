@@ -46,6 +46,7 @@ Notifications.setNotificationHandler({
 const DEFAULT_REST_SECONDS = 90;
 const REST_TIMER_CHANNEL_ID = 'rest-timer-alerts';
 const REST_DURATION_KEY = 'gaintrack_rest_duration';
+const REST_TIMER_SOUND = 'rest-bell.wav';
 const SUPERSET_COLORS = ['#FF6200', '#4CAF50', '#29B6F6', '#FFB300', '#EF5350', '#AB47BC'];
 const WORKOUT_MILESTONES = [1, 5, 10, 25, 50, 100, 200];
 const SUPERSET_FIRST_COMPLETION_PROMPT_KEY = 'gaintrack_superset_first_completion_prompted';
@@ -207,7 +208,7 @@ const ActiveWorkoutScreen: React.FC = () => {
     });
   };
 
-    // Start rest timer and schedule a single completion bell.
+  // Start rest timer and schedule a single completion bell.
   const startRestForExercise = async (exerciseId: string) => {
     const ex = exerciseList.find((e) => e.exercise_id === exerciseId);
     const secs = ex?.restSeconds ?? restSeconds;
@@ -216,19 +217,19 @@ const ActiveWorkoutScreen: React.FC = () => {
     setActiveRest(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-        const id = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: '\uD83D\uDD14 Rest over!',
-            body: 'Time for your next set \uD83D\uDCAA',
-            sound: 'default',
-            ...(Platform.OS === 'android' ? { android: { channelId: REST_TIMER_CHANNEL_ID } } : {}),
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-            seconds: secs,
-          },
-        });
-        restNotifIdsRef.current.push(id);
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '\uD83D\uDD14 Rest over!',
+          body: 'Time for your next set \uD83D\uDCAA',
+          sound: REST_TIMER_SOUND,
+          ...(Platform.OS === 'android' ? { android: { channelId: REST_TIMER_CHANNEL_ID } } : {}),
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: secs,
+        },
+      });
+      restNotifIdsRef.current.push(id);
     } catch {}
   };
 
@@ -392,7 +393,7 @@ const ActiveWorkoutScreen: React.FC = () => {
       Notifications.setNotificationChannelAsync(REST_TIMER_CHANNEL_ID, {
         name: 'Rest Timer Alerts',
         importance: Notifications.AndroidImportance.HIGH,
-        sound: 'default',
+        sound: REST_TIMER_SOUND,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF6200',
       }).catch(() => null);
