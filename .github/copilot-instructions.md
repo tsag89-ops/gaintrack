@@ -70,6 +70,7 @@ npx eas update --branch production --message "<description>"
 - Use expo-haptics for user interactions where app patterns already use haptics.
 - Use react-native-reanimated for non-trivial animations.
 - Keep comments concise and meaningful.
+- Always commit, push and update to main after each completed task with a clear message; avoid large commits spanning multiple concerns.
 
 ## Pro Gating and Data Rules
 - Gate paid features through frontend/src/hooks/usePro.ts.
