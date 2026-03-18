@@ -229,8 +229,24 @@ export default function ProfileScreen() {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const result = await connectHealthProvider(provider);
+      if (!result.ok) {
+        await refreshHealthSyncSettings();
+        Alert.alert('Connection issue', result.message);
+        return;
+      }
+
+      // Immediately hydrate GainTrack with provider data after a successful connect.
+      const baseline = await syncHealthProviderBaseline(provider);
       await refreshHealthSyncSettings();
-      Alert.alert(result.ok ? 'Connected' : 'Connection issue', result.message);
+
+      if (baseline.ok && baseline.snapshot) {
+        Alert.alert(
+          'Connected & Synced',
+          `${result.message}\n\nProvider records: ${baseline.snapshot.providerRecordsRead}\nWorkouts: ${baseline.snapshot.workoutsImported}\nNutrition days: ${baseline.snapshot.nutritionDaysImported}\nMeasurements: ${baseline.snapshot.measurementsImported}`,
+        );
+      } else {
+        Alert.alert('Connected', `${result.message}\n\n${baseline.message}`);
+      }
     } catch (error: any) {
       Alert.alert(
         'Connection issue',

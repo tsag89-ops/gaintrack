@@ -31,6 +31,8 @@ import { usePro } from '../../src/hooks/usePro';
 import { Workout } from '../../src/types';
 import { theme } from '../../src/constants/theme';
 import { BUILD_LABEL } from '../../src/constants/build';
+import { getHealthSyncSettings } from '../../src/services/healthSync';
+import { useTodayHealthCard } from '../../src/hooks/useHealthTrackIntegration';
 import {
   calculateWorkoutVolume,
   formatVolume,
@@ -137,6 +139,20 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [resumeWorkoutName, setResumeWorkoutName] = useState<string | null>(null);
   const [nutritionTrackedDays, setNutritionTrackedDays] = useState(0);
+  const [healthConnected, setHealthConnected] = useState(false);
+  const [healthConsentGiven, setHealthConsentGiven] = useState(false);
+  const {
+    stepsDisplay,
+    distanceDisplay,
+    caloriesDisplay,
+    weightDisplay,
+    isLoading: healthLoading,
+    error: healthError,
+    refetch: refetchHealthCard,
+  } = useTodayHealthCard();
+
+  const healthCardEnabled = Platform.OS === 'android' && isPro;
+  const healthCardReady = healthCardEnabled && healthConnected && healthConsentGiven;
 
   useEffect(() => {
     sendEngagementTelemetry({
@@ -170,15 +186,38 @@ export default function HomeScreen() {
     await loadUserWorkouts(uid);
   }, [uid, loadUserWorkouts]);
 
+  const refreshHealthStatus = useCallback(async () => {
+    if (Platform.OS !== 'android' || !isPro) {
+      setHealthConnected(false);
+      setHealthConsentGiven(false);
+      return;
+    }
+
+    try {
+      const settings = await getHealthSyncSettings();
+      const provider = settings.providers.google_fit;
+      setHealthConnected(Boolean(provider?.connected));
+      setHealthConsentGiven(Boolean(settings.consentGiven));
+    } catch {
+      setHealthConnected(false);
+      setHealthConsentGiven(false);
+    }
+  }, [isPro]);
+
   useFocusEffect(
     useCallback(() => {
       fetchWorkouts();
+      refreshHealthStatus();
     }, [fetchWorkouts]),
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchWorkouts();
+    await Promise.all([
+      fetchWorkouts(),
+      refreshHealthStatus(),
+      healthCardReady ? refetchHealthCard() : Promise.resolve(),
+    ]);
     setRefreshing(false);
   };
 
@@ -511,6 +550,80 @@ export default function HomeScreen() {
         <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
       </TouchableOpacity>
 
+      {healthCardEnabled && (
+        <Card style={styles.healthCard}>
+          <View style={styles.healthCardHeader}>
+            <View style={styles.healthCardTitleRow}>
+              <Ionicons name="fitness-outline" size={18} color={theme.primary} />
+              <Text style={styles.sectionTitle}>Health Connect Today</Text>
+            </View>
+
+            {healthCardReady ? (
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  refetchHealthCard();
+                }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                {healthLoading ? (
+                  <ActivityIndicator size="small" color={theme.primary} />
+                ) : (
+                  <Ionicons name="refresh" size={18} color={theme.primary} />
+                )}
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {healthCardReady ? (
+            <>
+              <View style={styles.healthMetricsGrid}>
+                <View style={styles.healthMetricChip}>
+                  <Ionicons name="footsteps-outline" size={16} color={theme.primary} />
+                  <Text style={styles.healthMetricText}>{stepsDisplay}</Text>
+                </View>
+                <View style={styles.healthMetricChip}>
+                  <Ionicons name="map-outline" size={16} color={theme.primary} />
+                  <Text style={styles.healthMetricText}>{distanceDisplay}</Text>
+                </View>
+                <View style={styles.healthMetricChip}>
+                  <Ionicons name="flame-outline" size={16} color={theme.primary} />
+                  <Text style={styles.healthMetricText}>{caloriesDisplay}</Text>
+                </View>
+                <View style={styles.healthMetricChip}>
+                  <Ionicons name="scale-outline" size={16} color={theme.primary} />
+                  <Text style={styles.healthMetricText}>{weightDisplay}</Text>
+                </View>
+              </View>
+
+              {healthError ? (
+                <Text style={styles.healthCardHint}>
+                  Sync warning: {healthError}
+                </Text>
+              ) : (
+                <Text style={styles.healthCardHint}>
+                  Pull to refresh or tap refresh to sync latest readings.
+                </Text>
+              )}
+            </>
+          ) : (
+            <>
+              <Text style={styles.healthCardHint}>
+                Connect Health Connect from Profile to start auto-importing your daily steps, distance, calories, and weight.
+              </Text>
+              <TouchableOpacity
+                style={styles.healthConnectButton}
+                onPress={() => router.push('/(tabs)/profile')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.healthConnectButtonText}>Open Profile</Text>
+                <Ionicons name="chevron-forward" size={14} color={theme.primary} />
+              </TouchableOpacity>
+            </>
+          )}
+        </Card>
+      )}
+
       <Card style={styles.engagementCard}>
         <View style={styles.engagementHeader}>
           <Text style={styles.sectionTitle}>This Week Momentum</Text>
@@ -658,6 +771,15 @@ export default function HomeScreen() {
     completedWorkoutsCount,
     streakAtRisk,
     handleWeeklyRecapPress,
+    healthCardEnabled,
+    healthCardReady,
+    healthLoading,
+    healthError,
+    stepsDisplay,
+    distanceDisplay,
+    caloriesDisplay,
+    weightDisplay,
+    refetchHealthCard,
     router,
   ]);
 
@@ -845,6 +967,62 @@ const styles = StyleSheet.create({
   engagementCard: {
     marginBottom: 16,
     gap: 12,
+  },
+  healthCard: {
+    marginBottom: 16,
+    gap: 10,
+  },
+  healthCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  healthCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  healthMetricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  healthMetricChip: {
+    width: '48%',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.charcoal,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  healthMetricText: {
+    color: theme.textPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  healthCardHint: {
+    color: theme.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  healthConnectButton: {
+    marginTop: 2,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  healthConnectButtonText: {
+    color: theme.primary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   engagementHeader: {
     flexDirection: 'row',
