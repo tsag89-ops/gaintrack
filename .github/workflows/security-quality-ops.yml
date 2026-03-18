@@ -206,9 +206,6 @@ jobs:
     name: Native Patch Integrity Gate
     runs-on: ubuntu-latest
 
-    outputs:
-      skip_kotlin: ${{ steps.patch_check.outputs.skip_kotlin }}
-
     defaults:
       run:
         working-directory: frontend
@@ -240,13 +237,10 @@ jobs:
           echo "Patch files found: $count"
           if [ "$count" -eq 0 ]; then
             echo "No patch files found in frontend/patches/ - skipping Kotlin compile check."
-            echo "skip_kotlin=true" >> $GITHUB_OUTPUT
-          else
-            echo "skip_kotlin=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Ensure Android google-services file for prebuild
-        if: steps.patch_check.outputs.skip_kotlin == 'false'
+        if: hashFiles('frontend/patches/*.patch') != ''
         run: |
           if [ ! -f google-services.json ]; then
             cat > google-services.json <<'EOF'
@@ -283,13 +277,13 @@ jobs:
           fi
 
       - name: Generate Android project (prebuild)
-        if: steps.patch_check.outputs.skip_kotlin == 'false'
+        if: hashFiles('frontend/patches/*.patch') != ''
         run: npx expo prebuild --platform android --no-install
         env:
           EXPO_NO_DOTENV: "1"
 
       - name: Compile Android Kotlin sources
-        if: steps.patch_check.outputs.skip_kotlin == 'false'
+        if: hashFiles('frontend/patches/*.patch') != ''
         working-directory: frontend/android
         run: ./gradlew compileDebugKotlin --no-daemon --stacktrace 2>&1 | tee ../../test_reports/kotlin-compile.txt
 
