@@ -1,23 +1,78 @@
-#!/bin/bash
+#!/bin/sh
 
-# Pre-build hook for EAS: Ensure google-services.json exists
-# Since google-services.json is gitignore'd, EAS won't have it
-# This script creates a placeholder that the Firebase plugin can read
+# EAS lifecycle script: ensure android/app/google-services.json exists.
+# Prefers channel/profile-specific env vars and falls back to placeholder.
 
-set -e
+set -eu
 
-# Path where Gradle expects google-services.json (relative to frontend dir)
 GOOGLE_SERVICES_PATH="android/app/google-services.json"
+PROFILE="${EAS_BUILD_PROFILE:-}"
 
-# If the file already exists (from EAS secrets or upload), skip
+echo "EAS profile: ${PROFILE:-unknown}"
+
 if [ -f "$GOOGLE_SERVICES_PATH" ]; then
-  echo "✅ google-services.json already exists"
+  echo "google-services.json already present"
   exit 0
 fi
 
-# Otherwise, create a placeholder for CI/dev builds
-echo "📝 Creating placeholder google-services.json for EAS build..."
+pick_first_set_var() {
+  for var_name in "$@"; do
+    eval "var_value=\${$var_name:-}"
+    if [ -n "$var_value" ]; then
+      printf '%s' "$var_name"
+      return 0
+    fi
+  done
+  return 1
+}
 
+write_from_env_var() {
+  src_var="$1"
+  eval "raw_value=\${$src_var}"
+
+  case "$raw_value" in
+    \{*)
+      printf '%s' "$raw_value" > "$GOOGLE_SERVICES_PATH"
+      ;;
+    *)
+      decoded="$(printf '%s' "$raw_value" | base64 -d 2>/dev/null || true)"
+      if [ -n "$decoded" ]; then
+        printf '%s' "$decoded" > "$GOOGLE_SERVICES_PATH"
+      else
+        return 1
+      fi
+      ;;
+  esac
+
+  return 0
+}
+
+case "$PROFILE" in
+  production|production-apk)
+    CANDIDATES="GOOGLE_SERVICES_JSON_PRODUCTION GOOGLE_SERVICES_JSON_PROD GOOGLE_SERVICES_JSON"
+    ;;
+  preview)
+    CANDIDATES="GOOGLE_SERVICES_JSON_PREVIEW GOOGLE_SERVICES_JSON"
+    ;;
+  development)
+    CANDIDATES="GOOGLE_SERVICES_JSON_DEVELOPMENT GOOGLE_SERVICES_JSON_DEV GOOGLE_SERVICES_JSON"
+    ;;
+  *)
+    CANDIDATES="GOOGLE_SERVICES_JSON GOOGLE_SERVICES_JSON_PRODUCTION GOOGLE_SERVICES_JSON_PROD GOOGLE_SERVICES_JSON_PREVIEW GOOGLE_SERVICES_JSON_DEVELOPMENT GOOGLE_SERVICES_JSON_DEV"
+    ;;
+esac
+
+SELECTED_VAR=""
+if SELECTED_VAR="$(pick_first_set_var $CANDIDATES)"; then
+  echo "Using $SELECTED_VAR to create google-services.json"
+  if write_from_env_var "$SELECTED_VAR" && grep -q '"project_info"' "$GOOGLE_SERVICES_PATH"; then
+    echo "google-services.json created from environment variable"
+    exit 0
+  fi
+  echo "Failed to parse $SELECTED_VAR; falling back to placeholder"
+fi
+
+echo "No usable google-services env var found; creating placeholder"
 cat > "$GOOGLE_SERVICES_PATH" <<'EOF'
 {
   "project_info": {
@@ -50,7 +105,6 @@ cat > "$GOOGLE_SERVICES_PATH" <<'EOF'
 }
 EOF
 
-echo "✅ Placeholder google-services.json created"
-echo "   Note: For production release builds with real Firebase, upload the actual credentials via EAS"
+echo "Placeholder google-services.json created"
 
 

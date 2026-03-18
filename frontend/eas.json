@@ -29,9 +29,6 @@
       "credentialsSource": "remote",
       "android": {
         "buildType": "apk"
-      },
-      "buildHooks": {
-        "preBuild": "./eas-build-pre.sh"
       }
     },
     "production-apk": {
@@ -41,9 +38,6 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      },
-      "buildHooks": {
-        "preBuild": "./eas-build-pre.sh"
       }
     }
   },

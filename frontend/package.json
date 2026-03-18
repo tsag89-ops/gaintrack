@@ -20,7 +20,8 @@
     "icons:check": "npm run icons:generate && npm run icons:verify",
     "test:firestore:rules": "node --test tests/firestore.rules.test.js",
     "test:firestore:rules:emulator": "firebase emulators:exec --only firestore \"npm run test:firestore:rules\"",
-    "postinstall": "node ./scripts/apply-patches.js"
+    "postinstall": "node ./scripts/apply-patches.js",
+    "eas-build-post-install": "sh ./eas-build-pre.sh"
   },
   "dependencies": {
     "@babel/runtime": "^7.20.6",
