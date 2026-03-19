@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLanguage } from '../src/context/LanguageContext';
 
 import { useWorkoutStore } from '../src/store/workoutStore';
 import { useNativeAuthState } from '../src/hooks/useAuth';
@@ -24,6 +25,7 @@ import { sendEngagementTelemetry } from '../src/services/notifications';
 
 export default function WorkoutHistoryScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { uid } = useNativeAuthState();
   const { workouts, loadUserWorkouts, deleteWorkout, restoreWorkout } = useWorkoutStore();
   const [refreshing, setRefreshing] = useState(false);
@@ -94,12 +96,12 @@ export default function WorkoutHistoryScreen() {
 
   const handleDeleteWorkout = (workout: Workout) => {
     Alert.alert(
-      'Archive Workout',
-      `Archive "${workout.name}"? You can restore it right after archiving.`,
+      t('workoutHistory.archiveWorkoutTitle'),
+      t('workoutHistory.archiveWorkoutMessage', { name: workout.name || t('workoutHistory.untitledWorkout') }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Archive',
+          text: t('workoutHistory.archiveButton'),
           style: 'destructive',
           onPress: async () => {
             if (!uid) return;
@@ -111,11 +113,11 @@ export default function WorkoutHistoryScreen() {
               context: workout.workout_id,
             });
             Alert.alert(
-              'Workout archived',
-              'This workout was moved out of active history.',
+              t('workoutHistory.workoutArchivedTitle'),
+              t('workoutHistory.workoutArchivedMessage'),
               [
                 {
-                  text: 'Undo',
+                  text: t('workoutHistory.undoButton'),
                   onPress: async () => {
                     await Haptics.selectionAsync();
                     await restoreWorkout(uid, workout);
@@ -126,7 +128,7 @@ export default function WorkoutHistoryScreen() {
                     });
                   },
                 },
-                { text: 'Done', style: 'cancel' },
+                { text: t('workoutHistory.doneButton'), style: 'cancel' },
               ],
             );
           },
@@ -148,7 +150,7 @@ export default function WorkoutHistoryScreen() {
       });
 
       const shared = await shareWorkoutCard({
-        workoutName: workout.name || 'Workout',
+        workoutName: workout.name || t('workoutHistory.workoutFallbackName'),
         date: formatDate(workout.date),
         totalVolume: `${formatVolume(volume)} ${weightUnit}`,
         totalSets,
@@ -170,33 +172,33 @@ export default function WorkoutHistoryScreen() {
           action: 'workout_share_failed',
           context: `${template}:${workout.workout_id}`,
         });
-        Alert.alert('Share unavailable', 'Could not share this workout card right now.');
+        Alert.alert(t('workoutHistory.shareUnavailableTitle'), t('workoutHistory.shareUnavailableMessage'));
       }
     };
 
     Alert.alert(
-      'Share Workout Card',
-      'Choose a card format to share.',
+      t('workoutHistory.shareWorkoutCardTitle'),
+      t('workoutHistory.shareWorkoutCardMessage'),
       [
         {
-          text: 'Compact',
+          text: t('workoutHistory.compactButton'),
           onPress: async () => {
             await shareTemplate('compact');
           },
         },
         {
-          text: 'Detailed',
+          text: t('workoutHistory.detailedButton'),
           onPress: async () => {
             await shareTemplate('detailed');
           },
         },
         {
-          text: 'Milestone',
+          text: t('workoutHistory.milestoneButton'),
           onPress: async () => {
             await shareTemplate('milestone');
           },
         },
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
       ],
     );
   };
@@ -216,7 +218,7 @@ export default function WorkoutHistoryScreen() {
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
             <Text style={styles.cardDate}>{formatDate(item.date)}</Text>
-            <Text style={styles.cardName}>{item.name || 'Untitled Workout'}</Text>
+            <Text style={styles.cardName}>{item.name || t('workoutHistory.untitledWorkout')}</Text>
           </View>
           <View style={styles.cardHeaderActions}>
             <TouchableOpacity
@@ -233,11 +235,11 @@ export default function WorkoutHistoryScreen() {
         <View style={styles.cardStats}>
           <View style={styles.statPill}>
             <Ionicons name="barbell-outline" size={14} color="#4CAF50" />
-            <Text style={styles.statPillText}>{exercises.length} exercises</Text>
+            <Text style={styles.statPillText}>{t('workoutHistory.exerciseCount', { count: exercises.length })}</Text>
           </View>
           <View style={styles.statPill}>
             <Ionicons name="layers-outline" size={14} color="#2196F3" />
-            <Text style={styles.statPillText}>{totalSets} sets</Text>
+            <Text style={styles.statPillText}>{t('workoutHistory.setCount', { count: totalSets })}</Text>
           </View>
           <View style={styles.statPill}>
             <Ionicons name="trending-up-outline" size={14} color="#FFC107" />
@@ -271,7 +273,7 @@ export default function WorkoutHistoryScreen() {
             })}
             {exercises.length > 4 && (
               <Text style={styles.moreExercises}>
-                +{exercises.length - 4} more exercises
+                {t('workoutHistory.moreExercises', { count: exercises.length - 4 })}
               </Text>
             )}
           </View>
@@ -286,7 +288,7 @@ export default function WorkoutHistoryScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>All Workouts</Text>
+        <Text style={styles.headerTitle}>{t('workoutHistory.headerTitle')}</Text>
         <View style={styles.countBadge}>
           <Text style={styles.countText}>{allWorkouts.length}</Text>
         </View>
@@ -301,9 +303,9 @@ export default function WorkoutHistoryScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="barbell-outline" size={56} color="#2D2D2D" />
-            <Text style={styles.emptyTitle}>No workouts yet</Text>
+            <Text style={styles.emptyTitle}>{t('workoutHistory.noWorkoutsYetTitle')}</Text>
             <Text style={styles.emptySubtitle}>
-              Complete a workout to see it here.
+              {t('workoutHistory.noWorkoutsYetSubtitle')}
             </Text>
           </View>
         }
