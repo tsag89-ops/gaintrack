@@ -11,6 +11,7 @@ import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-ca
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { getFoodByBarcode, FoodItem } from '../services/foodSearch';
+import { useLanguage } from '../context/LanguageContext';
 
 interface BarcodeScannerProps {
   onFoodFound: (food: FoodItem) => void;
@@ -19,6 +20,7 @@ interface BarcodeScannerProps {
 }
 
 export default function BarcodeScanner({ onFoodFound, onNotFound, onClose }: BarcodeScannerProps) {
+  const { t } = useLanguage();
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -42,16 +44,16 @@ export default function BarcodeScanner({ onFoodFound, onNotFound, onClose }: Bar
         onFoodFound(food);
       } else {
         Alert.alert(
-          'Product not found',
-          'Add it manually?',
+          t('barcodeScanner.productNotFoundTitle'),
+          t('barcodeScanner.productNotFoundMessage'),
           [
-            { text: 'Cancel', style: 'cancel', onPress: () => { lastScanned.current = null; setScanning(false); } },
-            { text: 'Add Manually', onPress: () => onNotFound(data) },
+            { text: t('common.cancel'), style: 'cancel', onPress: () => { lastScanned.current = null; setScanning(false); } },
+            { text: t('barcodeScanner.addManuallyButton'), onPress: () => onNotFound(data) },
           ],
         );
       }
     } catch {
-      Alert.alert('Error', 'Failed to look up barcode. Try again.');
+      Alert.alert(t('barcodeScanner.errorTitle'), t('barcodeScanner.lookupFailedMessage'));
       lastScanned.current = null;
       setScanning(false);
     }
@@ -68,9 +70,9 @@ export default function BarcodeScanner({ onFoodFound, onNotFound, onClose }: Bar
   if (!permission.granted) {
     return (
       <View style={styles.center}>
-        <Text style={styles.permissionText}>Camera permission is required to scan barcodes.</Text>
+        <Text style={styles.permissionText}>{t('barcodeScanner.cameraPermissionRequiredMessage')}</Text>
         <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission}>
-          <Text style={styles.permissionBtnText}>Grant Permission</Text>
+          <Text style={styles.permissionBtnText}>{t('barcodeScanner.grantPermissionButton')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -92,7 +94,7 @@ export default function BarcodeScanner({ onFoodFound, onNotFound, onClose }: Bar
           <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
             <Ionicons name="close" size={28} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.title}>Scan Barcode</Text>
+          <Text style={styles.title}>{t('barcodeScanner.scanBarcodeTitle')}</Text>
           <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setTorch(t => !t); }} style={styles.iconBtn}>
             <Ionicons name={torch ? 'flash' : 'flash-outline'} size={24} color={torch ? '#FF6200' : '#FFFFFF'} />
           </TouchableOpacity>
@@ -106,12 +108,12 @@ export default function BarcodeScanner({ onFoodFound, onNotFound, onClose }: Bar
           {scanning && (
             <View style={styles.scanningIndicator}>
               <ActivityIndicator color="#FF6200" size="large" />
-              <Text style={styles.scanningText}>Looking up product…</Text>
+              <Text style={styles.scanningText}>{t('barcodeScanner.lookingUpProductMessage')}</Text>
             </View>
           )}
         </View>
 
-        <Text style={styles.hint}>Point camera at a product barcode</Text>
+        <Text style={styles.hint}>{t('barcodeScanner.scanHintMessage')}</Text>
       </View>
     </View>
   );
