@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
+import { useLanguage } from '../src/context/LanguageContext';
 import { usePro } from '../src/hooks/usePro'; // [PRO]
 import { socialApi, LeaderboardEntry, FriendProfile, FriendInvite } from '../src/services/social'; // [PRO]
 import { sendPaywallTelemetry, sendSocialEventTelemetry } from '../src/services/notifications';
@@ -21,6 +22,7 @@ const INVITE_REMINDER_MIN_HOURS = 24;
 
 export default function SocialLeaderboardScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { isPro } = usePro(); // [PRO]
   const [friendIdInput, setFriendIdInput] = useState('');
   const [discoverInput, setDiscoverInput] = useState('');
@@ -63,20 +65,20 @@ export default function SocialLeaderboardScreen() {
 
   const handleAddFriend = async () => {
     if (!isPro) {
-      Alert.alert('Pro Feature', 'Private leaderboard is available with GainTrack Pro.');
+      Alert.alert(t('socialLeaderboard.proFeatureTitle'), t('socialLeaderboard.proFeatureMessage'));
       return;
     }
 
     const friendId = friendIdInput.trim();
     if (!friendId) {
-      Alert.alert('Missing User ID', 'Enter a friend user ID to connect.');
+      Alert.alert(t('socialLeaderboard.missingUserIdTitle'), t('socialLeaderboard.missingUserIdMessage'));
       return;
     }
 
     await Haptics.selectionAsync();
     const ok = await socialApi.connectFriend(friendId);
     if (!ok) {
-      Alert.alert('Could not connect', 'Check the friend ID and try again.');
+      Alert.alert(t('socialLeaderboard.couldNotConnectTitle'), t('socialLeaderboard.couldNotConnectMessage'));
       return;
     }
 
@@ -102,7 +104,7 @@ export default function SocialLeaderboardScreen() {
     await Haptics.selectionAsync();
     const ok = await socialApi.inviteFriend(userId);
     if (!ok) {
-      Alert.alert('Invite failed', 'Could not send invite right now.');
+      Alert.alert(t('socialLeaderboard.inviteFailedTitle'), t('socialLeaderboard.inviteFailedMessage'));
       return;
     }
     sendSocialEventTelemetry({
@@ -117,7 +119,7 @@ export default function SocialLeaderboardScreen() {
     await Haptics.selectionAsync();
     const ok = await socialApi.respondToInvite(inviteId, action);
     if (!ok) {
-      Alert.alert('Action failed', 'Could not update invite status.');
+      Alert.alert(t('socialLeaderboard.actionFailedTitle'), t('socialLeaderboard.actionFailedMessage'));
       return;
     }
     sendSocialEventTelemetry({
@@ -135,17 +137,20 @@ export default function SocialLeaderboardScreen() {
     setSendingReminder(false);
 
     if (!result) {
-      Alert.alert('Reminder failed', 'Could not process invite reminders right now.');
+      Alert.alert(t('socialLeaderboard.reminderFailedTitle'), t('socialLeaderboard.reminderFailedMessage'));
       return;
     }
 
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const sent = result.reminders_marked;
     Alert.alert(
-      'Invite reminders processed',
+      t('socialLeaderboard.inviteRemindersProcessedTitle'),
       sent > 0
-        ? `${sent} pending invite reminder${sent === 1 ? '' : 's'} marked for follow-up cadence.`
-        : 'No pending invites were due for reminders right now.',
+        ? t('socialLeaderboard.inviteRemindersProcessedMessage', {
+            count: sent,
+            suffix: sent === 1 ? '' : t('socialLeaderboard.pluralSuffix'),
+          })
+        : t('socialLeaderboard.noPendingInvitesForRemindersMessage'),
     );
     await loadLeaderboard();
   };
@@ -157,16 +162,16 @@ export default function SocialLeaderboardScreen() {
           <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>Private Leaderboard</Text>
-          <Text style={styles.headerSubtitle}>Friends-only monthly ranking</Text>
+          <Text style={styles.headerTitle}>{t('socialLeaderboard.headerTitle')}</Text>
+          <Text style={styles.headerSubtitle}>{t('socialLeaderboard.headerSubtitle')}</Text>
         </View>
       </View>
 
       {!isPro ? (
         <View style={styles.emptyState}>
           <Ionicons name="lock-closed-outline" size={52} color="#6B7280" />
-          <Text style={styles.emptyTitle}>Pro Feature</Text>
-          <Text style={styles.emptySubtitle}>Upgrade to GainTrack Pro to access private friends leaderboard.</Text>
+          <Text style={styles.emptyTitle}>{t('socialLeaderboard.proFeatureTitle')}</Text>
+          <Text style={styles.emptySubtitle}>{t('socialLeaderboard.proGateSubtitle')}</Text>
           <TouchableOpacity
             style={styles.goProButton}
             onPress={() => {
@@ -179,17 +184,17 @@ export default function SocialLeaderboardScreen() {
               router.push('/pro-paywall');
             }}
           >
-            <Text style={styles.goProText}>Go Pro</Text>
+            <Text style={styles.goProText}>{t('socialLeaderboard.goProButton')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <>
           <View style={styles.connectCard}>
-            <Text style={styles.cardTitle}>Add Friend by User ID</Text>
+            <Text style={styles.cardTitle}>{t('socialLeaderboard.addFriendByUserIdTitle')}</Text>
             <View style={styles.inputRow}>
               <TextInput
                 style={styles.input}
-                placeholder="friend_user_id"
+                placeholder={t('socialLeaderboard.friendUserIdPlaceholder')}
                 placeholderTextColor="#6B7280"
                 value={friendIdInput}
                 onChangeText={setFriendIdInput}
@@ -202,11 +207,11 @@ export default function SocialLeaderboardScreen() {
           </View>
 
           <View style={styles.connectCard}>
-            <Text style={styles.cardTitle}>Discover Athletes</Text>
+            <Text style={styles.cardTitle}>{t('socialLeaderboard.discoverAthletesTitle')}</Text>
             <View style={styles.inputRow}>
               <TextInput
                 style={styles.input}
-                placeholder="Search name, email, or user ID"
+                placeholder={t('socialLeaderboard.discoverPlaceholder')}
                 placeholderTextColor="#6B7280"
                 value={discoverInput}
                 onChangeText={setDiscoverInput}
@@ -220,14 +225,14 @@ export default function SocialLeaderboardScreen() {
             {discoverResults.map((candidate) => (
               <View key={candidate.user_id} style={styles.discoveryRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.nameText}>{candidate.name || 'Athlete'}</Text>
+                  <Text style={styles.nameText}>{candidate.name || t('socialLeaderboard.athleteFallback')}</Text>
                   <Text style={styles.metaText}>{candidate.user_id}</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.inviteButton}
                   onPress={() => handleSendInvite(candidate.user_id)}
                 >
-                  <Text style={styles.inviteButtonText}>Invite</Text>
+                  <Text style={styles.inviteButtonText}>{t('socialLeaderboard.inviteButton')}</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -235,26 +240,26 @@ export default function SocialLeaderboardScreen() {
 
           {incomingInvites.length > 0 ? (
             <View style={styles.connectCard}>
-              <Text style={styles.cardTitle}>Incoming Invites</Text>
-              <Text style={styles.nudgeText}>Respond quickly to activate leaderboard momentum with new friends.</Text>
+              <Text style={styles.cardTitle}>{t('socialLeaderboard.incomingInvitesTitle')}</Text>
+              <Text style={styles.nudgeText}>{t('socialLeaderboard.incomingInvitesNudge')}</Text>
               {incomingInvites.map((invite) => (
                 <View key={invite.invite_id} style={styles.discoveryRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.nameText}>{invite.from_user_id}</Text>
-                    <Text style={styles.metaText}>Pending invite</Text>
+                    <Text style={styles.metaText}>{t('socialLeaderboard.pendingInviteStatus')}</Text>
                   </View>
                   <View style={styles.inviteActionRow}>
                     <TouchableOpacity
                       style={styles.acceptButton}
                       onPress={() => handleRespondInvite(invite.invite_id, 'accept')}
                     >
-                      <Text style={styles.inviteButtonText}>Accept</Text>
+                      <Text style={styles.inviteButtonText}>{t('socialLeaderboard.acceptButton')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.declineButton}
                       onPress={() => handleRespondInvite(invite.invite_id, 'decline')}
                     >
-                      <Text style={styles.inviteButtonText}>Decline</Text>
+                      <Text style={styles.inviteButtonText}>{t('socialLeaderboard.declineButton')}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -265,25 +270,30 @@ export default function SocialLeaderboardScreen() {
           {outgoingInvites.length > 0 ? (
             <View style={styles.connectCard}>
               <View style={styles.outgoingHeaderRow}>
-                <Text style={styles.cardTitle}>Outgoing Invites</Text>
+                <Text style={styles.cardTitle}>{t('socialLeaderboard.outgoingInvitesTitle')}</Text>
                 <TouchableOpacity
                   style={[styles.reminderButton, sendingReminder && styles.reminderButtonDisabled]}
                   onPress={handleSendPendingInviteReminders}
                   disabled={sendingReminder}
                 >
-                  <Text style={styles.reminderButtonText}>{sendingReminder ? 'Sending...' : 'Send reminder'}</Text>
+                  <Text style={styles.reminderButtonText}>
+                    {sendingReminder ? t('socialLeaderboard.sendingLabel') : t('socialLeaderboard.sendReminderButton')}
+                  </Text>
                 </TouchableOpacity>
               </View>
               <Text style={styles.nudgeText}>
                 {reminderDueCount > 0
-                  ? `${reminderDueCount} invite${reminderDueCount === 1 ? '' : 's'} due for follow-up.`
-                  : 'No follow-up reminders due yet.'}
+                  ? t('socialLeaderboard.invitesDueForFollowUpMessage', {
+                      count: reminderDueCount,
+                      suffix: reminderDueCount === 1 ? '' : t('socialLeaderboard.pluralSuffix'),
+                    })
+                  : t('socialLeaderboard.noFollowUpRemindersDueYet')}
               </Text>
               {outgoingInvites.map((invite) => (
                 <View key={invite.invite_id} style={styles.discoveryRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.nameText}>{invite.to_user_id}</Text>
-                    <Text style={styles.metaText}>Waiting for response</Text>
+                    <Text style={styles.metaText}>{t('socialLeaderboard.waitingForResponseStatus')}</Text>
                   </View>
                 </View>
               ))}
@@ -298,8 +308,10 @@ export default function SocialLeaderboardScreen() {
             ListEmptyComponent={
               <View style={styles.emptyState}>
                 <Ionicons name="people-outline" size={48} color="#2D2D2D" />
-                <Text style={styles.emptyTitle}>{loading ? 'Loading leaderboard...' : 'No entries yet'}</Text>
-                <Text style={styles.emptySubtitle}>Connect with a friend and complete workouts to appear here.</Text>
+                <Text style={styles.emptyTitle}>
+                  {loading ? t('socialLeaderboard.loadingLeaderboardTitle') : t('socialLeaderboard.noEntriesYetTitle')}
+                </Text>
+                <Text style={styles.emptySubtitle}>{t('socialLeaderboard.emptyLeaderboardSubtitle')}</Text>
               </View>
             }
             renderItem={({ item }) => (
@@ -308,10 +320,18 @@ export default function SocialLeaderboardScreen() {
                   <Text style={styles.rankText}>#{item.rank}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.nameText}>{item.name}{item.is_you ? ' (You)' : ''}</Text>
-                  <Text style={styles.metaText}>{item.total_workouts} workouts • {item.total_sets} sets</Text>
+                  <Text style={styles.nameText}>
+                    {item.name}
+                    {item.is_you ? t('socialLeaderboard.youSuffix') : ''}
+                  </Text>
+                  <Text style={styles.metaText}>
+                    {t('socialLeaderboard.workoutsSetsSummary', {
+                      workouts: item.total_workouts,
+                      sets: item.total_sets,
+                    })}
+                  </Text>
                 </View>
-                <Text style={styles.volumeText}>{Math.round(item.total_volume)} kg</Text>
+                <Text style={styles.volumeText}>{t('socialLeaderboard.volumeKg', { volume: Math.round(item.total_volume) })}</Text>
               </View>
             )}
           />
