@@ -31,6 +31,7 @@ import { db } from '../config/firebase';
 import { collection, doc, setDoc } from 'firebase/firestore';
 import { colors, typography, spacing, radii, shadows } from '../constants/theme';
 import { WorkoutExercise, WorkoutSet, Exercise } from '../types';
+import { useLanguage } from '../context/LanguageContext';
 
 import { calc1RM } from '../utils/fitness';
 
@@ -98,6 +99,7 @@ const WorkoutLogger: React.FC<Props> = ({
   isPro = false,
   onFinish,
 }) => {
+  const { t } = useLanguage();
   const [blocks, setBlocks] = useState<ExerciseBlock[]>([]);
   const [saving, setSaving] = useState(false);
   const [restActive, setRestActive] = useState(false);
@@ -204,7 +206,7 @@ const WorkoutLogger: React.FC<Props> = ({
   const assignSuperset = useCallback(
     (blockUid: string, group: string) => {
       if (!isPro) {
-        Alert.alert('Pro Feature', 'Upgrade to Pro to use supersets.');
+        Alert.alert(t('workoutLogger.proFeatureTitle'), t('workoutLogger.proFeatureSupersetMessage'));
         return;
       }
       setBlocks((prev) =>
@@ -220,7 +222,7 @@ const WorkoutLogger: React.FC<Props> = ({
 
   const finishWorkout = async () => {
     if (blocks.length === 0) {
-      Alert.alert('No exercises', 'Add at least one exercise before finishing.');
+      Alert.alert(t('workoutLogger.noExercisesTitle'), t('workoutLogger.noExercisesMessage'));
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -251,10 +253,13 @@ const WorkoutLogger: React.FC<Props> = ({
       }
 
       onFinish?.(workout);
-      Alert.alert('Workout saved!', `Duration: ${Math.round(workout.duration / 60)} min`);
+      Alert.alert(
+        t('workoutLogger.workoutSavedTitle'),
+        t('workoutLogger.workoutSavedDurationMessage', { minutes: Math.round(workout.duration / 60) }),
+      );
     } catch (err) {
       console.error('[WorkoutLogger] save error:', err);
-      Alert.alert('Save failed', 'Check your connection and try again.');
+      Alert.alert(t('workoutLogger.saveFailedTitle'), t('workoutLogger.saveFailedMessage'));
     } finally {
       setSaving(false);
     }
@@ -533,8 +538,8 @@ const WorkoutLogger: React.FC<Props> = ({
               // Caller should mount ExercisePicker and pass selected exercise back
               // via the addExerciseBlock helper exposed below
               Alert.alert(
-                'Add Exercise',
-                'Integrate ExercisePicker and call addExerciseBlock(exercise)',
+                t('workoutLogger.addExerciseTitle'),
+                t('workoutLogger.addExerciseMessage'),
               );
             }}
             activeOpacity={0.85}
