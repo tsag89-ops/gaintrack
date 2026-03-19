@@ -26,6 +26,7 @@ import { takePendingExercise } from '../../src/utils/exerciseMailbox';
 import { useNativeAuthState } from '../../src/hooks/useAuth';
 import { usePro } from '../../src/hooks/usePro';
 import { useWeightUnit } from '../../src/hooks/useWeightUnit';
+import { useTimerAlerts } from '../../src/hooks/useTimerAlerts';
 import { seedExercises } from '../../src/data/seedData';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -165,6 +166,8 @@ const ActiveWorkoutScreen: React.FC = () => {
   }, []);
   const [restTime, setRestTime] = useState(0);
   const [activeRest, setActiveRest] = useState(false);
+  // Wire haptic + bell alerts into the rest countdown.
+  useTimerAlerts(restTime, activeRest);
   const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
   const [restSeconds, setRestSeconds] = useState(DEFAULT_REST_SECONDS);
   const [saving, setSaving] = useState(false);
@@ -472,22 +475,15 @@ const ActiveWorkoutScreen: React.FC = () => {
     return () => clearInterval(interval);
   }, [timerPaused]);
 
-  // Countdown — vibrate at 3, 2, and 1 seconds remaining, then fire the finish cue at 0.
+  // Countdown — tick down every second; useTimerAlerts handles haptics and bell at 3-2-1 / 0.
   useEffect(() => {
     if (activeRest && restTime > 0) {
       const interval = setInterval(() => {
-        setRestTime((t) => {
-          const next = t - 1;
-          if (next > 0 && next <= 3) {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => null);
-          }
-          return next;
-        });
+        setRestTime((prev) => prev - 1);
       }, 1000);
       return () => clearInterval(interval);
     } else if (activeRest && restTime === 0) {
       setActiveRest(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => null);
     }
   }, [activeRest, restTime]);
 
