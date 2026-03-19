@@ -22,15 +22,21 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: '#2D2D2D',
           borderTopWidth: 0,
-          height: Platform.OS === 'ios' ? 88 : 64,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+          height: Platform.OS === 'ios' ? 96 : 72,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
           paddingTop: 8,
+        },
+        tabBarItemStyle: {
+          minWidth: 0,
         },
         tabBarActiveTintColor: '#FF6200',
         tabBarInactiveTintColor: '#6B7280',
+        tabBarAllowFontScaling: false,
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
+          lineHeight: 12,
           fontWeight: '600',
+          textAlign: 'center',
         },
       }}
     >

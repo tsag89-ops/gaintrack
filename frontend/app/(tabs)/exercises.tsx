@@ -22,17 +22,19 @@ import { ExercisePicker } from '../../src/components/ExercisePicker';
 import { usePro } from '../../src/hooks/usePro';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import { setPendingExercise } from '../../src/utils/exerciseMailbox';
+import { useLanguage } from '../../src/context/LanguageContext';
 
 // Exercise library tab — tapping + on an exercise either adds to an active workout
 // or starts a brand-new Quick Workout.
 
 export default function ExercisesScreen() {
   const router = useRouter();
+  const { t: tr } = useLanguage();
   const { fromWorkout, workoutName } = useLocalSearchParams<{ fromWorkout?: string; workoutName?: string }>();
   const { isPro } = usePro();
   const { currentWorkout, startWorkout, addExerciseToWorkout, addMultipleExercisesToWorkout, clearInProgress } = useWorkoutStore();
   const isFromWorkoutFlow = fromWorkout === '1';
-  const fallbackWorkoutName = workoutName || currentWorkout?.name || 'Quick Workout';
+  const fallbackWorkoutName = workoutName || currentWorkout?.name || tr('exercisesTab.quickWorkoutName');
 
   // ── Template picker state ──────────────────────────────────────────────────
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -46,10 +48,10 @@ export default function ExercisesScreen() {
 
   const deleteTemplate = async (id: string) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert('Delete Template', 'Are you sure you want to delete this template?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(tr('exercisesTab.deleteTemplateTitle'), tr('exercisesTab.deleteTemplateMessage'), [
+      { text: tr('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: tr('exercisesTab.deleteAction'),
         style: 'destructive',
         onPress: async () => {
           const raw = await AsyncStorage.getItem('gaintrack_templates');
@@ -98,7 +100,7 @@ export default function ExercisesScreen() {
     }
 
     // No active workout — start a new Quick Workout with this exercise
-    const workoutName = 'Quick Workout';
+    const workoutName = tr('exercisesTab.quickWorkoutName');
     await clearInProgress();
     startWorkout(workoutName);
     addExerciseToWorkout({
@@ -143,7 +145,7 @@ export default function ExercisesScreen() {
         <View style={styles.overlay}>
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Templates</Text>
+              <Text style={styles.sheetTitle}>{tr('exercisesTab.templatesTitle')}</Text>
               <TouchableOpacity onPress={() => setShowTemplatePicker(false)}>
                 <Ionicons name="close" size={24} color={theme.textSecondary} />
               </TouchableOpacity>
@@ -151,9 +153,9 @@ export default function ExercisesScreen() {
             {templates.length === 0 ? (
               <View style={styles.emptyState}>
                 <Ionicons name="copy-outline" size={40} color={theme.charcoal} />
-                <Text style={styles.emptyText}>No templates yet</Text>
+                <Text style={styles.emptyText}>{tr('exercisesTab.noTemplatesTitle')}</Text>
                 <Text style={styles.emptySubtext}>
-                  Finish a workout and save it as a template to reuse it here.
+                  {tr('exercisesTab.noTemplatesSubtitle')}
                 </Text>
               </View>
             ) : (
@@ -168,7 +170,7 @@ export default function ExercisesScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.templateName}>{t.name}</Text>
                       <Text style={styles.templateMeta}>
-                        {(t.exercises ?? []).length} exercise{(t.exercises ?? []).length !== 1 ? 's' : ''}
+                        {tr('exercisesTab.exerciseCount', { count: (t.exercises ?? []).length })}
                       </Text>
                     </View>
                     <TouchableOpacity

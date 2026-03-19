@@ -41,6 +41,12 @@ import { sendPaywallTelemetry } from '../services/notifications';
 import { Input } from './ui/Input';
 import { Badge } from './ui/Badge';
 import { Card } from './ui/Card';
+import { useLanguage } from '../context/LanguageContext';
+import {
+  localizeEquipmentLabel,
+  localizeExerciseName,
+  localizeMuscleGroup,
+} from '../i18n/exerciseTranslations';
 
 // Free tier: top 50 exercises by library index (IDs 1–50) [PRO]
 const FREE_EXERCISE_LIMIT = 50;
@@ -73,7 +79,8 @@ const PREVIEW_HEIGHT = 200;
 const EquipmentChips: React.FC<{
   active: string;
   onChange: (eq: string) => void;
-}> = ({ active, onChange }) => (
+  locale: 'en' | 'el' | 'de' | 'fr' | 'it';
+}> = ({ active, onChange, locale }) => (
   <ScrollView
     horizontal
     showsHorizontalScrollIndicator={false}
@@ -93,7 +100,7 @@ const EquipmentChips: React.FC<{
           activeOpacity={0.75}
         >
           <Text style={[chipStyles.label, isActive && chipStyles.labelActive]}>
-            {eq}
+            {localizeEquipmentLabel(eq, locale)}
           </Text>
         </TouchableOpacity>
       );
@@ -105,7 +112,8 @@ const EquipmentChips: React.FC<{
 const MuscleChips: React.FC<{
   active: string;
   onChange: (group: string) => void;
-}> = ({ active, onChange }) => (
+  locale: 'en' | 'el' | 'de' | 'fr' | 'it';
+}> = ({ active, onChange, locale }) => (
   <ScrollView
     horizontal
     showsHorizontalScrollIndicator={false}
@@ -125,7 +133,7 @@ const MuscleChips: React.FC<{
           activeOpacity={0.75}
         >
           <Text style={[chipStyles.label, isActive && chipStyles.labelActive]}>
-            {group}
+            {localizeMuscleGroup(group, locale)}
           </Text>
         </TouchableOpacity>
       );
@@ -259,6 +267,8 @@ const ExerciseRow: React.FC<{
   supersetMode: boolean;
   isPro: boolean;
   expandedId: string | null;
+  locale: 'en' | 'el' | 'de' | 'fr' | 'it';
+  t: (key: string, params?: Record<string, string | number>) => string;
   onExpand: (id: string | null) => void;
   onFavorite: (id: string) => void;
   onAdd: (exercise: Exercise, superset: boolean) => void;
@@ -269,11 +279,15 @@ const ExerciseRow: React.FC<{
   supersetMode,
   isPro,
   expandedId,
+  locale,
+  t,
   onExpand,
   onFavorite,
   onAdd,
 }) => {
   const isExpanded = expandedId === exercise.id;
+  const localizedName = localizeExerciseName(exercise.name, locale);
+  const localizedMuscleGroup = localizeMuscleGroup(exercise.muscleGroup, locale);
 
   const handleAdd = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -303,15 +317,15 @@ const ExerciseRow: React.FC<{
         {/* Middle: name + meta */}
         <View style={rowStyles.info}>
           <Text style={rowStyles.name} numberOfLines={1}>
-            {exercise.name}
+            {localizedName}
           </Text>
           <View style={rowStyles.meta}>
-            <Text style={rowStyles.metaText}>{exercise.muscleGroup}</Text>
+            <Text style={rowStyles.metaText}>{localizedMuscleGroup}</Text>
             {exercise.equipment_required.length > 0 && (
               <>
                 <Text style={rowStyles.metaDot}>·</Text>
                 <Text style={rowStyles.metaText} numberOfLines={1}>
-                  {exercise.equipment_required[0]}
+                  {localizeEquipmentLabel(exercise.equipment_required[0], locale)}
                 </Text>
               </>
             )}
@@ -319,7 +333,7 @@ const ExerciseRow: React.FC<{
               <>
                 <Text style={rowStyles.metaDot}>·</Text>
                 <Text style={[rowStyles.metaText, { color: theme.accent }]}>
-                  Compound
+                  {t('exercisePicker.compound')}
                 </Text>
               </>
             )}
@@ -436,6 +450,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
   const [recentlyUsed, setRecentlyUsed] = useState<Exercise[]>([]);
   const [loading, setLoading]           = useState(true);
   const router = useRouter();
+  const { t, locale } = useLanguage();
 
   // ── Load persisted state ─────────────────────────────────────────────────
   useEffect(() => {
@@ -480,12 +495,14 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
       list = list.filter(
         (ex) =>
           ex.name.toLowerCase().includes(q) ||
+          localizeExerciseName(ex.name, locale).toLowerCase().includes(q) ||
           ex.muscleGroup.toLowerCase().includes(q) ||
+          localizeMuscleGroup(ex.muscleGroup, locale).toLowerCase().includes(q) ||
           ex.equipment_required.some((eq) => eq.toLowerCase().includes(q)),
       );
     }
     return list;
-  }, [activeMuscle, activeEquipment, query, isPro]);
+  }, [activeMuscle, activeEquipment, query, isPro, locale]);
 
   // ── SectionList data: Favorites → Recently Used → All ───────────────────
   const sections = useMemo(() => {
@@ -496,13 +513,13 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
       const recentFiltered    = recentlyUsed.filter((ex) => !favoriteIds.includes(ex.id));
       const result: { title: string; data: Exercise[] }[] = [];
       if (favoriteExercises.length > 0)
-        result.push({ title: `Favorites (${favoriteExercises.length})`, data: favoriteExercises });
+        result.push({ title: t('exercisePicker.favoritesCount', { count: favoriteExercises.length }), data: favoriteExercises });
       if (recentFiltered.length > 0)
-        result.push({ title: 'Recently Used', data: recentFiltered });
+        result.push({ title: t('exercisePicker.recentlyUsed'), data: recentFiltered });
       result.push({
         title: isPro
-          ? `All Exercises (${filteredExercises.length})`
-          : `Free Exercises (${filteredExercises.length} of ${FREE_EXERCISE_LIMIT})`, // [PRO]
+          ? t('exercisePicker.allExercisesCount', { count: filteredExercises.length })
+          : t('exercisePicker.freeExercisesCount', { count: filteredExercises.length, limit: FREE_EXERCISE_LIMIT }), // [PRO]
         data: filteredExercises,
       });
       return result;
@@ -511,12 +528,12 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
     return [
       {
         title: query.trim()
-          ? `Results for "${query.trim()}"`
-          : `Filtered (${filteredExercises.length})`,
+          ? t('exercisePicker.resultsFor', { query: query.trim() })
+          : t('exercisePicker.filteredCount', { count: filteredExercises.length }),
         data: filteredExercises,
       },
     ];
-  }, [recentlyUsed, filteredExercises, query, activeMuscle, activeEquipment, favoriteIds, isPro]);
+  }, [recentlyUsed, filteredExercises, query, activeMuscle, activeEquipment, favoriteIds, isPro, t]);
 
   // ── Detect Pro-gated empty: free user gets 0 results but full library has matches [PRO]
   const isGatedEmpty = useMemo(() => {
@@ -541,12 +558,14 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
       fullList = fullList.filter(
         (ex) =>
           ex.name.toLowerCase().includes(q) ||
+          localizeExerciseName(ex.name, locale).toLowerCase().includes(q) ||
           ex.muscleGroup.toLowerCase().includes(q) ||
+          localizeMuscleGroup(ex.muscleGroup, locale).toLowerCase().includes(q) ||
           ex.equipment_required.some((eq) => eq.toLowerCase().includes(q)),
       );
     }
     return fullList.length > 0; // there are Pro-only matches
-  }, [isPro, filteredExercises.length, activeMuscle, activeEquipment, query]);
+  }, [isPro, filteredExercises.length, activeMuscle, activeEquipment, query, locale]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const handleAdd = useCallback(
@@ -583,7 +602,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
             <Ionicons name="close" size={26} color={theme.textPrimary} />
           </TouchableOpacity>
         )}
-        <Text style={styles.headerTitle}>{standalone ? 'Exercises' : 'Add Exercise'}</Text>
+        <Text style={styles.headerTitle}>{standalone ? t('exercisePicker.exercisesTitle') : t('exercisePicker.addExerciseTitle')}</Text>
 
         {/* Template button — shown in standalone mode when a handler is provided */}
         {standalone && onTemplatePress ? (
@@ -593,7 +612,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
             style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
           >
             <Ionicons name="copy-outline" size={18} color={theme.primary} />
-            <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '600' }}>Templates</Text>
+            <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '600' }}>{t('exercisePicker.templates')}</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -619,7 +638,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
                 supersetMode && styles.supersetLabelActive,
               ]}
             >
-              Superset
+              {t('exercisePicker.superset')}
             </Text>
             {!isPro && (
               <Ionicons name="lock-closed" size={12} color={theme.primary} />
@@ -632,7 +651,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
         <View style={styles.supersetBanner}>
           <Ionicons name="git-merge-outline" size={14} color={theme.primary} />
           <Text style={styles.supersetBannerText}>
-            Superset mode — exercises added will be grouped
+            {t('exercisePicker.supersetBanner')}
           </Text>
         </View>
       )}
@@ -641,7 +660,7 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
       <Input
         value={query}
         onChangeText={setQuery}
-        placeholder="Search exercises…"
+        placeholder={t('exercisePicker.searchPlaceholder')}
         containerStyle={styles.searchContainer}
         leftIcon={<Ionicons name="search-outline" size={18} color={theme.textSecondary} />}
         clearButtonMode="while-editing"
@@ -651,10 +670,10 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
       />
 
       {/* ── Muscle group chips ───────────────────────────────────────────── */}
-      <MuscleChips active={activeMuscle} onChange={setActiveMuscle} />
+      <MuscleChips active={activeMuscle} onChange={setActiveMuscle} locale={locale} />
 
       {/* ── Equipment filter chips ───────────────────────────────────────── */}
-      <EquipmentChips active={activeEquipment} onChange={setActiveEquipment} />
+      <EquipmentChips active={activeEquipment} onChange={setActiveEquipment} locale={locale} />
 
       {/* ── List ────────────────────────────────────────────────────────── */}
       {loading ? (
@@ -666,9 +685,9 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
           <View style={styles.center}>
             <View style={styles.gatedEmptyBox}>
               <Ionicons name="lock-closed" size={36} color={theme.primary} style={{ marginBottom: 10 }} />
-              <Text style={styles.gatedEmptyTitle}>These exercises are Pro-only</Text>
+              <Text style={styles.gatedEmptyTitle}>{t('exercisePicker.proOnlyTitle')}</Text>
               <Text style={styles.gatedEmptySubtitle}>
-                Upgrade to Pro to unlock the full library of {EXERCISES.length} exercises.
+                {t('exercisePicker.proOnlySubtitle', { total: EXERCISES.length })}
               </Text>
               <TouchableOpacity
                 style={styles.gatedEmptyBtn}
@@ -683,14 +702,14 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
                 }}
                 activeOpacity={0.85}
               >
-                <Text style={styles.gatedEmptyBtnText}>Unlock Pro</Text>
+                <Text style={styles.gatedEmptyBtnText}>{t('exercisePicker.unlockPro')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         ) : (
           <View style={styles.center}>
             <Ionicons name="search-outline" size={44} color={theme.charcoal} />
-            <Text style={styles.emptyText}>No exercises found</Text>
+            <Text style={styles.emptyText}>{t('exercisePicker.noExercisesFound')}</Text>
           </View>
         )
       ) : (
@@ -709,6 +728,8 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
               supersetMode={supersetMode}
               isPro={isPro}
               expandedId={expandedId}
+              locale={locale}
+              t={t}
               onExpand={setExpandedId}
               onFavorite={handleFavorite}
               onAdd={handleAdd}
@@ -739,10 +760,10 @@ export const ExercisePicker: React.FC<ExercisePickerProps> = ({
                   <Ionicons name="lock-closed" size={22} color={theme.primary} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.proUpsellTitle}>
-                      {EXERCISES.length - FREE_EXERCISE_LIMIT}+ more exercises in Pro
+                      {t('exercisePicker.moreExercisesInPro', { count: EXERCISES.length - FREE_EXERCISE_LIMIT })}
                     </Text>
                     <Text style={styles.proUpsellSubtitle}>
-                      Unlock the full library of {EXERCISES.length} exercises
+                      {t('exercisePicker.unlockFullLibrary', { total: EXERCISES.length })}
                     </Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color={theme.primary} />

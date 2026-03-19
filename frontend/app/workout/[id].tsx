@@ -30,6 +30,7 @@ import {
   formatDate,
   formatVolume,
 } from '../../src/utils/helpers';
+import { useLanguage } from '../../src/context/LanguageContext';
 
 const NOTES_PREFIX = 'workout_notes_';
 const ACTIVE_WORKOUT_KEY = 'gaintrack_active_workout';
@@ -47,6 +48,7 @@ export default function WorkoutDetailScreen() {
   const router = useRouter();
   const { workouts, setWorkouts, setCurrentWorkout, persistInProgress, clearInProgress, updateWorkout } = useWorkoutStore();
   const { uid } = useNativeAuthState();
+  const { t } = useLanguage();
   const weightUnit = useWeightUnit();
   const workoutId = Array.isArray(id) ? id[0] : id;
 
@@ -84,9 +86,14 @@ export default function WorkoutDetailScreen() {
   const summaryText = useMemo(() => {
     if (!workout) return '';
     const lines: string[] = [];
-    lines.push(`${workout.name || 'Workout'} - ${formatDate(workout.date)}`);
+    lines.push(`${workout.name || t('workoutDetail.defaultWorkoutName')} - ${formatDate(workout.date)}`);
     lines.push(
-      `Stats: ${exercises.length} exercises, ${totalSets} sets, ${formatVolume(totalVolume)} ${weightUnit} volume`,
+      t('workoutDetail.summaryStats', {
+        exercises: exercises.length,
+        sets: totalSets,
+        volume: formatVolume(totalVolume),
+        unit: weightUnit,
+      }),
     );
     lines.push('');
 
@@ -94,23 +101,30 @@ export default function WorkoutDetailScreen() {
       lines.push(`${exerciseIndex + 1}. ${exercise.exercise_name}`);
       (exercise.sets ?? []).filter(s => s.completed).forEach((set, setIndex) => {
         const rpePart = typeof set.rpe === 'number' ? `, RPE ${set.rpe}` : '';
-        const warmupPart = set.is_warmup ? ' [Warm-up]' : '';
+        const warmupPart = set.is_warmup ? ` ${t('workoutDetail.warmupInline')}` : '';
         lines.push(
-          `   Set ${set.set_number || setIndex + 1}: ${set.reps} reps x ${set.weight} ${weightUnit}${rpePart}${warmupPart}`,
+          t('workoutDetail.setSummaryLine', {
+            setNumber: set.set_number || setIndex + 1,
+            reps: set.reps,
+            weight: set.weight,
+            unit: weightUnit,
+            rpePart,
+            warmupPart,
+          }),
         );
       });
-      if (exercise.notes?.trim()) lines.push(`   Notes: ${exercise.notes.trim()}`);
+      if (exercise.notes?.trim()) lines.push(`${t('workoutDetail.notesPrefix')} ${exercise.notes.trim()}`);
       lines.push('');
     });
 
     if (notes.trim()) {
-      lines.push('Workout Notes:');
+      lines.push(t('workoutDetail.workoutNotes'));
       lines.push(notes.trim());
       lines.push('');
     }
 
     return lines.join('\n');
-  }, [workout, exercises, totalSets, totalVolume, weightUnit, notes]);
+  }, [workout, exercises, totalSets, totalVolume, weightUnit, notes, t]);
 
   const setIssues = useMemo(() => {
     const issues: SetIssue[] = [];
@@ -126,7 +140,7 @@ export default function WorkoutDetailScreen() {
         if (!Number.isFinite(reps) || !Number.isFinite(weight) || reps < 0 || weight < 0) {
           issues.push({
             key,
-            message: 'Invalid values detected (negative or non-numeric).',
+            message: t('workoutDetail.invalidValuesMessage'),
             level: 'invalid',
           });
           return;
@@ -135,7 +149,7 @@ export default function WorkoutDetailScreen() {
         if (rpe !== null && (!Number.isFinite(rpe) || rpe < 0 || rpe > 10)) {
           issues.push({
             key,
-            message: 'RPE is out of range (expected 0-10).',
+            message: t('workoutDetail.invalidRpeMessage'),
             level: 'invalid',
           });
           return;
@@ -144,7 +158,7 @@ export default function WorkoutDetailScreen() {
         if (reps > 50 || weight > suspiciousWeightLimit) {
           issues.push({
             key,
-            message: 'Suspiciously high entry. Please verify this set.',
+            message: t('workoutDetail.suspiciousEntryMessage'),
             level: 'suspicious',
           });
         }
@@ -152,7 +166,7 @@ export default function WorkoutDetailScreen() {
     });
 
     return issues;
-  }, [exercises, weightUnit]);
+  }, [exercises, weightUnit, t]);
 
   const invalidCount = setIssues.filter((issue) => issue.level === 'invalid').length;
   const suspiciousCount = setIssues.filter((issue) => issue.level === 'suspicious').length;
@@ -197,10 +211,10 @@ export default function WorkoutDetailScreen() {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await AsyncStorage.setItem(NOTES_PREFIX + workoutId, notes);
-      Alert.alert('Saved', 'Workout notes updated.');
+      Alert.alert(t('workoutDetail.savedTitle'), t('workoutDetail.notesUpdatedMessage'));
       setShowNotesModal(false);
     } catch {
-      Alert.alert('Error saving notes');
+      Alert.alert(t('workoutDetail.errorSavingNotesTitle'));
     } finally {
       setLoading(false);
     }
@@ -222,22 +236,22 @@ export default function WorkoutDetailScreen() {
       if (!raw) return 'replace';
 
       const parsed = JSON.parse(raw) as { workout?: { name?: string } };
-      const draftName = parsed?.workout?.name?.trim() || 'your current draft';
+      const draftName = parsed?.workout?.name?.trim() || t('workoutDetail.currentDraftFallback');
 
       return await new Promise<InProgressDecision>((resolve) => {
         Alert.alert(
-          'Replace in-progress workout?',
-          `You already have an in-progress workout (${draftName}). Replacing it will discard the current draft.`,
+          t('workoutDetail.replaceInProgressTitle'),
+          t('workoutDetail.replaceInProgressMessage', { draftName }),
           [
-            { text: 'Cancel', style: 'cancel', onPress: () => resolve('cancel') },
+            { text: t('common.cancel'), style: 'cancel', onPress: () => resolve('cancel') },
             {
-              text: 'Resume Current',
+              text: t('workoutDetail.resumeCurrent'),
               onPress: () => {
                 router.push({ pathname: '/workout/active', params: { name: draftName } });
                 resolve('resume');
               },
             },
-            { text: 'Replace', style: 'destructive', onPress: () => resolve('replace') },
+            { text: t('workoutDetail.replaceAction'), style: 'destructive', onPress: () => resolve('replace') },
           ],
         );
       });
@@ -250,7 +264,7 @@ export default function WorkoutDetailScreen() {
     const ts = Date.now();
     return {
       workout_id: `draft_${source.workout_id}_${ts}`,
-      name: nameOverride || source.name || 'Workout',
+      name: nameOverride || source.name || t('workoutDetail.defaultWorkoutName'),
       date: new Date().toISOString(),
       created_at: new Date().toISOString(),
       exercises: source.exercises.map((exercise, exerciseIndex) => ({
@@ -361,11 +375,17 @@ export default function WorkoutDetailScreen() {
       const rpe = row.rpe.trim() === '' ? undefined : Number(row.rpe);
 
       if (!Number.isFinite(reps) || reps < 0 || !Number.isFinite(weight) || weight < 0) {
-        Alert.alert('Invalid set values', `Set ${i + 1} has invalid reps/weight.`);
+        Alert.alert(
+          t('workoutDetail.invalidSetValuesTitle'),
+          t('workoutDetail.invalidSetValuesMessage', { setNumber: i + 1 }),
+        );
         return;
       }
       if (rpe !== undefined && (!Number.isFinite(rpe) || rpe < 0 || rpe > 10)) {
-        Alert.alert('Invalid RPE', `Set ${i + 1} has RPE outside 0-10.`);
+        Alert.alert(
+          t('workoutDetail.invalidRpeTitle'),
+          t('workoutDetail.invalidRpeSetMessage', { setNumber: i + 1 }),
+        );
         return;
       }
 
@@ -420,14 +440,14 @@ export default function WorkoutDetailScreen() {
         await updateWorkout(uid, workout.workout_id, { exercises: updatedExercises });
       }
 
-      Alert.alert('Saved', 'Exercise updated successfully.');
+      Alert.alert(t('workoutDetail.savedTitle'), t('workoutDetail.exerciseUpdatedMessage'));
       setShowExerciseEditorModal(false);
       setEditingExerciseIndex(null);
       setEditingExerciseNotes('');
       setEditingSets([]);
     } catch (error) {
       console.warn('[workout detail] saveExerciseEdits failed:', error);
-      Alert.alert('Saved locally', 'Exercise changes were saved locally, but cloud sync failed.');
+      Alert.alert(t('workoutDetail.savedLocallyTitle'), t('workoutDetail.savedLocallyMessage'));
       setShowExerciseEditorModal(false);
       setEditingExerciseIndex(null);
       setEditingExerciseNotes('');
@@ -440,16 +460,16 @@ export default function WorkoutDetailScreen() {
   const handleDuplicateWorkout = async () => {
     if (!workout) return;
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await startDraftWorkout(workout, `${workout.name || 'Workout'} Copy`);
+    await startDraftWorkout(workout, `${workout.name || t('workoutDetail.defaultWorkoutName')} ${t('workoutDetail.copySuffix')}`);
   };
 
   const handleShareSummary = async () => {
     if (!summaryText) return;
     await Haptics.selectionAsync();
     try {
-      await Share.share({ message: summaryText, title: `${workout?.name || 'Workout'} Summary` });
+      await Share.share({ message: summaryText, title: `${workout?.name || t('workoutDetail.defaultWorkoutName')} ${t('workoutDetail.summaryTitle')}` });
     } catch {
-      Alert.alert('Share failed', 'Unable to share workout summary.');
+      Alert.alert(t('workoutDetail.shareFailedTitle'), t('workoutDetail.shareFailedMessage'));
     }
   };
 
@@ -457,7 +477,7 @@ export default function WorkoutDetailScreen() {
     if (!summaryText) return;
     await Haptics.selectionAsync();
     Clipboard.setString(summaryText);
-    Alert.alert('Copied', 'Workout summary copied as plain text.');
+    Alert.alert(t('workoutDetail.copiedTitle'), t('workoutDetail.copiedMessage'));
   };
 
   const toggleExerciseCollapsed = async (exerciseKey: string) => {
@@ -495,13 +515,13 @@ export default function WorkoutDetailScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Workout Summary</Text>
+          <Text style={styles.headerTitle}>{t('workoutDetail.summaryTitle')}</Text>
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.emptyContainer}>
           <Ionicons name="barbell-outline" size={52} color="#2D2D2D" />
-          <Text style={styles.emptyTitle}>Workout not found</Text>
-          <Text style={styles.emptySubtitle}>This workout may have been deleted.</Text>
+          <Text style={styles.emptyTitle}>{t('workoutDetail.notFoundTitle')}</Text>
+          <Text style={styles.emptySubtitle}>{t('workoutDetail.notFoundSubtitle')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -514,7 +534,7 @@ export default function WorkoutDetailScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="chevron-back" size={26} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Workout Summary</Text>
+          <Text style={styles.headerTitle}>{t('workoutDetail.summaryTitle')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -526,16 +546,16 @@ export default function WorkoutDetailScreen() {
           <View style={styles.stickyContainer}>
             <View style={styles.metaCard}>
               <Text style={styles.workoutDate}>{formatDate(workout.date)}</Text>
-              <Text style={styles.workoutName}>{workout.name || 'Untitled Workout'}</Text>
+              <Text style={styles.workoutName}>{workout.name || t('workoutDetail.untitledWorkout')}</Text>
 
               <View style={styles.statsRow}>
                 <View style={styles.statChip}>
                   <Ionicons name="barbell-outline" size={15} color="#4CAF50" />
-                  <Text style={styles.statText}>{exercises.length} exercises</Text>
+                  <Text style={styles.statText}>{t('workoutDetail.exerciseCount', { count: exercises.length })}</Text>
                 </View>
                 <View style={styles.statChip}>
                   <Ionicons name="layers-outline" size={15} color="#2196F3" />
-                  <Text style={styles.statText}>{totalSets} sets</Text>
+                  <Text style={styles.statText}>{t('workoutDetail.setCount', { count: totalSets })}</Text>
                 </View>
                 <View style={styles.statChip}>
                   <Ionicons name="trending-up-outline" size={15} color="#FFC107" />
@@ -546,56 +566,56 @@ export default function WorkoutDetailScreen() {
               <View style={styles.actionRow}>
                 <TouchableOpacity style={styles.primaryActionButton} onPress={handleEditWorkout} activeOpacity={0.82}>
                   <Ionicons name="refresh-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>Redo Workout</Text>
+                  <Text style={styles.actionButtonText}>{t('workoutDetail.redoWorkout')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.secondaryActionButton} onPress={handleDuplicateWorkout} activeOpacity={0.82}>
                   <Ionicons name="copy-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>Duplicate</Text>
+                  <Text style={styles.actionButtonText}>{t('workoutDetail.duplicate')}</Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.actionRow}>
                 <TouchableOpacity style={styles.secondaryActionButton} onPress={handleShareSummary} activeOpacity={0.82}>
                   <Ionicons name="share-social-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>Share</Text>
+                  <Text style={styles.actionButtonText}>{t('workoutDetail.share')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.secondaryActionButton} onPress={handleCopySummary} activeOpacity={0.82}>
                   <Ionicons name="clipboard-outline" size={16} color="#FFFFFF" />
-                  <Text style={styles.actionButtonText}>Copy Text</Text>
+                  <Text style={styles.actionButtonText}>{t('workoutDetail.copyText')}</Text>
                 </TouchableOpacity>
               </View>
 
               <TouchableOpacity style={styles.notesToggleButton} onPress={handleOpenNotes} activeOpacity={0.82}>
                 <View style={styles.notesToggleLeft}>
                   <Ionicons name="document-text-outline" size={18} color="#FF6200" />
-                  <Text style={styles.notesToggleText}>Workout Notes</Text>
+                  <Text style={styles.notesToggleText}>{t('workoutDetail.workoutNotes')}</Text>
                 </View>
-                <Text style={styles.notesButtonLabel}>{notes.trim() ? 'Edit' : 'Add'}</Text>
+                <Text style={styles.notesButtonLabel}>{notes.trim() ? t('workoutDetail.editLabel') : t('workoutDetail.addLabel')}</Text>
               </TouchableOpacity>
-              <Text style={styles.notesPreview} numberOfLines={2}>
-                {notes.trim() || 'No notes yet. Add context for next time.'}
+              <Text style={styles.notesPreview}>
+                {notes.trim() || t('workoutDetail.noNotesYet')}
               </Text>
             </View>
           </View>
 
           {(invalidCount > 0 || suspiciousCount > 0) && (
             <View style={styles.guardrailsCard}>
-              <Text style={styles.guardrailsTitle}>Validation Checks</Text>
+              <Text style={styles.guardrailsTitle}>{t('workoutDetail.validationChecks')}</Text>
               {invalidCount > 0 && (
                 <Text style={styles.guardrailsErrorText}>
-                  {invalidCount} invalid set{invalidCount > 1 ? 's' : ''} detected.
+                  {t('workoutDetail.invalidSetCount', { count: invalidCount })}
                 </Text>
               )}
               {suspiciousCount > 0 && (
                 <Text style={styles.guardrailsWarningText}>
-                  {suspiciousCount} suspicious set{ suspiciousCount > 1 ? 's' : '' } flagged for review.
+                  {t('workoutDetail.suspiciousSetCount', { count: suspiciousCount })}
                 </Text>
               )}
             </View>
           )}
 
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Exercises</Text>
+            <Text style={styles.sectionTitle}>{t('workoutDetail.exercisesTitle')}</Text>
           </View>
 
           {exercises.map((exercise, exerciseIndex) => {
@@ -620,21 +640,21 @@ export default function WorkoutDetailScreen() {
                     activeOpacity={0.85}
                   >
                     <Ionicons name="create-outline" size={14} color="#FFFFFF" />
-                    <Text style={styles.exerciseEditButtonText}>Edit</Text>
+                    <Text style={styles.exerciseEditButtonText}>{t('workoutDetail.editLabel')}</Text>
                   </TouchableOpacity>
                 </View>
 
                 {exercise.notes ? <Text style={styles.exerciseNotes}>{exercise.notes}</Text> : null}
 
                 {isCollapsed ? (
-                  <Text style={styles.collapsedMeta}>{sets.length} sets hidden</Text>
+                  <Text style={styles.collapsedMeta}>{t('workoutDetail.hiddenSetsCount', { count: sets.length })}</Text>
                 ) : (
                   <>
                     <View style={styles.tableHeader}>
-                      <Text style={[styles.tableHeaderText, styles.colSet]}>Set</Text>
-                      <Text style={[styles.tableHeaderText, styles.colReps]}>Reps</Text>
-                      <Text style={[styles.tableHeaderText, styles.colWeight]}>Weight ({weightUnit})</Text>
-                      <Text style={[styles.tableHeaderText, styles.colRpe]}>RPE</Text>
+                      <Text style={[styles.tableHeaderText, styles.colSet]}>{t('workoutDetail.setLabel')}</Text>
+                      <Text style={[styles.tableHeaderText, styles.colReps]}>{t('workoutDetail.repsLabel')}</Text>
+                      <Text style={[styles.tableHeaderText, styles.colWeight]}>{t('workoutDetail.weightLabel', { unit: weightUnit })}</Text>
+                      <Text style={[styles.tableHeaderText, styles.colRpe]}>{t('workoutDetail.rpeLabel')}</Text>
                     </View>
 
                     {sets.map((set: WorkoutSet, setIndex: number) => {
@@ -668,8 +688,8 @@ export default function WorkoutDetailScreen() {
 
           {exercises.length === 0 && (
             <View style={styles.emptyExercisesCard}>
-              <Text style={styles.emptyExercisesText}>No exercises recorded for this workout yet.</Text>
-              <Text style={styles.emptyExercisesHint}>Use Duplicate or Edit to add your first set entries quickly.</Text>
+              <Text style={styles.emptyExercisesText}>{t('workoutDetail.noExercisesTitle')}</Text>
+              <Text style={styles.emptyExercisesHint}>{t('workoutDetail.noExercisesHint')}</Text>
             </View>
           )}
         </ScrollView>
@@ -682,7 +702,7 @@ export default function WorkoutDetailScreen() {
             >
               <View style={styles.modalCard}>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Workout Notes</Text>
+                  <Text style={styles.modalTitle}>{t('workoutDetail.workoutNotes')}</Text>
                   <TouchableOpacity onPress={handleCloseNotes} style={styles.modalCloseButton}>
                     <Ionicons name="close" size={20} color="#B0B0B0" />
                   </TouchableOpacity>
@@ -690,7 +710,7 @@ export default function WorkoutDetailScreen() {
 
                 <TextInput
                   style={styles.notesInput}
-                  placeholder="Add your notes here..."
+                  placeholder={t('workoutDetail.notesPlaceholder')}
                   placeholderTextColor="#B0B0B0"
                   value={notes}
                   onChangeText={setNotes}
@@ -699,10 +719,10 @@ export default function WorkoutDetailScreen() {
 
                 <View style={styles.modalActions}>
                   <TouchableOpacity style={styles.cancelButton} onPress={handleCloseNotes} disabled={loading}>
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                    <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.saveButton} onPress={saveNotes} disabled={loading}>
-                    <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Notes'}</Text>
+                    <Text style={styles.saveButtonText}>{loading ? t('common.saving') : t('workoutDetail.saveNotes')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -724,7 +744,11 @@ export default function WorkoutDetailScreen() {
               <View style={styles.modalCardTall}>
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>
-                    Edit {editingExerciseIndex !== null ? exercises[editingExerciseIndex]?.exercise_name : 'Exercise'}
+                    {t('workoutDetail.editExerciseTitle', {
+                      name: editingExerciseIndex !== null
+                        ? exercises[editingExerciseIndex]?.exercise_name || t('workoutDetail.exerciseFallbackName')
+                        : t('workoutDetail.exerciseFallbackName'),
+                    })}
                   </Text>
                   <TouchableOpacity onPress={closeExerciseEditor} style={styles.modalCloseButton}>
                     <Ionicons name="close" size={20} color="#B0B0B0" />
@@ -735,7 +759,7 @@ export default function WorkoutDetailScreen() {
                   {editingSets.map((set, setIndex) => (
                     <View key={`${set.set_id}_${setIndex}`} style={styles.editSetCard}>
                       <View style={styles.editSetHeader}>
-                        <Text style={styles.editSetTitle}>Set {setIndex + 1}</Text>
+                        <Text style={styles.editSetTitle}>{t('workoutDetail.setTitle', { setNumber: setIndex + 1 })}</Text>
                         <TouchableOpacity
                           onPress={() => removeEditingSet(setIndex)}
                           style={styles.removeSetButton}
@@ -751,7 +775,7 @@ export default function WorkoutDetailScreen() {
 
                       <View style={styles.editInputRow}>
                         <View style={styles.editInputGroup}>
-                          <Text style={styles.editInputLabel}>Reps</Text>
+                          <Text style={styles.editInputLabel}>{t('workoutDetail.repsLabel')}</Text>
                           <TextInput
                             style={styles.editInput}
                             value={set.reps}
@@ -760,7 +784,7 @@ export default function WorkoutDetailScreen() {
                           />
                         </View>
                         <View style={styles.editInputGroup}>
-                          <Text style={styles.editInputLabel}>Weight ({weightUnit})</Text>
+                          <Text style={styles.editInputLabel}>{t('workoutDetail.weightLabel', { unit: weightUnit })}</Text>
                           <TextInput
                             style={styles.editInput}
                             value={set.weight}
@@ -769,7 +793,7 @@ export default function WorkoutDetailScreen() {
                           />
                         </View>
                         <View style={styles.editInputGroup}>
-                          <Text style={styles.editInputLabel}>RPE</Text>
+                          <Text style={styles.editInputLabel}>{t('workoutDetail.rpeLabel')}</Text>
                           <TextInput
                             style={styles.editInput}
                             value={set.rpe}
@@ -788,20 +812,20 @@ export default function WorkoutDetailScreen() {
                           size={18}
                           color={set.is_warmup ? '#FF6200' : '#B0B0B0'}
                         />
-                        <Text style={styles.warmupToggleText}>Warm-up set</Text>
+                        <Text style={styles.warmupToggleText}>{t('workoutDetail.warmupSet')}</Text>
                       </TouchableOpacity>
                     </View>
                   ))}
 
                   <TouchableOpacity style={styles.addSetButton} onPress={addEditingSet} activeOpacity={0.85}>
                     <Ionicons name="add" size={18} color="#FFFFFF" />
-                    <Text style={styles.addSetButtonText}>Add Set</Text>
+                    <Text style={styles.addSetButtonText}>{t('workoutDetail.addSet')}</Text>
                   </TouchableOpacity>
 
-                  <Text style={styles.editInputLabel}>Exercise Notes</Text>
+                  <Text style={styles.editInputLabel}>{t('workoutDetail.exerciseNotes')}</Text>
                   <TextInput
                     style={styles.notesInput}
-                    placeholder="Exercise-specific notes..."
+                    placeholder={t('workoutDetail.exerciseNotesPlaceholder')}
                     placeholderTextColor="#B0B0B0"
                     value={editingExerciseNotes}
                     onChangeText={setEditingExerciseNotes}
@@ -811,10 +835,10 @@ export default function WorkoutDetailScreen() {
 
                 <View style={styles.modalActions}>
                   <TouchableOpacity style={styles.cancelButton} onPress={closeExerciseEditor} disabled={savingExerciseEdit}>
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                    <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.saveButton} onPress={saveExerciseEdits} disabled={savingExerciseEdit}>
-                    <Text style={styles.saveButtonText}>{savingExerciseEdit ? 'Saving...' : 'Save Exercise'}</Text>
+                    <Text style={styles.saveButtonText}>{savingExerciseEdit ? t('common.saving') : t('workoutDetail.saveExercise')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -942,6 +966,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   notesToggleButton: {
     backgroundColor: '#1A1A1A',
@@ -974,6 +1000,7 @@ const styles = StyleSheet.create({
     color: '#B0B0B0',
     fontSize: 13,
     marginTop: -4,
+    flexShrink: 1,
   },
   guardrailsCard: {
     backgroundColor: '#252525',
@@ -1236,6 +1263,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '800',
+    flex: 1,
+    paddingRight: 8,
   },
   modalCloseButton: {
     width: 30,
