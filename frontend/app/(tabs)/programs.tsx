@@ -26,6 +26,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { usePrograms } from '../../src/hooks/usePrograms';
 import { usePro } from '../../src/hooks/usePro';
+import { useLanguage } from '../../src/context/LanguageContext';
 import { ProgramCard } from '../../src/components/programs/ProgramCard';
 import { sendEngagementTelemetry, sendPaywallTelemetry } from '../../src/services/notifications';
 import { PREBUILT_PROGRAMS, createProgramFromTemplate } from '../../src/data/prebuiltPrograms';
@@ -38,6 +39,7 @@ export default function ProgramsScreen() {
   const router = useRouter();
   const { programs, isLoading, reload, removeOne, saveOne } = usePrograms();
   const { isPro } = usePro();
+  const { t } = useLanguage();
   const fabScale = useSharedValue(1);
   const [recentlyDeleted, setRecentlyDeleted] = useState<WorkoutProgram | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -135,20 +137,20 @@ export default function ProgramsScreen() {
     (program: WorkoutProgram) => {
       Alert.alert(
         program.name,
-        'What would you like to do?',
+        t('programsTab.actionsPrompt'),
         [
           {
-            text: 'Edit',
+            text: t('programsTab.edit'),
             onPress: () => router.push(`/programs/builder?id=${program.id}` as any),
           },
           {
-            text: 'Delete',
+            text: t('programsTab.delete'),
             style: 'destructive',
             onPress: () => {
-              Alert.alert('Delete Program', `Delete "${program.name}"?`, [
-                { text: 'Cancel', style: 'cancel' },
+              Alert.alert(t('programsTab.deleteProgramTitle'), t('programsTab.deleteProgramMessage', { name: program.name }), [
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                  text: 'Delete',
+                  text: t('programsTab.delete'),
                   style: 'destructive',
                   onPress: async () => {
                     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -168,7 +170,7 @@ export default function ProgramsScreen() {
               ]);
             },
           },
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
         ],
       );
     },
@@ -197,9 +199,9 @@ export default function ProgramsScreen() {
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="barbell-outline" size={56} color={colors.textDisabled} />
-      <Text style={styles.emptyTitle}>No programs yet</Text>
+      <Text style={styles.emptyTitle}>{t('programsTab.emptyTitle')}</Text>
       <Text style={styles.emptySubtitle}>
-        Tap the + button to build your first training program
+        {t('programsTab.emptySubtitle')}
       </Text>
     </View>
   );
@@ -207,8 +209,8 @@ export default function ProgramsScreen() {
   const renderTemplateStrip = () => (
     <View style={styles.templateSection}>
       <View style={styles.templateSectionHeader}>
-        <Text style={styles.templateSectionTitle}>Quick Start Templates</Text>
-        <Text style={styles.templateSectionSubtitle}>Pick a proven split and start now</Text>
+        <Text style={styles.templateSectionTitle}>{t('programsTab.quickStartTemplates')}</Text>
+        <Text style={styles.templateSectionSubtitle}>{t('programsTab.quickStartSubtitle')}</Text>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.templateRow}>
@@ -221,7 +223,7 @@ export default function ProgramsScreen() {
           >
             <View style={styles.templateBadgeRow}>
               <Text style={styles.templateLevelBadge}>{template.level}</Text>
-              <Text style={styles.templateDuration}>{template.estimatedSessionMinutes} min</Text>
+              <Text style={styles.templateDuration}>{t('programsTab.minutesLabel', { minutes: template.estimatedSessionMinutes })}</Text>
             </View>
 
             <Text style={styles.templateName} numberOfLines={1}>{template.name}</Text>
@@ -229,16 +231,16 @@ export default function ProgramsScreen() {
 
             <View style={styles.templateMetaRow}>
               <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} />
-              <Text style={styles.templateMetaText}>{template.daysPerWeek} days/week</Text>
+              <Text style={styles.templateMetaText}>{t('programsTab.daysPerWeek', { count: template.daysPerWeek })}</Text>
             </View>
 
             <View style={styles.templateMetaRow}>
               <Ionicons name="barbell-outline" size={13} color={colors.textSecondary} />
-              <Text style={styles.templateMetaText}>{template.days.reduce((sum, day) => sum + day.exercises.length, 0)} total exercises</Text>
+              <Text style={styles.templateMetaText}>{t('programsTab.totalExercises', { count: template.days.reduce((sum, day) => sum + day.exercises.length, 0) })}</Text>
             </View>
 
             <View style={styles.templateCtaRow}>
-              <Text style={styles.templateCtaText}>Use template</Text>
+              <Text style={styles.templateCtaText}>{t('programsTab.useTemplate')}</Text>
               <Ionicons name="arrow-forward" size={14} color={colors.accent} />
             </View>
           </TouchableOpacity>
@@ -251,7 +253,7 @@ export default function ProgramsScreen() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Programs</Text>
+        <Text style={styles.title}>{t('programsTab.title')}</Text>
         {!isPro && (
           <TouchableOpacity
             style={styles.proBadge}
@@ -267,7 +269,7 @@ export default function ProgramsScreen() {
             }}
           >
             <Ionicons name="star" size={12} color={colors.accent} />
-            <Text style={styles.proBadgeText}>Go Pro</Text>
+            <Text style={styles.proBadgeText}>{t('programsTab.goPro')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -306,10 +308,10 @@ export default function ProgramsScreen() {
       {recentlyDeleted && (
         <View style={styles.undoBar}>
           <Text style={styles.undoText} numberOfLines={1}>
-            Deleted {recentlyDeleted.name}
+            {t('programsTab.deletedProgram', { name: recentlyDeleted.name })}
           </Text>
           <TouchableOpacity onPress={handleUndoDelete} hitSlop={8}>
-            <Text style={styles.undoAction}>UNDO</Text>
+            <Text style={styles.undoAction}>{t('programsTab.undo')}</Text>
           </TouchableOpacity>
         </View>
       )}

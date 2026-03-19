@@ -1,16 +1,19 @@
 import { Link, Stack } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '../src/constants/theme';
+import { useLanguage } from '../src/context/LanguageContext';
 
 export default function NotFoundScreen() {
+  const { t } = useLanguage();
+
   return (
     <>
-      <Stack.Screen options={{ title: 'Not Found', headerShown: false }} />
+      <Stack.Screen options={{ title: t('notFound.title'), headerShown: false }} />
       <View style={styles.container}>
         <Text style={styles.title}>404</Text>
-        <Text style={styles.subtitle}>This page doesn't exist.</Text>
+        <Text style={styles.subtitle}>{t('notFound.subtitle')}</Text>
         <Link href="/(tabs)" style={styles.link}>
-          <Text style={styles.linkText}>Go home</Text>
+          <Text style={styles.linkText}>{t('notFound.goHome')}</Text>
         </Link>
       </View>
     </>

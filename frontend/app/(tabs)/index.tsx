@@ -39,6 +39,7 @@ import {
 } from '../../src/utils/helpers';
 import { format, subDays, parseISO, isSameDay } from 'date-fns';
 import { sendEngagementTelemetry } from '../../src/services/notifications';
+import { useLanguage } from '../../src/context/LanguageContext';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -132,6 +133,7 @@ function getMilestoneProgress(totalWorkouts: number) {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { workouts, isLoading, loadUserWorkouts, deleteWorkout, clearInProgress } = useWorkoutStore();
   const { user } = useAuthStore();
   const { uid } = useNativeAuthState();
@@ -169,7 +171,7 @@ export default function HomeScreen() {
         if (raw) {
           try {
             const { workout } = JSON.parse(raw);
-            setResumeWorkoutName(workout?.name ?? 'In-progress workout');
+            setResumeWorkoutName(workout?.name ?? t('homeTab.inProgressWorkout'));
           } catch {
             setResumeWorkoutName(null);
           }
@@ -177,7 +179,7 @@ export default function HomeScreen() {
           setResumeWorkoutName(null);
         }
       });
-    }, []),
+    }, [t]),
   );
 
   // ── Data fetch — Firestore-backed via uid ──────────────────────────────────
@@ -421,17 +423,17 @@ export default function HomeScreen() {
       context: 'home_card',
     });
     const deltaPayload =
-      `Volume vs last week: ${weeklyDeltaRecap.volumeDelta >= 0 ? '+' : ''}${formatVolume(Math.abs(weeklyDeltaRecap.volumeDelta))} (${weeklyDeltaRecap.volumeDeltaPct >= 0 ? '+' : ''}${weeklyDeltaRecap.volumeDeltaPct}%)\n` +
-      `Workout days delta: ${weeklyDeltaRecap.dayDelta >= 0 ? '+' : ''}${weeklyDeltaRecap.dayDelta}\n` +
-      `Sessions delta: ${weeklyDeltaRecap.workoutDelta >= 0 ? '+' : ''}${weeklyDeltaRecap.workoutDelta}`;
+      `${t('homeTab.volumeVsLastWeek')}: ${weeklyDeltaRecap.volumeDelta >= 0 ? '+' : ''}${formatVolume(Math.abs(weeklyDeltaRecap.volumeDelta))} (${weeklyDeltaRecap.volumeDeltaPct >= 0 ? '+' : ''}${weeklyDeltaRecap.volumeDeltaPct}%)\n` +
+      `${t('homeTab.workoutDaysDelta')}: ${weeklyDeltaRecap.dayDelta >= 0 ? '+' : ''}${weeklyDeltaRecap.dayDelta}\n` +
+      `${t('homeTab.sessionsDelta')}: ${weeklyDeltaRecap.workoutDelta >= 0 ? '+' : ''}${weeklyDeltaRecap.workoutDelta}`;
 
     Alert.alert(
-      'Weekly Recap',
-      `Workout days: ${workoutDaysThisWeek}/7\nNutrition days: ${nutritionTrackedDays}/7\nTotal volume: ${formatVolume(totalVolumeThisWeek)}\nCurrent streak: ${streak} day${streak === 1 ? '' : 's'}\n\nProgress delta payload:\n${deltaPayload}`,
+      t('homeTab.weeklyRecapTitle'),
+      `${t('homeTab.workoutDays')}: ${workoutDaysThisWeek}/7\n${t('homeTab.nutritionDays')}: ${nutritionTrackedDays}/7\n${t('homeTab.totalVolume')}: ${formatVolume(totalVolumeThisWeek)}\n${t('homeTab.currentStreak')}: ${streak} ${t('homeTab.dayLabel', { count: streak })}\n\n${t('homeTab.progressDeltaPayload')}:\n${deltaPayload}`,
       [
-        { text: 'Close', style: 'cancel' },
+        { text: t('common.close'), style: 'cancel' },
         {
-          text: 'Open Full Progress',
+          text: t('homeTab.openFullProgress'),
           onPress: () => router.push({
             pathname: '/(tabs)/progress',
             params: {
@@ -450,8 +452,8 @@ export default function HomeScreen() {
   // ── Greeting ──────────────────────────────────────────────────────────────
   const hour = new Date().getHours();
   const greeting =
-    hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const firstName = user?.name?.split(' ')[0] ?? 'Athlete';
+    hour < 12 ? t('homeTab.goodMorning') : hour < 17 ? t('homeTab.goodAfternoon') : t('homeTab.goodEvening');
+  const firstName = user?.name?.split(' ')[0] ?? t('homeTab.athlete');
 
   // ── Sub-components ────────────────────────────────────────────────────────
   // Wrapped in useCallback so FlatList receives a stable reference and does
@@ -467,7 +469,7 @@ export default function HomeScreen() {
             <Text style={styles.headerTitle}>{firstName}</Text>
             {streak > 0 && (
               <Badge
-                label={`🔥 ${streak}d streak`}
+                label={t('homeTab.streakBadge', { count: streak })}
                 variant="pr"
                 style={styles.streakBadge}
               />
@@ -500,12 +502,12 @@ export default function HomeScreen() {
           <View style={styles.resumeLeft}>
             <Ionicons name="play-circle" size={22} color={theme.primary} />
             <View>
-              <Text style={styles.resumeLabel}>Workout in progress</Text>
+              <Text style={styles.resumeLabel}>{t('homeTab.workoutInProgress')}</Text>
               <Text style={styles.resumeName} numberOfLines={1}>{resumeWorkoutName}</Text>
             </View>
           </View>
           <View style={styles.resumeRight}>
-            <Text style={styles.resumeCta}>Resume</Text>
+            <Text style={styles.resumeCta}>{t('homeTab.resume')}</Text>
             <TouchableOpacity
               onPress={handleDismissResume}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -525,13 +527,13 @@ export default function HomeScreen() {
       >
         <View style={styles.ctaInner}>
           <Ionicons name="barbell-outline" size={24} color={theme.textPrimary} />
-          <Text style={styles.ctaText}>Start Workout</Text>
+          <Text style={styles.ctaText}>{t('homeTab.startWorkout')}</Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
       </TouchableOpacity>
       {hasActiveWorkout && (
         <Text style={styles.ctaDisabledNote}>
-          Not possible while another workout session is in progress.
+          {t('homeTab.ctaDisabledNote')}
         </Text>
       )}
 
@@ -543,8 +545,8 @@ export default function HomeScreen() {
         <View style={styles.bodyGoalLeft}>
           <Ionicons name="body-outline" size={18} color={theme.primary} />
           <View>
-            <Text style={styles.bodyGoalTitle}>Body Composition Goal</Text>
-            <Text style={styles.bodyGoalSubtitle}>Set targets and projected timeline</Text>
+            <Text style={styles.bodyGoalTitle}>{t('homeTab.bodyCompositionGoal')}</Text>
+            <Text style={styles.bodyGoalSubtitle}>{t('homeTab.bodyCompositionGoalSubtitle')}</Text>
           </View>
         </View>
         <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
@@ -555,7 +557,7 @@ export default function HomeScreen() {
           <View style={styles.healthCardHeader}>
             <View style={styles.healthCardTitleRow}>
               <Ionicons name="fitness-outline" size={18} color={theme.primary} />
-              <Text style={styles.sectionTitle}>Health Connect Today</Text>
+              <Text style={styles.sectionTitle}>{t('homeTab.healthConnectToday')}</Text>
             </View>
 
             {healthCardReady ? (
@@ -598,25 +600,25 @@ export default function HomeScreen() {
 
               {healthError ? (
                 <Text style={styles.healthCardHint}>
-                  Sync warning: {healthError}
+                  {t('homeTab.syncWarning', { error: healthError })}
                 </Text>
               ) : (
                 <Text style={styles.healthCardHint}>
-                  Pull to refresh or tap refresh to sync latest readings.
+                  {t('homeTab.healthPullToRefresh')}
                 </Text>
               )}
             </>
           ) : (
             <>
               <Text style={styles.healthCardHint}>
-                Connect Health Connect from Profile to start auto-importing your daily steps, distance, calories, and weight.
+                {t('homeTab.healthConnectHint')}
               </Text>
               <TouchableOpacity
                 style={styles.healthConnectButton}
                 onPress={() => router.push('/(tabs)/profile')}
                 activeOpacity={0.85}
               >
-                <Text style={styles.healthConnectButtonText}>Open Profile</Text>
+                <Text style={styles.healthConnectButtonText}>{t('homeTab.openProfile')}</Text>
                 <Ionicons name="chevron-forward" size={14} color={theme.primary} />
               </TouchableOpacity>
             </>
@@ -626,9 +628,9 @@ export default function HomeScreen() {
 
       <Card style={styles.engagementCard}>
         <View style={styles.engagementHeader}>
-          <Text style={styles.sectionTitle}>This Week Momentum</Text>
+          <Text style={styles.sectionTitle}>{t('homeTab.thisWeekMomentum')}</Text>
           <Badge
-            label={`${weeklyConsistencyScore}/14 consistency`}
+            label={t('homeTab.consistencyBadge', { count: weeklyConsistencyScore })}
             variant="neutral"
           />
         </View>
@@ -636,22 +638,22 @@ export default function HomeScreen() {
         <View style={styles.momentumStatsRow}>
           <View style={styles.momentumStatChip}>
             <Text style={styles.momentumStatValue}>{workoutDaysThisWeek}</Text>
-            <Text style={styles.momentumStatLabel}>Workout days</Text>
+            <Text style={styles.momentumStatLabel}>{t('homeTab.workoutDays')}</Text>
           </View>
           <View style={styles.momentumStatChip}>
             <Text style={styles.momentumStatValue}>{nutritionTrackedDays}</Text>
-            <Text style={styles.momentumStatLabel}>Nutrition days</Text>
+            <Text style={styles.momentumStatLabel}>{t('homeTab.nutritionDays')}</Text>
           </View>
           <View style={styles.momentumStatChip}>
             <Text style={styles.momentumStatValue}>{streak}</Text>
-            <Text style={styles.momentumStatLabel}>Current streak</Text>
+            <Text style={styles.momentumStatLabel}>{t('homeTab.currentStreak')}</Text>
           </View>
         </View>
 
         <View style={styles.milestoneRow}>
           <View>
-            <Text style={styles.milestoneLabel}>Next milestone badge</Text>
-            <Text style={styles.milestoneTitle}>🏅 {milestone.next} workouts</Text>
+            <Text style={styles.milestoneLabel}>{t('homeTab.nextMilestone')}</Text>
+            <Text style={styles.milestoneTitle}>{t('homeTab.nextMilestoneValue', { count: milestone.next })}</Text>
           </View>
           <Text style={styles.milestoneMeta}>{completedWorkoutsCount}/{milestone.next}</Text>
         </View>
@@ -667,10 +669,10 @@ export default function HomeScreen() {
           >
             <Ionicons name="flame" size={16} color={theme.warning} />
             <View style={styles.streakWarningContent}>
-              <Text style={styles.streakWarningTitle}>Streak at risk today</Text>
-              <Text style={styles.streakWarningSubtitle}>Log even one set to keep your streak alive.</Text>
+              <Text style={styles.streakWarningTitle}>{t('homeTab.streakWarningTitle')}</Text>
+              <Text style={styles.streakWarningSubtitle}>{t('homeTab.streakWarningSubtitle')}</Text>
             </View>
-            <Text style={styles.streakWarningAction}>Protect</Text>
+            <Text style={styles.streakWarningAction}>{t('homeTab.protect')}</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -679,7 +681,7 @@ export default function HomeScreen() {
           onPress={handleWeeklyRecapPress}
           activeOpacity={0.85}
         >
-          <Text style={styles.weeklyRecapText}>Open Weekly Recap</Text>
+          <Text style={styles.weeklyRecapText}>{t('homeTab.openWeeklyRecap')}</Text>
           <Ionicons name="chevron-forward" size={16} color={theme.primary} />
         </TouchableOpacity>
       </Card>
@@ -688,13 +690,13 @@ export default function HomeScreen() {
       <Card style={styles.chartCard} noPadding>
         <View style={styles.chartHeader}>
           <View>
-            <Text style={styles.sectionTitle}>Weekly Volume</Text>
+            <Text style={styles.sectionTitle}>{t('homeTab.weeklyVolume')}</Text>
             <Text style={styles.chartSubtitle}>
-              {formatVolume(totalVolumeThisWeek)} kg this week
+              {t('homeTab.thisWeekVolume', { volume: formatVolume(totalVolumeThisWeek) })}
             </Text>
           </View>
           <Badge
-            label={`${workouts.length} total`}
+            label={t('homeTab.totalWorkoutsBadge', { count: workouts.length })}
             variant="neutral"
           />
         </View>
@@ -727,7 +729,7 @@ export default function HomeScreen() {
           />
         ) : (
           <View style={styles.chartEmpty}>
-            <Text style={styles.chartEmptyText}>Log workouts to see volume</Text>
+            <Text style={styles.chartEmptyText}>{t('homeTab.logWorkoutsToSeeVolume')}</Text>
           </View>
         )}
       </Card>
@@ -735,7 +737,7 @@ export default function HomeScreen() {
       {/* ── Recent workouts label ── */}
       {recentWorkouts.length > 0 && (
         <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Recent Workouts</Text>
+          <Text style={styles.sectionTitle}>{t('homeTab.recentWorkouts')}</Text>
           <TouchableOpacity onPress={() => {
             sendEngagementTelemetry({
               feature: 'home',
@@ -744,7 +746,7 @@ export default function HomeScreen() {
             });
             router.push('/workout-history' as any);
           }}>
-            <Text style={styles.seeAll}>See all</Text>
+            <Text style={styles.seeAll}>{t('homeTab.seeAll')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -786,10 +788,10 @@ export default function HomeScreen() {
   const EmptyWorkouts = useCallback(() => (
     <View style={styles.emptyState}>
       <Ionicons name="barbell-outline" size={56} color={theme.charcoal} />
-      <Text style={styles.emptyTitle}>No workouts yet</Text>
-      <Text style={styles.emptySubtitle}>Hit the button above to start your first session!</Text>
+      <Text style={styles.emptyTitle}>{t('homeTab.noWorkoutsTitle')}</Text>
+      <Text style={styles.emptySubtitle}>{t('homeTab.noWorkoutsSubtitle')}</Text>
     </View>
-  ), []);
+  ), [t]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (isLoading && workouts.length === 0) {

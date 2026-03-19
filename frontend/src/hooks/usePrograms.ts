@@ -1,7 +1,7 @@
 // src/hooks/usePrograms.ts
 // GainTrack — CRUD hook for WorkoutPrograms (shared Zustand state)
 
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useProgramStore } from '../store/programStore';
 
 export const usePrograms = () => {
@@ -19,10 +19,14 @@ export const usePrograms = () => {
     }
   }, [hasLoaded, loadPrograms]);
 
+  const reload = useCallback(() => {
+    loadPrograms(true);
+  }, [loadPrograms]);
+
   return {
     programs,
     isLoading,
-    reload: () => loadPrograms(true),
+    reload,
     saveOne,
     removeOne,
     advanceProgramDay,

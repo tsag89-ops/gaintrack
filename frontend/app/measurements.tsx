@@ -22,6 +22,7 @@ import { format } from 'date-fns';
 import { LineChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BodyCompositionGoals } from '../src/types/bodyGoals';
+import { useLanguage } from '../src/context/LanguageContext';
 
 const SCREEN_W = Dimensions.get('window').width;
 const NUTRITION_KEY = 'gaintrack_nutrition';
@@ -77,6 +78,7 @@ const MEASUREMENT_FIELDS = [
 
 export default function MeasurementsScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [progress, setProgress] = useState<Record<string, MeasurementProgress>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -122,7 +124,7 @@ export default function MeasurementsScreen() {
     // Check if at least one field has a value
     const hasValue = Object.values(newMeasurement).some(v => v && v.trim() !== '');
     if (!hasValue) {
-      Alert.alert('Error', 'Please enter at least one measurement');
+      Alert.alert(t('common.error'), t('measurements.enterAtLeastOne'));
       return;
     }
 
@@ -145,20 +147,20 @@ export default function MeasurementsScreen() {
       setShowAddModal(false);
       setNewMeasurement({});
       await fetchData();
-      Alert.alert('Success', 'Measurement saved!');
+      Alert.alert(t('common.success'), t('measurements.saved'));
     } catch (error) {
       console.error('Error saving measurement:', error);
-      Alert.alert('Error', 'Failed to save measurement');
+      Alert.alert(t('common.error'), t('measurements.saveFailed'));
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async (date: string) => {
-    Alert.alert('Delete Measurement', 'Are you sure you want to delete this measurement?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('measurements.deleteTitle'), t('measurements.deleteMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('measurements.deleteAction'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -166,7 +168,7 @@ export default function MeasurementsScreen() {
             await fetchData();
           } catch (error) {
             console.error('Error deleting measurement:', error);
-            Alert.alert('Error', 'Failed to delete measurement');
+            Alert.alert(t('common.error'), t('measurements.deleteFailed'));
           }
         },
       },
@@ -222,8 +224,8 @@ export default function MeasurementsScreen() {
           <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>Body Measurements</Text>
-          <Text style={styles.headerSubtitle}>Track your progress</Text>
+          <Text style={styles.headerTitle}>{t('measurements.title')}</Text>
+          <Text style={styles.headerSubtitle}>{t('measurements.subtitle')}</Text>
         </View>
         <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
           <Ionicons name="add" size={24} color="#FFFFFF" />
@@ -242,7 +244,7 @@ export default function MeasurementsScreen() {
             color={activeTab === 'history' ? '#FFFFFF' : '#B0B0B0'}
           />
           <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>
-            History
+            {t('measurements.historyTab')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -255,7 +257,7 @@ export default function MeasurementsScreen() {
             color={activeTab === 'progress' ? '#FFFFFF' : '#B0B0B0'}
           />
           <Text style={[styles.tabText, activeTab === 'progress' && styles.activeTabText]}>
-            Progress
+            {t('measurements.progressTab')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -277,15 +279,15 @@ export default function MeasurementsScreen() {
               {measurements.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Ionicons name="body-outline" size={64} color="#303030" />
-                  <Text style={styles.emptyTitle}>No measurements yet</Text>
+                  <Text style={styles.emptyTitle}>{t('measurements.noMeasurementsTitle')}</Text>
                   <Text style={styles.emptySubtitle}>
-                    Start tracking your body measurements to see progress over time
+                    {t('measurements.noMeasurementsSubtitle')}
                   </Text>
                   <TouchableOpacity
                     style={styles.emptyButton}
                     onPress={() => setShowAddModal(true)}
                   >
-                    <Text style={styles.emptyButtonText}>Add Measurement</Text>
+                    <Text style={styles.emptyButtonText}>{t('measurements.addMeasurement')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -322,14 +324,14 @@ export default function MeasurementsScreen() {
                   <View style={styles.chartHeaderRow}>
                     <View>
                       <Text style={styles.chartTitle}>Weight Trend</Text>
-                      <Text style={styles.chartSubtitle}>Last {weightChartData.data.length} entries</Text>
+                      <Text style={styles.chartSubtitle}>{t('measurements.lastEntries', { count: weightChartData.data.length })}</Text>
                     </View>
                     <TouchableOpacity
                       style={styles.setGoalBtn}
                       onPress={() => router.push('/body-goals' as any)}
                     >
                       <Ionicons name="flag-outline" size={14} color="#FF6200" />
-                      <Text style={styles.setGoalBtnText}>Set Goal</Text>
+                      <Text style={styles.setGoalBtnText}>{t('measurements.setGoal')}</Text>
                     </TouchableOpacity>
                   </View>
                   <LineChart
@@ -360,9 +362,9 @@ export default function MeasurementsScreen() {
                     <View style={styles.goalLineLabel}>
                       <View style={styles.goalLineDash} />
                       <Text style={styles.goalLineLabelText}>
-                        Goal: {bodyGoals.targetWeight} lbs
+                        {t('measurements.goalWithWeight', { weight: bodyGoals.targetWeight })}
                         {bodyGoals.targetDate
-                          ? `  ·  by ${format(new Date(bodyGoals.targetDate), 'MMM yyyy')}`
+                          ? `  ·  ${t('measurements.byDate', { date: format(new Date(bodyGoals.targetDate), 'MMM yyyy') })}`
                           : ''}
                       </Text>
                     </View>
@@ -370,11 +372,11 @@ export default function MeasurementsScreen() {
                   <View style={styles.chartStats}>
                     <View style={styles.chartStatBox}>
                       <Text style={styles.chartStatValue}>{weightChartData.data[weightChartData.data.length - 1]} lbs</Text>
-                      <Text style={styles.chartStatLabel}>Current</Text>
+                      <Text style={styles.chartStatLabel}>{t('measurements.current')}</Text>
                     </View>
                     <View style={styles.chartStatBox}>
                       <Text style={styles.chartStatValue}>{Math.min(...weightChartData.data)} lbs</Text>
-                      <Text style={styles.chartStatLabel}>Lowest</Text>
+                      <Text style={styles.chartStatLabel}>{t('measurements.lowest')}</Text>
                     </View>
                     <View style={styles.chartStatBox}>
                       <Text style={[
@@ -384,7 +386,7 @@ export default function MeasurementsScreen() {
                         {(weightChartData.data[weightChartData.data.length - 1] >= weightChartData.data[0] ? '+' : '') +
                           (Math.round((weightChartData.data[weightChartData.data.length - 1] - weightChartData.data[0]) * 10) / 10)} lbs
                       </Text>
-                      <Text style={styles.chartStatLabel}>Change</Text>
+                      <Text style={styles.chartStatLabel}>{t('measurements.change')}</Text>
                     </View>
                   </View>
                 </View>
@@ -393,8 +395,8 @@ export default function MeasurementsScreen() {
               {/* Daily Calorie Intake alongside weight trends */}
               {calChartData.data.length > 1 && (
                 <View style={styles.chartCard}>
-                  <Text style={styles.chartTitle}>Daily Calorie Intake</Text>
-                  <Text style={styles.chartSubtitle}>Alongside your weight data · last {calChartData.data.length} days</Text>
+                  <Text style={styles.chartTitle}>{t('measurements.dailyCalorieIntake')}</Text>
+                  <Text style={styles.chartSubtitle}>{t('measurements.dailyCalorieSubtitle', { count: calChartData.data.length })}</Text>
                   <LineChart
                     data={{
                       labels: calChartData.labels,
@@ -417,9 +419,9 @@ export default function MeasurementsScreen() {
                 weightChartData.data.length < 2 ? (
                   <View style={styles.emptyState}>
                     <Ionicons name="analytics-outline" size={64} color="#303030" />
-                    <Text style={styles.emptyTitle}>Not enough data</Text>
+                    <Text style={styles.emptyTitle}>{t('measurements.notEnoughData')}</Text>
                     <Text style={styles.emptySubtitle}>
-                      Add more measurements to see your progress over time
+                      {t('measurements.notEnoughDataSubtitle')}
                     </Text>
                   </View>
                 ) : null
@@ -454,7 +456,7 @@ export default function MeasurementsScreen() {
                           </View>
                         </View>
                         <Text style={styles.progressRange}>
-                          Started at {data.first} {field.unit}
+                          {t('measurements.startedAt', { value: data.first, unit: field.unit })}
                         </Text>
                       </View>
                     );
@@ -475,14 +477,14 @@ export default function MeasurementsScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Measurement</Text>
+              <Text style={styles.modalTitle}>{t('measurements.addMeasurement')}</Text>
               <TouchableOpacity onPress={() => setShowAddModal(false)}>
                 <Ionicons name="close" size={24} color="#B0B0B0" />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalScroll}>
-              <Text style={styles.modalSubtitle}>Enter your measurements (leave blank to skip)</Text>
+              <Text style={styles.modalSubtitle}>{t('measurements.modalSubtitle')}</Text>
               
               {MEASUREMENT_FIELDS.map((field) => (
                 <View key={field.key} style={styles.inputGroup}>
@@ -492,19 +494,19 @@ export default function MeasurementsScreen() {
                     value={newMeasurement[field.key] || ''}
                     onChangeText={(v) => setNewMeasurement({ ...newMeasurement, [field.key]: v })}
                     keyboardType="decimal-pad"
-                    placeholder={`Enter ${field.label.toLowerCase()}`}
+                    placeholder={t('measurements.enterField', { field: field.label.toLowerCase() })}
                     placeholderTextColor="#B0B0B0"
                   />
                 </View>
               ))}
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Notes (optional)</Text>
+                <Text style={styles.inputLabel}>{t('measurements.notesOptional')}</Text>
                 <TextInput
                   style={[styles.input, styles.notesInput]}
                   value={newMeasurement.notes || ''}
                   onChangeText={(v) => setNewMeasurement({ ...newMeasurement, notes: v })}
-                  placeholder="Any notes..."
+                  placeholder={t('measurements.notesPlaceholder')}
                   placeholderTextColor="#B0B0B0"
                   multiline
                 />
@@ -517,7 +519,7 @@ export default function MeasurementsScreen() {
               disabled={isSaving}
             >
               <Text style={styles.saveButtonText}>
-                {isSaving ? 'Saving...' : 'Save Measurement'}
+                {isSaving ? t('common.saving') : t('measurements.saveMeasurement')}
               </Text>
             </TouchableOpacity>
           </View>

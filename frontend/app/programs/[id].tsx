@@ -27,6 +27,7 @@ import { WorkoutProgram, ProgramDay, ProgramExercise, WorkoutExercise, WorkoutSe
 import { EXERCISES } from '../../src/constants/exercises';
 import { colors, typography, radii, spacing, shadows } from '../../src/constants/theme';
 import { getPrograms } from '../../src/services/storage';
+import { useLanguage } from '../../src/context/LanguageContext';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ const toWorkoutExercise = (ex: ProgramExercise): WorkoutExercise => {
 
 export default function ProgramDetailScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { programs, removeOne } = usePrograms();
   const { calculateNextSession } = useAutoProgress();
@@ -116,10 +118,10 @@ export default function ProgramDetailScreen() {
 
   const handleDelete = useCallback(() => {
     if (!program) return;
-    Alert.alert('Delete Program', `Delete "${program.name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('programDetail.deleteTitle'), t('programDetail.deleteMessage', { name: program.name }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('programDetail.deleteAction'),
         style: 'destructive',
         onPress: async () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -128,7 +130,7 @@ export default function ProgramDetailScreen() {
         },
       },
     ]);
-  }, [program, removeOne, router]);
+  }, [program, removeOne, router, t]);
 
   if (loading) {
     return (
@@ -143,9 +145,9 @@ export default function ProgramDetailScreen() {
       <SafeAreaView style={styles.screen}>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={48} color={colors.textDisabled} />
-          <Text style={styles.errorText}>Program not found</Text>
+          <Text style={styles.errorText}>{t('programDetail.notFound')}</Text>
           <TouchableOpacity style={styles.backLink} onPress={() => router.back()}>
-            <Text style={styles.backLinkText}>Go back</Text>
+            <Text style={styles.backLinkText}>{t('programDetail.goBack')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -182,19 +184,19 @@ export default function ProgramDetailScreen() {
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <Text style={styles.metaValue}>{program.daysPerWeek}×</Text>
-              <Text style={styles.metaLabel}>per week</Text>
+              <Text style={styles.metaLabel}>{t('programDetail.perWeek')}</Text>
             </View>
             <View style={styles.metaDivider} />
             <View style={styles.metaItem}>
               <Text style={styles.metaValue}>Cycle {program.currentCycle}</Text>
-              <Text style={styles.metaLabel}>current</Text>
+              <Text style={styles.metaLabel}>{t('programDetail.current')}</Text>
             </View>
             <View style={styles.metaDivider} />
             <View style={styles.metaItem}>
               <Text style={styles.metaValue}>
                 {program.currentDayIndex + 1}/{program.daysPerWeek}
               </Text>
-              <Text style={styles.metaLabel}>days done</Text>
+              <Text style={styles.metaLabel}>{t('programDetail.daysDone')}</Text>
             </View>
           </View>
 
@@ -215,18 +217,18 @@ export default function ProgramDetailScreen() {
         <Animated.View entering={FadeInDown.delay(60).springify()} style={styles.nextSessionCard}>
           <View style={styles.nextSessionHeader}>
             <View style={styles.nextSessionBadge}>
-              <Text style={styles.nextSessionBadgeText}>NEXT SESSION</Text>
+              <Text style={styles.nextSessionBadgeText}>{t('programDetail.nextSession')}</Text>
             </View>
             <Text style={styles.nextSessionDate}>
               {program.lastSessionDate
-                ? `Last: ${program.lastSessionDate}`
-                : `Created ${format(new Date(program.createdAt), 'MMM d')}`}
+                ? t('programDetail.lastSession', { date: program.lastSessionDate })
+                : t('programDetail.created', { date: format(new Date(program.createdAt), 'MMM d') })}
             </Text>
           </View>
           <Text style={styles.nextSessionLabel}>{nextDay.label}</Text>
           <Text style={styles.nextSessionExCount}>
-            {nextDay.exercises.length} exercise{nextDay.exercises.length !== 1 ? 's' : ''}
-            {program.currentCycle > 1 && ` · auto-progressed weights`}
+            {t('programDetail.exerciseCount', { count: nextDay.exercises.length })}
+            {program.currentCycle > 1 && ` · ${t('programDetail.autoProgressed')}`}
           </Text>
         </Animated.View>
 
@@ -257,13 +259,13 @@ export default function ProgramDetailScreen() {
                 </Text>
                 {isNext && (
                   <View style={styles.nextBadge}>
-                    <Text style={styles.nextBadgeText}>NEXT</Text>
+                    <Text style={styles.nextBadgeText}>{t('programDetail.next')}</Text>
                   </View>
                 )}
               </View>
 
               {progressedDay.exercises.length === 0 ? (
-                <Text style={styles.noExText}>No exercises</Text>
+                <Text style={styles.noExText}>{t('programDetail.noExercises')}</Text>
               ) : (
                 progressedDay.exercises.map((ex) => {
                   const meta = ex.setDetails && ex.setDetails.length > 0
@@ -284,7 +286,7 @@ export default function ProgramDetailScreen() {
               {/* Completed session history */}
               {(day.completedSessions?.length ?? 0) > 0 && (
                 <View style={styles.historySection}>
-                  <Text style={styles.historyTitle}>Session History</Text>
+                  <Text style={styles.historyTitle}>{t('programDetail.sessionHistory')}</Text>
                   {[...(day.completedSessions ?? [])].reverse().slice(0, 3).map((session, si) => (
                     <View key={si} style={styles.historyRow}>
                       <Text style={styles.historyDate}>{session.date}</Text>
@@ -308,7 +310,7 @@ export default function ProgramDetailScreen() {
       <View style={styles.startSessionWrap}>
         <TouchableOpacity style={styles.startSessionBtn} onPress={handleStartSession}>
           <Ionicons name="play" size={20} color={colors.textPrimary} />
-          <Text style={styles.startSessionText}>Start Session — {nextDay.label}</Text>
+          <Text style={styles.startSessionText}>{t('programDetail.startSession', { label: nextDay.label })}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

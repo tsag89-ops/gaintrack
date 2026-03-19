@@ -24,19 +24,13 @@ import { useAuthStore } from '../../src/store/authStore';
 import { usePro } from '../../src/hooks/usePro';
 import { sendEngagementTelemetry } from '../../src/services/notifications';
 import { DailyNutrition, MealType } from '../../src/types';
+import { useLanguage } from '../../src/context/LanguageContext';
 
 const MEAL_ICONS: Record<MealType, string> = {
   breakfast: 'sunny-outline',
   lunch: 'partly-sunny-outline',
   dinner: 'moon-outline',
   snacks: 'cafe-outline',
-};
-
-const MEAL_LABELS: Record<MealType, string> = {
-  breakfast: 'Breakfast',
-  lunch: 'Lunch',
-  dinner: 'Dinner',
-  snacks: 'Snacks',
 };
 
 const MEALS: MealType[] = ['breakfast', 'lunch', 'dinner', 'snacks'];
@@ -56,7 +50,19 @@ function MacroBar({ label, current, goal, color }: { label: string; current: num
   );
 }
 
-function SwipeableFoodEntry({ entry, onDelete, onEdit }: { entry: any; onDelete: () => void; onEdit: () => void }) {
+function SwipeableFoodEntry({
+  entry,
+  onDelete,
+  onEdit,
+  editLabel,
+  deleteLabel,
+}: {
+  entry: any;
+  onDelete: () => void;
+  onEdit: () => void;
+  editLabel: string;
+  deleteLabel: string;
+}) {
   const swipeRef = useRef<Swipeable>(null);
 
   const renderLeftAction = (_: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
@@ -69,7 +75,7 @@ function SwipeableFoodEntry({ entry, onDelete, onEdit }: { entry: any; onDelete:
       >
         <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
           <Ionicons name="pencil-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.editActionText}>Edit</Text>
+          <Text style={styles.editActionText}>{editLabel}</Text>
         </Animated.View>
       </TouchableOpacity>
     );
@@ -88,7 +94,7 @@ function SwipeableFoodEntry({ entry, onDelete, onEdit }: { entry: any; onDelete:
       >
         <Animated.View style={{ transform: [{ scale }], alignItems: 'center' }}>
           <Ionicons name="trash-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.deleteActionText}>Delete</Text>
+          <Text style={styles.deleteActionText}>{deleteLabel}</Text>
         </Animated.View>
       </TouchableOpacity>
     );
@@ -113,6 +119,7 @@ function SwipeableFoodEntry({ entry, onDelete, onEdit }: { entry: any; onDelete:
 
 export default function NutritionScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const user = useAuthStore((s) => s.user);
   const userId = user?.id;
   const { isPro } = usePro();
@@ -220,7 +227,7 @@ export default function NutritionScreen() {
           <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.dateText}>
-          {isToday ? 'Today' : format(selectedDate, 'EEE, MMM d')}
+          {isToday ? t('nutritionTab.today') : format(selectedDate, 'EEE, MMM d')}
         </Text>
         <TouchableOpacity
           onPress={() => setSelectedDate(d => addDays(d, 1))}
@@ -237,28 +244,28 @@ export default function NutritionScreen() {
           <View style={styles.calorieRow}>
             <View style={styles.calorieMain}>
               <Text style={styles.calorieNum}>{Math.round(totals.calories)}</Text>
-              <Text style={styles.calorieLabel}>kcal eaten</Text>
+              <Text style={styles.calorieLabel}>{t('nutritionTab.kcalEaten')}</Text>
             </View>
             <View style={styles.calorieSep} />
             <View style={styles.calorieMain}>
               <Text style={[styles.calorieNum, { color: totals.calories > goals.daily_calories ? '#F44336' : '#4CAF50' }]}>
                 {Math.max(0, goals.daily_calories - Math.round(totals.calories))}
               </Text>
-              <Text style={styles.calorieLabel}>kcal left</Text>
+              <Text style={styles.calorieLabel}>{t('nutritionTab.kcalLeft')}</Text>
             </View>
             <View style={styles.calorieSep} />
             <View style={styles.calorieMain}>
               <Text style={styles.calorieNum}>{goals.daily_calories}</Text>
-              <Text style={styles.calorieLabel}>kcal goal</Text>
+              <Text style={styles.calorieLabel}>{t('nutritionTab.kcalGoal')}</Text>
             </View>
           </View>
         </View>
 
         {/* Macro bars */}
         <View style={styles.macroCard}>
-          <MacroBar label="Protein" current={totals.protein} goal={goals.protein_grams} color="#FF6200" />
-          <MacroBar label="Carbs"   current={totals.carbs}   goal={goals.carbs_grams}   color="#3B82F6" />
-          <MacroBar label="Fat"     current={totals.fat}     goal={goals.fat_grams}      color="#F59E0B" />
+          <MacroBar label={t('nutritionTab.protein')} current={totals.protein} goal={goals.protein_grams} color="#FF6200" />
+          <MacroBar label={t('nutritionTab.carbs')}   current={totals.carbs}   goal={goals.carbs_grams}   color="#3B82F6" />
+          <MacroBar label={t('nutritionTab.fat')}     current={totals.fat}     goal={goals.fat_grams}      color="#F59E0B" />
         </View>
 
         {/* Meal sections */}
@@ -270,7 +277,7 @@ export default function NutritionScreen() {
               <View style={styles.mealHeader}>
                 <View style={styles.mealHeaderLeft}>
                   <Ionicons name={MEAL_ICONS[mealType] as any} size={18} color="#FF6200" />
-                  <Text style={styles.mealTitle}>{MEAL_LABELS[mealType]}</Text>
+                  <Text style={styles.mealTitle}>{t(`nutritionTab.meals.${mealType}`)}</Text>
                   {mealKcal > 0 && <Text style={styles.mealKcal}>{Math.round(mealKcal)} kcal</Text>}
                 </View>
                 <TouchableOpacity
@@ -289,12 +296,14 @@ export default function NutritionScreen() {
               </View>
 
               {entries.length === 0 ? (
-                <Text style={styles.emptyMeal}>No foods logged</Text>
+                <Text style={styles.emptyMeal}>{t('nutritionTab.noFoodsLogged')}</Text>
               ) : (
                 entries.map((entry: any, idx: number) => (
                   <SwipeableFoodEntry
                     key={`${mealType}-${idx}`}
                     entry={entry}
+                    editLabel={t('nutritionTab.edit')}
+                    deleteLabel={t('nutritionTab.delete')}
                     onDelete={() => handleDeleteEntry(mealType, idx)}
                     onEdit={() => openEdit(entry, mealType, idx)}
                   />
@@ -318,7 +327,7 @@ export default function NutritionScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.editServingsRow}>
-              <Text style={styles.editServingsLabel}>Servings</Text>
+              <Text style={styles.editServingsLabel}>{t('nutritionTab.servings')}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                 <TouchableOpacity style={styles.editServingsBtn} onPress={() => { const v = Math.max(0.5, (parseFloat(editServings) || 1) - 0.5); setEditServings(String(v)); }}>
                   <Ionicons name="remove" size={18} color="#FF6200" />
@@ -352,7 +361,7 @@ export default function NutritionScreen() {
               );
             })()}
             <TouchableOpacity style={styles.editSaveBtn} onPress={handleEditEntry}>
-              <Text style={styles.editSaveBtnText}>Update Entry</Text>
+              <Text style={styles.editSaveBtnText}>{t('nutritionTab.updateEntry')}</Text>
             </TouchableOpacity>
           </View>
         </View>

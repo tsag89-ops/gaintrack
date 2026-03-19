@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, addMonths, subMonths } from 'date-fns';
 import { statsApi } from '../../src/services/api';
 import { useRouter } from 'expo-router';
+import { useLanguage } from '../../src/context/LanguageContext';
 
 type DayData = {
   workouts: { workout_id: string; name: string; exercise_count: number }[];
@@ -20,6 +21,7 @@ type DayData = {
 
 export default function CalendarScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [calendarData, setCalendarData] = useState<Record<string, DayData>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -47,11 +49,11 @@ export default function CalendarScreen() {
       console.error('Error fetching calendar data:', error);
       setCalendarData({});
       setSelectedDate(null);
-      setErrorMessage('Calendar data is unavailable right now. Pull to retry.');
+      setErrorMessage(t('calendarTab.errorUnavailable'));
     } finally {
       setIsLoading(false);
     }
-  }, [currentMonth]);
+  }, [currentMonth, t]);
 
   useEffect(() => {
     fetchCalendarData();
@@ -84,7 +86,15 @@ export default function CalendarScreen() {
 
   const days = getDaysInMonth();
   const firstDayOffset = getFirstDayOffset();
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const weekDays = [
+    t('calendarTab.weekDays.sun'),
+    t('calendarTab.weekDays.mon'),
+    t('calendarTab.weekDays.tue'),
+    t('calendarTab.weekDays.wed'),
+    t('calendarTab.weekDays.thu'),
+    t('calendarTab.weekDays.fri'),
+    t('calendarTab.weekDays.sat'),
+  ];
 
   const selectedDayData = selectedDate ? calendarData[selectedDate] : null;
   const hasAnyEntriesThisMonth = Object.keys(calendarData).length > 0;
@@ -92,8 +102,8 @@ export default function CalendarScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Calendar</Text>
-        <Text style={styles.headerSubtitle}>Your fitness schedule</Text>
+        <Text style={styles.headerTitle}>{t('calendarTab.title')}</Text>
+        <Text style={styles.headerSubtitle}>{t('calendarTab.subtitle')}</Text>
       </View>
 
       {/* Month Selector */}
@@ -117,11 +127,11 @@ export default function CalendarScreen() {
             <View style={styles.statusCard}>
               <View style={styles.statusHeaderRow}>
                 <Ionicons name="warning-outline" size={16} color="#F59E0B" />
-                <Text style={styles.statusTitle}>Unable to refresh calendar</Text>
+                <Text style={styles.statusTitle}>{t('calendarTab.unableToRefresh')}</Text>
               </View>
               <Text style={styles.statusBody}>{errorMessage}</Text>
               <TouchableOpacity style={styles.retryButton} onPress={fetchCalendarData}>
-                <Text style={styles.retryButtonText}>Retry</Text>
+                <Text style={styles.retryButtonText}>{t('calendarTab.retry')}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -130,10 +140,10 @@ export default function CalendarScreen() {
             <View style={styles.statusCard}>
               <View style={styles.statusHeaderRow}>
                 <Ionicons name="calendar-clear-outline" size={16} color="#9CA3AF" />
-                <Text style={styles.statusTitle}>No entries this month</Text>
+                <Text style={styles.statusTitle}>{t('calendarTab.noEntriesTitle')}</Text>
               </View>
               <Text style={styles.statusBody}>
-                Log a workout or nutrition entry to see activity dots on the calendar.
+                {t('calendarTab.noEntriesBody')}
               </Text>
             </View>
           ) : null}
@@ -198,11 +208,11 @@ export default function CalendarScreen() {
           <View style={styles.legend}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
-              <Text style={styles.legendText}>Workout</Text>
+              <Text style={styles.legendText}>{t('calendarTab.workoutLegend')}</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: '#3B82F6' }]} />
-              <Text style={styles.legendText}>Nutrition Logged</Text>
+              <Text style={styles.legendText}>{t('calendarTab.nutritionLegend')}</Text>
             </View>
           </View>
 
@@ -217,7 +227,7 @@ export default function CalendarScreen() {
                 <View style={styles.detailSection}>
                   <View style={styles.sectionHeader}>
                     <Ionicons name="barbell-outline" size={18} color="#10B981" />
-                    <Text style={styles.sectionTitle}>Workouts</Text>
+                    <Text style={styles.sectionTitle}>{t('calendarTab.workoutsSection')}</Text>
                   </View>
                   {selectedDayData.workouts.map((workout, idx) => (
                     <TouchableOpacity
@@ -226,13 +236,13 @@ export default function CalendarScreen() {
                       onPress={() => router.push(`/workout/${workout.workout_id}`)}
                     >
                       <Text style={styles.workoutName}>{workout.name}</Text>
-                      <Text style={styles.workoutMeta}>{workout.exercise_count} exercises</Text>
+                      <Text style={styles.workoutMeta}>{t('calendarTab.exerciseCount', { count: workout.exercise_count })}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               ) : (
                 <View style={styles.emptySection}>
-                  <Text style={styles.emptyText}>No workouts logged</Text>
+                  <Text style={styles.emptyText}>{t('calendarTab.noWorkoutsLogged')}</Text>
                 </View>
               )}
 
@@ -240,22 +250,22 @@ export default function CalendarScreen() {
                 <View style={styles.detailSection}>
                   <View style={styles.sectionHeader}>
                     <Ionicons name="restaurant-outline" size={18} color="#3B82F6" />
-                    <Text style={styles.sectionTitle}>Nutrition</Text>
+                    <Text style={styles.sectionTitle}>{t('calendarTab.nutritionSection')}</Text>
                   </View>
                   <View style={styles.nutritionRow}>
                     <View style={styles.nutritionItem}>
                       <Text style={styles.nutritionValue}>{selectedDayData.nutrition.calories}</Text>
-                      <Text style={styles.nutritionLabel}>Calories</Text>
+                      <Text style={styles.nutritionLabel}>{t('calendarTab.calories')}</Text>
                     </View>
                     <View style={styles.nutritionItem}>
                       <Text style={styles.nutritionValue}>{selectedDayData.nutrition.protein}g</Text>
-                      <Text style={styles.nutritionLabel}>Protein</Text>
+                      <Text style={styles.nutritionLabel}>{t('calendarTab.protein')}</Text>
                     </View>
                   </View>
                 </View>
               ) : (
                 <View style={styles.emptySection}>
-                  <Text style={styles.emptyText}>No nutrition logged</Text>
+                  <Text style={styles.emptyText}>{t('calendarTab.noNutritionLogged')}</Text>
                 </View>
               )}
             </View>

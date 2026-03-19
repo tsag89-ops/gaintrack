@@ -26,12 +26,14 @@ import { Food, MealType } from '../src/types';
 import { useNutritionStore } from '../src/store/nutritionStore';
 import { searchFood, FoodItem } from '../src/services/foodSearch';
 import BarcodeScanner from '../src/components/BarcodeScanner';
+import { useLanguage } from '../src/context/LanguageContext';
 
 
 const CATEGORIES = ['all', 'protein', 'carbs', 'fats', 'vegetables', 'dairy'];
 
 export default function AddFoodScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { mealType, date } = useLocalSearchParams<{ mealType: string; date: string }>();
   const { setTodayNutrition } = useNutritionStore();
   const userId = useAuthStore((s) => s.user?.id);
@@ -127,7 +129,7 @@ export default function AddFoodScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       handleSelectFood(newFood as Food);
     } catch (e) {
-      Alert.alert('Error', 'Failed to create food');
+      Alert.alert(t('common.error'), t('addFood.createFailed'));
     } finally {
       setIsCreating(false);
     }
@@ -152,18 +154,18 @@ export default function AddFoodScreen() {
   const foodListData = useMemo((): ListRow[] => {
     const rows: ListRow[] = [];
     if (offResults.length > 0) {
-      rows.push({ kind: 'header', label: 'Open Food Facts Results', key: 'h-off' });
+      rows.push({ kind: 'header', label: t('addFood.openFoodFactsResults'), key: 'h-off' });
       offResults.forEach((item) => rows.push({ kind: 'off', item, key: 'off-' + item.id }));
-      rows.push({ kind: 'header', label: 'Local Foods', key: 'h-local-sep' });
+      rows.push({ kind: 'header', label: t('addFood.localFoods'), key: 'h-local-sep' });
     }
     if (!searchQuery && selectedCategory === 'all' && recentFoods.length > 0) {
-      rows.push({ kind: 'header', label: 'Recent', key: 'h-recent' });
+      rows.push({ kind: 'header', label: t('addFood.recent'), key: 'h-recent' });
       recentFoods.forEach((food) => rows.push({ kind: 'recent', food, key: 'recent-' + food.food_id }));
-      rows.push({ kind: 'header', label: 'All Foods', key: 'h-all' });
+      rows.push({ kind: 'header', label: t('addFood.allFoods'), key: 'h-all' });
     }
     filteredFoods.forEach((food) => rows.push({ kind: 'local', food, key: 'local-' + food.food_id }));
     return rows;
-  }, [offResults, recentFoods, filteredFoods, searchQuery, selectedCategory]);
+  }, [offResults, recentFoods, filteredFoods, searchQuery, selectedCategory, t]);
 
   const renderFoodRow = ({ item: row }: { item: ListRow }) => {
     if (row.kind === 'header') {
@@ -211,7 +213,7 @@ export default function AddFoodScreen() {
             <Text style={styles.foodServing}>{food.unit}</Text>
           </View>
           <View style={styles.foodMacros}>
-            <Text style={styles.foodCalories}>{food.calories} cal</Text>
+            <Text style={styles.foodCalories}>{food.calories} {t('addFood.calAbbrev')}</Text>
             <View style={styles.macroRow}>
               <Text style={[styles.macroText, { color: '#EF4444' }]}>P {food.protein}g</Text>
               <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {food.carbs}g</Text>
@@ -233,7 +235,7 @@ export default function AddFoodScreen() {
           <Text style={styles.foodServing}>{food.unit}</Text>
         </View>
         <View style={styles.foodMacros}>
-          <Text style={styles.foodCalories}>{food.calories} cal</Text>
+          <Text style={styles.foodCalories}>{food.calories} {t('addFood.calAbbrev')}</Text>
           <View style={styles.macroRow}>
             <Text style={[styles.macroText, { color: '#EF4444' }]}>P {food.protein}g</Text>
             <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {food.carbs}g</Text>
@@ -323,7 +325,7 @@ export default function AddFoodScreen() {
       router.back();
     } catch (error) {
       console.error('Error adding food:', error);
-      Alert.alert('Error', 'Failed to add food');
+      Alert.alert(t('common.error'), t('addFood.addFailed'));
     } finally {
       setIsAdding(false);
     }
@@ -332,12 +334,12 @@ export default function AddFoodScreen() {
 
   const getMealTitle = () => {
     const titles: Record<string, string> = {
-      breakfast: 'Breakfast',
-      lunch: 'Lunch',
-      dinner: 'Dinner',
-      snacks: 'Snacks',
+      breakfast: t('nutritionTab.meals.breakfast'),
+      lunch: t('nutritionTab.meals.lunch'),
+      dinner: t('nutritionTab.meals.dinner'),
+      snacks: t('nutritionTab.meals.snacks'),
     };
-    return titles[mealType || ''] || 'Meal';
+    return titles[mealType || ''] || t('addFood.meal');
   };
 
   const servingCount = parseFloat(servings) || 1;
@@ -362,7 +364,7 @@ export default function AddFoodScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
             <Ionicons name="close" size={28} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Add to {getMealTitle()}</Text>
+          <Text style={styles.headerTitle}>{t('addFood.addToMeal', { meal: getMealTitle() })}</Text>
           <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowCreateModal(true); }} style={styles.closeButton}>
             <Ionicons name="add-circle-outline" size={28} color="#FF6200" />
           </TouchableOpacity>
@@ -376,7 +378,7 @@ export default function AddFoodScreen() {
               style={styles.searchInput}
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search foods or scan barcode..."
+              placeholder={t('addFood.searchPlaceholder')}
               placeholderTextColor="#6B7280"
             />
             {offLoading && <ActivityIndicator size="small" color="#FF6200" style={{ marginRight: 4 }} />}
@@ -396,7 +398,7 @@ export default function AddFoodScreen() {
 
         {onlineSearchUnavailable && searchQuery.trim().length >= 2 ? (
           <Text style={styles.offlineSearchNotice}>
-            Online search unavailable. Showing local foods only.
+            {t('addFood.onlineSearchUnavailable')}
           </Text>
         ) : null}
 
@@ -425,7 +427,7 @@ export default function AddFoodScreen() {
                   selectedCategory === cat && styles.categoryChipTextActive,
                 ]}
               >
-                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                {t(`addFood.categories.${cat}`)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -469,7 +471,7 @@ export default function AddFoodScreen() {
             </View>
 
             <View style={styles.servingsRow}>
-              <Text style={styles.servingsLabel}>Serving (grams)</Text>
+              <Text style={styles.servingsLabel}>{t('addFood.servingGrams')}</Text>
               <View style={styles.servingsInput}>
                 <TouchableOpacity
                   onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setServingGrams(String(Math.max(5, gramsVal - 5))); }}
@@ -495,19 +497,19 @@ export default function AddFoodScreen() {
             <View style={styles.totalMacros}>
               <View style={styles.totalMacroItem}>
                 <Text style={styles.totalMacroValue}>{Math.round((selectedOFFFood.calories * gramsVal) / 100)}</Text>
-                <Text style={styles.totalMacroLabel}>Calories</Text>
+                <Text style={styles.totalMacroLabel}>{t('addFood.calories')}</Text>
               </View>
               <View style={styles.totalMacroItem}>
                 <Text style={[styles.totalMacroValue, { color: '#EF4444' }]}>{Math.round((selectedOFFFood.protein * gramsVal) / 100)}g</Text>
-                <Text style={styles.totalMacroLabel}>Protein</Text>
+                <Text style={styles.totalMacroLabel}>{t('addFood.protein')}</Text>
               </View>
               <View style={styles.totalMacroItem}>
                 <Text style={[styles.totalMacroValue, { color: '#3B82F6' }]}>{Math.round((selectedOFFFood.carbs * gramsVal) / 100)}g</Text>
-                <Text style={styles.totalMacroLabel}>Carbs</Text>
+                <Text style={styles.totalMacroLabel}>{t('addFood.carbs')}</Text>
               </View>
               <View style={styles.totalMacroItem}>
                 <Text style={[styles.totalMacroValue, { color: '#F59E0B' }]}>{Math.round((selectedOFFFood.fat * gramsVal) / 100)}g</Text>
-                <Text style={styles.totalMacroLabel}>Fat</Text>
+                <Text style={styles.totalMacroLabel}>{t('addFood.fat')}</Text>
               </View>
             </View>
 
@@ -517,7 +519,7 @@ export default function AddFoodScreen() {
               disabled={isAdding}
             >
               <Ionicons name="add-circle" size={22} color="#FFFFFF" />
-              <Text style={styles.addButtonText}>{isAdding ? 'Adding...' : 'Add to ' + getMealTitle()}</Text>
+              <Text style={styles.addButtonText}>{isAdding ? t('addFood.adding') : t('addFood.addToMeal', { meal: getMealTitle() })}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -533,7 +535,7 @@ export default function AddFoodScreen() {
             </View>
 
             <View style={styles.servingsRow}>
-              <Text style={styles.servingsLabel}>Servings</Text>
+              <Text style={styles.servingsLabel}>{t('nutritionTab.servings')}</Text>
               <View style={styles.servingsInput}>
                 <TouchableOpacity
                   onPress={() => {
@@ -567,25 +569,25 @@ export default function AddFoodScreen() {
                 <Text style={styles.totalMacroValue}>
                   {Math.round(selectedFood.calories * servingCount)}
                 </Text>
-                <Text style={styles.totalMacroLabel}>Calories</Text>
+                <Text style={styles.totalMacroLabel}>{t('addFood.calories')}</Text>
               </View>
               <View style={styles.totalMacroItem}>
                 <Text style={[styles.totalMacroValue, { color: '#EF4444' }]}>
                   {Math.round(selectedFood.protein * servingCount)}g
                 </Text>
-                <Text style={styles.totalMacroLabel}>Protein</Text>
+                <Text style={styles.totalMacroLabel}>{t('addFood.protein')}</Text>
               </View>
               <View style={styles.totalMacroItem}>
                 <Text style={[styles.totalMacroValue, { color: '#3B82F6' }]}>
                   {Math.round(selectedFood.carbs * servingCount)}g
                 </Text>
-                <Text style={styles.totalMacroLabel}>Carbs</Text>
+                <Text style={styles.totalMacroLabel}>{t('addFood.carbs')}</Text>
               </View>
               <View style={styles.totalMacroItem}>
                 <Text style={[styles.totalMacroValue, { color: '#F59E0B' }]}>
                   {Math.round(selectedFood.fat * servingCount)}g
                 </Text>
-                <Text style={styles.totalMacroLabel}>Fat</Text>
+                <Text style={styles.totalMacroLabel}>{t('addFood.fat')}</Text>
               </View>
             </View>
 
@@ -596,7 +598,7 @@ export default function AddFoodScreen() {
             >
               <Ionicons name="add-circle" size={22} color="#FFFFFF" />
               <Text style={styles.addButtonText}>
-                {isAdding ? 'Adding...' : 'Add to ' + getMealTitle()}
+                {isAdding ? t('addFood.adding') : t('addFood.addToMeal', { meal: getMealTitle() })}
               </Text>
             </TouchableOpacity>
           </View>
@@ -607,34 +609,34 @@ export default function AddFoodScreen() {
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
               <View style={styles.createModalContent}>
                 <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Create Food</Text>
+                  <Text style={styles.modalTitle}>{t('addFood.createFood')}</Text>
                   <TouchableOpacity onPress={() => setShowCreateModal(false)}>
                     <Ionicons name="close" size={24} color="#B0B0B0" />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.createField}>
-                  <Text style={styles.createLabel}>Food Name *</Text>
-                  <TextInput style={styles.createInput} value={createName} onChangeText={setCreateName} placeholder="e.g. Protein Bar" placeholderTextColor="#6B7280" />
+                  <Text style={styles.createLabel}>{t('addFood.foodNameRequired')}</Text>
+                  <TextInput style={styles.createInput} value={createName} onChangeText={setCreateName} placeholder={t('addFood.foodNamePlaceholder')} placeholderTextColor="#6B7280" />
                 </View>
                 <View style={styles.createField}>
-                  <Text style={styles.createLabel}>Serving Size</Text>
-                  <TextInput style={styles.createInput} value={createUnit} onChangeText={setCreateUnit} placeholder="e.g. 100g, 1 bar" placeholderTextColor="#6B7280" />
+                  <Text style={styles.createLabel}>{t('addFood.servingSize')}</Text>
+                  <TextInput style={styles.createInput} value={createUnit} onChangeText={setCreateUnit} placeholder={t('addFood.servingSizePlaceholder')} placeholderTextColor="#6B7280" />
                 </View>
                 <View style={styles.createMacroGrid}>
                   <View style={styles.createMacroCell}>
-                    <Text style={styles.createLabel}>Calories</Text>
+                    <Text style={styles.createLabel}>{t('addFood.calories')}</Text>
                     <TextInput style={styles.createInput} value={createCalories} onChangeText={setCreateCalories} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#6B7280" />
                   </View>
                   <View style={styles.createMacroCell}>
-                    <Text style={styles.createLabel}>Protein (g)</Text>
+                    <Text style={styles.createLabel}>{t('addFood.proteinGrams')}</Text>
                     <TextInput style={styles.createInput} value={createProtein} onChangeText={setCreateProtein} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#6B7280" />
                   </View>
                   <View style={styles.createMacroCell}>
-                    <Text style={styles.createLabel}>Carbs (g)</Text>
+                    <Text style={styles.createLabel}>{t('addFood.carbsGrams')}</Text>
                     <TextInput style={styles.createInput} value={createCarbs} onChangeText={setCreateCarbs} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#6B7280" />
                   </View>
                   <View style={styles.createMacroCell}>
-                    <Text style={styles.createLabel}>Fat (g)</Text>
+                    <Text style={styles.createLabel}>{t('addFood.fatGrams')}</Text>
                     <TextInput style={styles.createInput} value={createFat} onChangeText={setCreateFat} keyboardType="decimal-pad" placeholder="0" placeholderTextColor="#6B7280" />
                   </View>
                 </View>
@@ -643,7 +645,7 @@ export default function AddFoodScreen() {
                   onPress={handleCreateFood}
                   disabled={!createName.trim() || isCreating}
                 >
-                  <Text style={styles.addButtonText}>{isCreating ? 'Saving...' : 'Save Food'}</Text>
+                  <Text style={styles.addButtonText}>{isCreating ? t('common.saving') : t('addFood.saveFood')}</Text>
                 </TouchableOpacity>
               </View>
             </KeyboardAvoidingView>

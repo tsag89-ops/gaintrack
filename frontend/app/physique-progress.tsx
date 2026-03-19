@@ -42,6 +42,7 @@ import {
   WorkoutExercise,
   WorkoutSet,
 } from '../src/types';
+import { useLanguage } from '../src/context/LanguageContext';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -217,15 +218,17 @@ function WorkoutDetailedLog({ summary }: { summary: PhysiqueWorkoutSummary }) {
 }
 
 function EmptyPhotos({ onAdd, canAdd }: { onAdd: () => void; canAdd: boolean }) {
+  const { t } = useLanguage();
+
   return (
     <View style={styles.emptyState}>
       <Ionicons name="camera-outline" size={52} color={colors.textSecondary} />
-      <Text style={styles.emptyTitle}>No photos yet</Text>
-      <Text style={styles.emptyBody}>Document your physique progress — up to {MAX_PHOTOS_PER_DAY} photos per day</Text>
+      <Text style={styles.emptyTitle}>{t('physiqueProgress.noPhotosTitle')}</Text>
+      <Text style={styles.emptyBody}>{t('physiqueProgress.noPhotosBody', { count: MAX_PHOTOS_PER_DAY })}</Text>
       {canAdd && (
         <TouchableOpacity style={styles.emptyAddBtn} onPress={onAdd} activeOpacity={0.8}>
           <Ionicons name="add" size={18} color={colors.background} />
-          <Text style={styles.emptyAddBtnText}>Add First Photo</Text>
+          <Text style={styles.emptyAddBtnText}>{t('physiqueProgress.addFirstPhoto')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -243,12 +246,14 @@ function PhotoViewer({
   onClose: () => void;
   onDelete: (id: string) => void;
 }) {
+  const { t } = useLanguage();
+
   const handleDelete = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    Alert.alert('Delete Photo', 'Delete this photo? This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('physiqueProgress.deletePhotoTitle'), t('physiqueProgress.deletePhotoMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('physiqueProgress.deleteAction'),
         style: 'destructive',
         onPress: () => {
           onDelete(photo.id);
@@ -363,6 +368,7 @@ function AddPhotoModal({
 
 export default function PhysiqueProgressScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [photos, setPhotos] = useState<PhysiquePhoto[]>([]);
   const [workoutSummary, setWorkoutSummary] = useState<PhysiqueWorkoutSummary | null>(null);
@@ -414,14 +420,14 @@ export default function PhysiqueProgressScreen() {
   // ── Pick photo ───────────────────────────────────────────────────────────
   const handleAddPhoto = () => {
     if (!canAdd) {
-      Alert.alert('Limit reached', `You can only add ${MAX_PHOTOS_PER_DAY} photos per day.`);
+      Alert.alert(t('physiqueProgress.limitReachedTitle'), t('physiqueProgress.limitReachedMessage', { count: MAX_PHOTOS_PER_DAY }));
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert('Add Photo', 'Choose a source', [
-      { text: 'Camera', onPress: () => openPicker('camera') },
-      { text: 'Photo Library', onPress: () => openPicker('library') },
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('physiqueProgress.addPhotoTitle'), t('physiqueProgress.chooseSource'), [
+      { text: t('physiqueProgress.camera'), onPress: () => openPicker('camera') },
+      { text: t('physiqueProgress.photoLibrary'), onPress: () => openPicker('library') },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   };
 
@@ -432,7 +438,7 @@ export default function PhysiqueProgressScreen() {
       if (source === 'camera') {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permission required', 'Camera access is needed to take photos.');
+          Alert.alert(t('physiqueProgress.permissionRequiredTitle'), t('physiqueProgress.cameraPermissionMessage'));
           return;
         }
         result = await ImagePicker.launchCameraAsync({
@@ -444,7 +450,7 @@ export default function PhysiqueProgressScreen() {
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permission required', 'Photo library access is needed to select photos.');
+          Alert.alert(t('physiqueProgress.permissionRequiredTitle'), t('physiqueProgress.libraryPermissionMessage'));
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({
@@ -459,7 +465,7 @@ export default function PhysiqueProgressScreen() {
         setAddingPhoto({ tempUri: result.assets[0].uri });
       }
     } catch (e) {
-      Alert.alert('Error', 'Could not access photos. ' + String(e));
+      Alert.alert(t('common.error'), t('physiqueProgress.accessPhotosFailed') + ' ' + String(e));
     }
   };
 
@@ -484,7 +490,7 @@ export default function PhysiqueProgressScreen() {
       setAddingPhoto(null);
       loadDate(selectedDate);
     } catch (e) {
-      Alert.alert('Save failed', String(e));
+      Alert.alert(t('physiqueProgress.saveFailedTitle'), String(e));
     } finally {
       setSaving(false);
     }
@@ -504,16 +510,16 @@ export default function PhysiqueProgressScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       loadDate(selectedDate);
     } catch (e) {
-      Alert.alert('Delete failed', String(e));
+      Alert.alert(t('physiqueProgress.deleteFailedTitle'), String(e));
     }
   };
 
   // ── Format date label ─────────────────────────────────────────────────────
   const dateLabel = (() => {
     const d = parseISO(selectedDate);
-    if (format(d, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')) return 'Today';
+    if (format(d, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')) return t('physiqueProgress.today');
     const yesterday = subDays(new Date(), 1);
-    if (format(d, 'yyyy-MM-dd') === format(yesterday, 'yyyy-MM-dd')) return 'Yesterday';
+    if (format(d, 'yyyy-MM-dd') === format(yesterday, 'yyyy-MM-dd')) return t('physiqueProgress.yesterday');
     return format(d, 'MMMM d, yyyy');
   })();
 
@@ -529,7 +535,7 @@ export default function PhysiqueProgressScreen() {
         >
           <Ionicons name="chevron-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Physique Progress</Text>
+        <Text style={styles.headerTitle}>{t('physiqueProgress.title')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -541,7 +547,7 @@ export default function PhysiqueProgressScreen() {
         <TouchableOpacity onPress={!isCurrentDay ? goToday : undefined} activeOpacity={0.75}>
           <Text style={styles.dateLabel}>{dateLabel}</Text>
           {!isCurrentDay && (
-            <Text style={styles.dateTodayHint}>tap to go to today</Text>
+            <Text style={styles.dateTodayHint}>{t('physiqueProgress.tapToToday')}</Text>
           )}
         </TouchableOpacity>
         <TouchableOpacity
@@ -558,12 +564,12 @@ export default function PhysiqueProgressScreen() {
       <View style={styles.countRow}>
         <View style={styles.countBadge}>
           <Ionicons name="images-outline" size={13} color={colors.primary} />
-          <Text style={styles.countText}>{photos.length} / {MAX_PHOTOS_PER_DAY} photos</Text>
+          <Text style={styles.countText}>{t('physiqueProgress.photoCount', { count: photos.length, max: MAX_PHOTOS_PER_DAY })}</Text>
         </View>
         {canAdd && (
           <TouchableOpacity style={styles.addBtn} onPress={handleAddPhoto} activeOpacity={0.8}>
             <Ionicons name="camera" size={16} color={colors.background} />
-            <Text style={styles.addBtnText}>Add Photo</Text>
+            <Text style={styles.addBtnText}>{t('physiqueProgress.addPhoto')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -605,7 +611,7 @@ export default function PhysiqueProgressScreen() {
             {/* Workout summary for the day */}
             {workoutSummary && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Today's Workout</Text>
+                <Text style={styles.sectionTitle}>{t('physiqueProgress.todaysWorkout')}</Text>
                 <WorkoutDetailedLog summary={workoutSummary} />
               </View>
             )}
@@ -613,7 +619,7 @@ export default function PhysiqueProgressScreen() {
             {/* Individual photo notes list */}
             {photos.some((p) => p.notes) && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Notes</Text>
+                <Text style={styles.sectionTitle}>{t('physiqueProgress.notes')}</Text>
                 {photos.filter((p) => p.notes).map((p) => (
                   <View key={p.id} style={styles.noteRow}>
                     <Ionicons name="chatbubble-ellipses-outline" size={14} color={colors.primary} style={{ marginTop: 1 }} />

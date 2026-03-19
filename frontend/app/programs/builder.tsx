@@ -42,6 +42,7 @@ import {
 } from '../../src/types';
 import { colors, typography, radii, spacing, shadows } from '../../src/constants/theme';
 import { getPrograms } from '../../src/services/storage';
+import { useLanguage } from '../../src/context/LanguageContext';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -80,6 +81,7 @@ const makeDays = (count: number): ProgramDay[] =>
 
 export default function ProgramBuilderScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { id: editId } = useLocalSearchParams<{ id?: string }>();
   const { programs, saveOne } = usePrograms();
   const { isPro } = usePro();
@@ -150,11 +152,11 @@ export default function ProgramBuilderScreen() {
   const goNext = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (step === 0 && !name.trim()) {
-      Alert.alert('Name required', 'Please enter a program name.');
+      Alert.alert(t('programBuilder.nameRequiredTitle'), t('programBuilder.nameRequiredMessage'));
       return;
     }
     setStep((s) => Math.min(3, s + 1));
-  }, [step, name]);
+  }, [step, name, t]);
 
   const goBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -313,11 +315,11 @@ export default function ProgramBuilderScreen() {
       await saveOne(program);
       router.replace(`/programs/${program.id}` as any);
     } catch (err) {
-      Alert.alert('Error', 'Could not save program. Please try again.');
+      Alert.alert(t('common.error'), t('programBuilder.saveError'));
     } finally {
       setSaving(false);
     }
-  }, [editId, name, daysPerWeek, days, saveOne, router]);
+  }, [editId, name, daysPerWeek, days, saveOne, router, t]);
 
   // ─── Render helpers ───────────────────────────────────────────────────────
 
@@ -326,12 +328,12 @@ export default function ProgramBuilderScreen() {
 
   const renderStep0 = () => (
     <Animated.View entering={FadeInRight.springify()} exiting={FadeOutLeft.springify()} style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Name Your Program</Text>
-      <Text style={styles.stepSubtitle}>Give your training plan a name and set your weekly frequency.</Text>
+      <Text style={styles.stepTitle}>{t('programBuilder.nameStepTitle')}</Text>
+      <Text style={styles.stepSubtitle}>{t('programBuilder.nameStepSubtitle')}</Text>
 
       <TextInput
         style={styles.nameInput}
-        placeholder="e.g. Push / Pull / Legs"
+        placeholder={t('programBuilder.namePlaceholder')}
         placeholderTextColor={colors.textDisabled}
         value={name}
         onChangeText={setName}
@@ -339,7 +341,7 @@ export default function ProgramBuilderScreen() {
         maxLength={40}
       />
 
-      <Text style={styles.sectionLabel}>Days per week</Text>
+      <Text style={styles.sectionLabel}>{t('programBuilder.daysPerWeek')}</Text>
       <View style={styles.freqRow}>
         {[2, 3, 4, 5, 6].map((n) => (
           <TouchableOpacity
@@ -358,10 +360,10 @@ export default function ProgramBuilderScreen() {
         <View style={styles.upsellCard}>
           <Ionicons name="lock-closed" size={16} color={colors.accent} />
           <Text style={styles.upsellText}>
-            Free tier: 1 program. Upgrade to Pro for unlimited. {/* [PRO] */}
+            {t('programBuilder.freeTierLimit')} {/* [PRO] */}
           </Text>
           <TouchableOpacity onPress={() => router.push('/pro-paywall' as any)}>
-            <Text style={styles.upsellLink}>Upgrade →</Text>
+            <Text style={styles.upsellLink}>{t('programBuilder.upgrade')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -370,8 +372,8 @@ export default function ProgramBuilderScreen() {
 
   const renderStep1 = () => (
     <Animated.View entering={FadeInRight.springify()} exiting={FadeOutLeft.springify()} style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Build Your Days</Text>
-      <Text style={styles.stepSubtitle}>Add exercises to each training day. Drag to reorder.</Text>
+      <Text style={styles.stepTitle}>{t('programBuilder.daysStepTitle')}</Text>
+      <Text style={styles.stepSubtitle}>{t('programBuilder.daysStepSubtitle')}</Text>
 
       <DraggableFlatList
         data={days}
@@ -402,9 +404,9 @@ export default function ProgramBuilderScreen() {
 
   const renderStep2 = () => (
     <Animated.View entering={FadeInRight.springify()} exiting={FadeOutLeft.springify()} style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Progression Rules</Text>
+      <Text style={styles.stepTitle}>{t('programBuilder.progressionStepTitle')}</Text>
       <Text style={styles.stepSubtitle}>
-        Set how weights or reps increase each session for each exercise.
+        {t('programBuilder.progressionStepSubtitle')}
       </Text>
 
       {days.map((day) =>
@@ -456,7 +458,7 @@ export default function ProgramBuilderScreen() {
 
       {days.every((d) => d.exercises.length === 0) && (
         <Text style={styles.noExercisesHint}>
-          Go back and add exercises to your days first.
+          {t('programBuilder.addExercisesFirst')}
         </Text>
       )}
     </Animated.View>
@@ -464,11 +466,11 @@ export default function ProgramBuilderScreen() {
 
   const renderStep3 = () => (
     <Animated.View entering={FadeInRight.springify()} exiting={FadeOutLeft.springify()} style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Review</Text>
-      <Text style={styles.stepSubtitle}>Confirm your program before saving.</Text>
+      <Text style={styles.stepTitle}>{t('programBuilder.reviewStepTitle')}</Text>
+      <Text style={styles.stepSubtitle}>{t('programBuilder.reviewStepSubtitle')}</Text>
 
       <View style={styles.reviewCard}>
-        <Text style={styles.reviewName}>{name || '—'}</Text>
+        <Text style={styles.reviewName}>{name || t('programBuilder.emptyName')}</Text>
         <Text style={styles.reviewMeta}>{daysPerWeek}× / week · {days.reduce((acc, d) => acc + d.exercises.length, 0)} exercises total</Text>
       </View>
 
@@ -478,7 +480,7 @@ export default function ProgramBuilderScreen() {
             Day {i + 1}: {day.label}
           </Text>
           {day.exercises.length === 0 ? (
-            <Text style={styles.reviewExEmpty}>No exercises</Text>
+            <Text style={styles.reviewExEmpty}>{t('programBuilder.noExercises')}</Text>
           ) : (
             day.exercises.map((ex) => {
               const meta = ex.setDetails && ex.setDetails.length > 0
@@ -518,7 +520,7 @@ export default function ProgramBuilderScreen() {
             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
-            {editId ? 'Edit Program' : 'New Program'}
+            {editId ? t('programBuilder.editProgram') : t('programBuilder.newProgram')}
           </Text>
           {/* Step dots */}
           <View style={styles.stepDots}>
@@ -545,7 +547,7 @@ export default function ProgramBuilderScreen() {
         <View style={styles.footer}>
           {step > 0 && (
             <TouchableOpacity style={styles.backBtn} onPress={goBack}>
-              <Text style={styles.backBtnText}>Back</Text>
+              <Text style={styles.backBtnText}>{t('programBuilder.back')}</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -554,7 +556,7 @@ export default function ProgramBuilderScreen() {
             disabled={saving}
           >
             <Text style={styles.nextBtnText}>
-              {step === 3 ? (saving ? 'Saving…' : 'Save Program') : 'Next'}
+              {step === 3 ? (saving ? t('common.saving') : t('programBuilder.saveProgram')) : t('programBuilder.next')}
             </Text>
             {step < 3 && <Ionicons name="arrow-forward" size={16} color={colors.textPrimary} />}
           </TouchableOpacity>
@@ -595,9 +597,9 @@ export default function ProgramBuilderScreen() {
             </View>
 
             <View style={styles.setEditorColRow}>
-              <Text style={[styles.setEditorColLabel, { flex: 0.5 }]}>Set</Text>
-              <Text style={[styles.setEditorColLabel, { flex: 1 }]}>Weight (kg)</Text>
-              <Text style={[styles.setEditorColLabel, { flex: 1 }]}>Reps</Text>
+              <Text style={[styles.setEditorColLabel, { flex: 0.5 }]}>{t('programBuilder.set')}</Text>
+              <Text style={[styles.setEditorColLabel, { flex: 1 }]}>{t('programBuilder.weightKg')}</Text>
+              <Text style={[styles.setEditorColLabel, { flex: 1 }]}>{t('programBuilder.reps')}</Text>
               <View style={{ width: 28 }} />
             </View>
 
@@ -651,11 +653,11 @@ export default function ProgramBuilderScreen() {
               }}
             >
               <Ionicons name="add" size={18} color={colors.success} />
-              <Text style={styles.addSetEditorText}>Add Set</Text>
+              <Text style={styles.addSetEditorText}>{t('programBuilder.addSet')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.setEditorDoneBtn} onPress={handleSaveExerciseSets}>
-              <Text style={styles.setEditorDoneText}>Done</Text>
+              <Text style={styles.setEditorDoneText}>{t('programBuilder.done')}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -677,7 +679,7 @@ export default function ProgramBuilderScreen() {
             <Text style={styles.progressionTitle}>
               {progressionModal?.exerciseName}
             </Text>
-            <Text style={styles.progressionSubtitle}>Choose progression rule</Text>
+            <Text style={styles.progressionSubtitle}>{t('programBuilder.chooseProgression')}</Text>
 
             {PROGRESSION_OPTIONS.map((opt) => {
               const locked = opt.proOnly && !isPro; // [PRO]
@@ -725,7 +727,7 @@ export default function ProgramBuilderScreen() {
                   {locked && (
                     <View style={styles.lockBadge}>
                       <Ionicons name="lock-closed" size={12} color={colors.accent} />
-                      <Text style={styles.lockText}>Pro</Text>
+                      <Text style={styles.lockText}>{t('programBuilder.pro')}</Text>
                     </View>
                   )}
                   {isSelected && !locked && (
@@ -739,23 +741,23 @@ export default function ProgramBuilderScreen() {
             {progressionModal?.current.type === 'custom' && isPro && (
               <View style={styles.customEditor}>
                 {/* Type selector */}
-                <Text style={styles.customSectionLabel}>What to increase</Text>
+                <Text style={styles.customSectionLabel}>{t('programBuilder.whatToIncrease')}</Text>
                 <View style={styles.toggleRow}>
-                  {(['weight', 'reps'] as const).map((t) => (
+                  {(['weight', 'reps'] as const).map((ruleType) => (
                     <TouchableOpacity
-                      key={t}
-                      style={[styles.toggleChip, customRuleType === t && styles.toggleChipActive]}
-                      onPress={() => setCustomRuleType(t)}
+                      key={ruleType}
+                      style={[styles.toggleChip, customRuleType === ruleType && styles.toggleChipActive]}
+                      onPress={() => setCustomRuleType(ruleType)}
                     >
-                      <Text style={[styles.toggleChipText, customRuleType === t && styles.toggleChipTextActive]}>
-                        {t === 'weight' ? 'Weight' : 'Reps'}
+                      <Text style={[styles.toggleChipText, customRuleType === ruleType && styles.toggleChipTextActive]}>
+                        {ruleType === 'weight' ? t('programBuilder.weight') : t('programBuilder.reps')}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
                 {/* Increment */}
-                <Text style={styles.customSectionLabel}>Amount per {customRulePeriod}</Text>
+                <Text style={styles.customSectionLabel}>{t('programBuilder.amountPer', { period: t(`programBuilder.periods.${customRulePeriod}`) })}</Text>
                 <View style={styles.customIncrementRow}>
                   <TextInput
                     style={styles.customInput}
@@ -771,7 +773,7 @@ export default function ProgramBuilderScreen() {
                 </View>
 
                 {/* Period selector */}
-                <Text style={styles.customSectionLabel}>Every</Text>
+                <Text style={styles.customSectionLabel}>{t('programBuilder.every')}</Text>
                 <View style={styles.toggleRow}>
                   {(['session', 'week', 'cycle'] as const).map((p) => (
                     <TouchableOpacity
@@ -780,7 +782,7 @@ export default function ProgramBuilderScreen() {
                       onPress={() => setCustomRulePeriod(p)}
                     >
                       <Text style={[styles.toggleChipText, customRulePeriod === p && styles.toggleChipTextActive]}>
-                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                        {t(`programBuilder.periods.${p}`)}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -796,7 +798,7 @@ export default function ProgramBuilderScreen() {
                     })
                   }
                 >
-                  <Text style={styles.customApplyText}>Apply Custom Rule</Text>
+                  <Text style={styles.customApplyText}>{t('programBuilder.applyCustomRule')}</Text>
                 </TouchableOpacity>
               </View>
             )}

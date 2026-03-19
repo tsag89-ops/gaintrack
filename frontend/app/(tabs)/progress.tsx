@@ -31,6 +31,7 @@ import { calc1RM } from '../../src/utils/fitness';
 import { sendPaywallTelemetry } from '../../src/services/notifications';
 import { GOAL_KEY, type BodyCompositionGoal } from '../body-composition-goal';
 import { useWorkoutVolume } from '../../src/hooks/useWorkoutVolume';
+import { useLanguage } from '../../src/context/LanguageContext';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -248,6 +249,7 @@ const StatBox = React.memo(function StatBox({
 
 export default function ProgressScreen() {
   const { isPro } = usePro();
+  const { t } = useLanguage();
   const router = useRouter();
   const recapParams = useLocalSearchParams<{
     source?: string;
@@ -567,7 +569,7 @@ export default function ProgressScreen() {
         eventType: 'view',
         context: 'csv_export_blocked',
       }).catch(() => null);
-      Alert.alert('Pro Feature', 'Upgrade to Pro to export your workout data as CSV.');
+      Alert.alert(t('progressTab.proFeatureTitle'), t('progressTab.exportProOnlyMessage'));
       return;
     }
     if (exporting) return;
@@ -601,9 +603,9 @@ export default function ProgressScreen() {
       // Native: write to file system and share
       const path: string = (FileSystem.documentDirectory ?? '') + 'gaintrack_workouts.csv';
       await FileSystem.writeAsStringAsync(path, csv, { encoding: 'utf8' });
-      await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export GainTrack Data' });
+      await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: t('progressTab.exportDialogTitle') });
     } catch (e) {
-      Alert.alert('Export failed', String(e));
+      Alert.alert(t('progressTab.exportFailedTitle'), String(e));
     } finally {
       setExporting(false);
     }
@@ -633,7 +635,7 @@ export default function ProgressScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading analytics...</Text>
+          <Text style={styles.loadingText}>{t('progressTab.loadingAnalytics')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -642,7 +644,7 @@ export default function ProgressScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Progress</Text>
+        <Text style={styles.headerTitle}>{t('progressTab.title')}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <TouchableOpacity
             style={styles.exportBtn}
@@ -653,7 +655,7 @@ export default function ProgressScreen() {
             activeOpacity={0.75}
           >
             <Ionicons name="camera-outline" size={15} color={colors.textPrimary} />
-            <Text style={styles.exportBtnText}>Physique</Text>
+            <Text style={styles.exportBtnText}>{t('progressTab.physique')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.exportBtn, !isPro && styles.exportBtnDim]}
@@ -687,7 +689,15 @@ export default function ProgressScreen() {
             activeOpacity={0.75}
           >
             <Text style={[styles.tabLabel, activeTab === tab && styles.tabLabelActive]}>
-              {tab === '1rm' ? '1RM' : tab === 'prs' ? 'PRs' : tab === 'volume' ? 'Volume' : tab === 'bodyweight' ? 'Weight' : 'Nutrition'}
+              {tab === '1rm'
+                ? t('progressTab.tabs.oneRm')
+                : tab === 'prs'
+                  ? t('progressTab.tabs.prs')
+                  : tab === 'volume'
+                    ? t('progressTab.tabs.volume')
+                    : tab === 'bodyweight'
+                      ? t('progressTab.tabs.weight')
+                      : t('progressTab.tabs.nutrition')}
             </Text>
           </TouchableOpacity>
         ))}
@@ -698,9 +708,9 @@ export default function ProgressScreen() {
           <View style={styles.proGateIconWrap}>
             <Ionicons name="analytics" size={36} color={colors.primary} />
           </View>
-          <Text style={styles.proGateTitle}>Analytics - Pro Feature</Text>
+          <Text style={styles.proGateTitle}>{t('progressTab.proGateTitle')}</Text>
           <Text style={styles.proGateBody}>
-            Unlock 1RM tracking, weekly volume charts, personal records, bodyweight trends, and CSV export with GainTrack Pro.
+            {t('progressTab.proGateBody')}
           </Text>
           <TouchableOpacity
             style={styles.proGateBtn}
@@ -717,55 +727,55 @@ export default function ProgressScreen() {
             }}
           >
             <Ionicons name="flash" size={16} color={colors.background} />
-            <Text style={styles.proGateBtnText}>Upgrade to Pro - EUR 5.99/mo or EUR 39.99/yr</Text>
+            <Text style={styles.proGateBtnText}>{t('progressTab.upgradeCta')}</Text>
           </TouchableOpacity>
-          <Text style={styles.proGateNote}>7-day free trial on annual plan - Cancel anytime</Text>
+          <Text style={styles.proGateNote}>{t('progressTab.proGateNote')}</Text>
         </View>
       ) : (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {weeklyRecapDelta && (
             <View style={styles.recapDeltaCard}>
               <View style={styles.recapDeltaHeader}>
-                <Text style={styles.recapDeltaTitle}>Weekly Delta From Home Recap</Text>
+                <Text style={styles.recapDeltaTitle}>{t('progressTab.weeklyDeltaTitle')}</Text>
                 <Ionicons name="sparkles-outline" size={14} color={colors.primary} />
               </View>
               <Text style={styles.recapDeltaText}>
-                Volume: {weeklyRecapDelta.volumeDelta >= 0 ? '+' : ''}{Math.round(weeklyRecapDelta.volumeDelta)} kg ({weeklyRecapDelta.volumeDeltaPct >= 0 ? '+' : ''}{weeklyRecapDelta.volumeDeltaPct}%)
+                {t('progressTab.volume')}: {weeklyRecapDelta.volumeDelta >= 0 ? '+' : ''}{Math.round(weeklyRecapDelta.volumeDelta)} kg ({weeklyRecapDelta.volumeDeltaPct >= 0 ? '+' : ''}{weeklyRecapDelta.volumeDeltaPct}%)
               </Text>
               <Text style={styles.recapDeltaText}>
-                Workout days: {weeklyRecapDelta.dayDelta >= 0 ? '+' : ''}{weeklyRecapDelta.dayDelta} • Sessions: {weeklyRecapDelta.workoutDelta >= 0 ? '+' : ''}{weeklyRecapDelta.workoutDelta}
+                {t('progressTab.workoutDays')}: {weeklyRecapDelta.dayDelta >= 0 ? '+' : ''}{weeklyRecapDelta.dayDelta} • {t('progressTab.sessions')}: {weeklyRecapDelta.workoutDelta >= 0 ? '+' : ''}{weeklyRecapDelta.workoutDelta}
               </Text>
             </View>
           )}
 
           <View style={styles.premiumInsightCard}>
             <View style={styles.premiumInsightHeader}>
-              <Text style={styles.premiumInsightTitle}>Premium Performance Signals</Text>
+              <Text style={styles.premiumInsightTitle}>{t('progressTab.premiumSignals')}</Text>
               <View style={styles.premiumPill}>
-                <Text style={styles.premiumPillText}>PRO</Text>
+                <Text style={styles.premiumPillText}>{t('progressTab.proBadge')}</Text>
               </View>
             </View>
-            <Text style={styles.premiumInsightSubtitle}>Weekly readiness, deload timing confidence, and strain balance.</Text>
+            <Text style={styles.premiumInsightSubtitle}>{t('progressTab.premiumSignalsSubtitle')}</Text>
             <View style={styles.premiumGrid}>
               <View style={styles.premiumMetricCard}>
-                <Text style={styles.premiumMetricLabel}>Readiness Trend</Text>
+                <Text style={styles.premiumMetricLabel}>{t('progressTab.readinessTrend')}</Text>
                 <Text style={styles.premiumMetricValue}>{premiumInsights.readinessScore}</Text>
                 <Text style={[styles.premiumMetricMeta, { color: premiumInsights.readinessDelta >= 0 ? colors.success : colors.error }]}>
-                  {premiumInsights.readinessDelta >= 0 ? '+' : ''}{premiumInsights.readinessDelta} vs last week
+                  {t('progressTab.readinessVsLastWeek', { delta: `${premiumInsights.readinessDelta >= 0 ? '+' : ''}${premiumInsights.readinessDelta}` })}
                 </Text>
               </View>
               <View style={styles.premiumMetricCard}>
-                <Text style={styles.premiumMetricLabel}>Deload Confidence</Text>
+                <Text style={styles.premiumMetricLabel}>{t('progressTab.deloadConfidence')}</Text>
                 <Text style={styles.premiumMetricValue}>{premiumInsights.deloadConfidence}%</Text>
                 <Text style={styles.premiumMetricMeta}>
-                  {premiumInsights.deloadConfidence >= 70 ? 'High strain detected' : premiumInsights.deloadConfidence >= 45 ? 'Watch recovery' : 'Normal load'}
+                  {premiumInsights.deloadConfidence >= 70 ? t('progressTab.highStrainDetected') : premiumInsights.deloadConfidence >= 45 ? t('progressTab.watchRecovery') : t('progressTab.normalLoad')}
                 </Text>
               </View>
               <View style={styles.premiumMetricCardFull}>
-                <Text style={styles.premiumMetricLabel}>Strain Balance</Text>
+                <Text style={styles.premiumMetricLabel}>{t('progressTab.strainBalance')}</Text>
                 <Text style={styles.premiumMetricValue}>{premiumInsights.strainBalance}/100</Text>
                 <Text style={styles.premiumMetricMeta}>
-                  Hard sets this week: {Math.round(premiumInsights.hardSetRate * 100)}% of total logged sets
+                  {t('progressTab.hardSetsSummary', { percent: Math.round(premiumInsights.hardSetRate * 100) })}
                 </Text>
               </View>
             </View>
@@ -776,8 +786,8 @@ export default function ProgressScreen() {
               <ExerciseSelector selectedExercise={selectedExercise} onPress={openExercisePicker} />
               {hasData(oneRMChart) ? (
                 <View style={styles.chartCard}>
-                  <Text style={styles.cardTitle}>Estimated 1RM</Text>
-                  <Text style={styles.cardSubtitle}>Brzycki formula - last 10 sessions</Text>
+                  <Text style={styles.cardTitle}>{t('progressTab.estimatedOneRm')}</Text>
+                  <Text style={styles.cardSubtitle}>{t('progressTab.oneRmSubtitle')}</Text>
                   <LineChart
                     data={{ labels: oneRMChart.labels, datasets: [{ data: oneRMChart.data, strokeWidth: 2 }] }}
                     width={SCREEN_W - 48}
@@ -790,17 +800,17 @@ export default function ProgressScreen() {
                     formatYLabel={(y) => String(Math.round(Number(y)))}
                   />
                   <View style={styles.statRow}>
-                    <StatBox label="Best 1RM" value={Math.max(...oneRMChart.data) + ' kg'} />
-                    <StatBox label="Latest" value={oneRMChart.data[oneRMChart.data.length - 1] + ' kg'} />
+                    <StatBox label={t('progressTab.bestOneRm')} value={Math.max(...oneRMChart.data) + ' kg'} />
+                    <StatBox label={t('progressTab.latest')} value={oneRMChart.data[oneRMChart.data.length - 1] + ' kg'} />
                     <StatBox
-                      label="Change"
+                      label={t('progressTab.change')}
                       value={(oneRMChart.data[oneRMChart.data.length - 1] >= oneRMChart.data[0] ? '+' : '') + (oneRMChart.data[oneRMChart.data.length - 1] - oneRMChart.data[0]) + ' kg'}
                       valueColor={oneRMChart.data[oneRMChart.data.length - 1] >= oneRMChart.data[0] ? colors.success : colors.error}
                     />
                   </View>
                 </View>
               ) : (
-                <EmptyState icon="bar-chart-outline" title={'No data for ' + (selectedExercise || 'this exercise')} subtitle="Log workouts with this exercise to see your 1RM trend" />
+                <EmptyState icon="bar-chart-outline" title={t('progressTab.noDataForExercise', { exercise: selectedExercise || t('progressTab.thisExercise') })} subtitle={t('progressTab.logWorkoutsForOneRm')} />
               )}
             </View>
           )}
@@ -811,7 +821,7 @@ export default function ProgressScreen() {
               {hasData(volumeChart) ? (
                 <View style={styles.chartCard}>
                   <Text style={styles.cardTitle}>Weekly Volume Load</Text>
-                  <Text style={styles.cardSubtitle}>{selectedExercise || 'All exercises'} - sets x reps x weight</Text>
+                  <Text style={styles.cardSubtitle}>{(selectedExercise || t('progressTab.allExercises')) + ' - ' + t('progressTab.setsRepsWeight')}</Text>
                   <BarChart
                     data={{ labels: volumeChart.labels, datasets: [{ data: volumeChart.data }] }}
                     width={SCREEN_W - 48}
@@ -831,7 +841,7 @@ export default function ProgressScreen() {
                   </View>
                 </View>
               ) : (
-                <EmptyState icon="bar-chart-outline" title="No volume data yet" subtitle="Complete workouts to track your weekly training volume" />
+                <EmptyState icon="bar-chart-outline" title={t('progressTab.noVolumeData')} subtitle={t('progressTab.completeWorkoutsForVolume')} />
               )}
 
               {/* ── Volume Overview: Muscle-Group Breakdown ── */}
@@ -840,7 +850,7 @@ export default function ProgressScreen() {
               ) : overviewVolumeData?.muscleGroup.data.length ? (
                 <View style={styles.chartCard}>
                   <Text style={styles.cardTitle}>This Week — Volume by Muscle Group</Text>
-                  <Text style={styles.cardSubtitle}>sets × reps × weight per muscle group</Text>
+                  <Text style={styles.cardSubtitle}>{t('progressTab.volumeByMuscleSubtitle')}</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <BarChart
                       data={{ labels: overviewVolumeData.muscleGroup.labels, datasets: [{ data: overviewVolumeData.muscleGroup.data }] }}
@@ -864,9 +874,9 @@ export default function ProgressScreen() {
           {activeTab === 'prs' && (
             <View>
               <Text style={styles.sectionTitle}>Personal Records</Text>
-              <Text style={styles.sectionSubtitle}>Best estimated 1RM per exercise, all time</Text>
+              <Text style={styles.sectionSubtitle}>{t('progressTab.personalRecordsSubtitle')}</Text>
               {prList.length === 0 ? (
-                <EmptyState icon="trophy-outline" title="No PRs recorded yet" subtitle="Complete your first workout to set personal records" />
+                <EmptyState icon="trophy-outline" title={t('progressTab.noPrsTitle')} subtitle={t('progressTab.noPrsSubtitle')} />
               ) : (
                 prList.map((pr, idx) => (
                   <View key={pr.exerciseName} style={styles.prRow}>
@@ -893,7 +903,7 @@ export default function ProgressScreen() {
               <View style={styles.bwHeaderRow}>
                 <View>
                   <Text style={styles.sectionTitle}>Bodyweight</Text>
-                  <Text style={styles.sectionSubtitle}>Track your weight over time</Text>
+                  <Text style={styles.sectionSubtitle}>{t('progressTab.trackWeightOverTime')}</Text>
                 </View>
                 <TouchableOpacity
                   style={styles.setGoalBtn}
@@ -904,14 +914,14 @@ export default function ProgressScreen() {
                   activeOpacity={0.75}
                 >
                   <Ionicons name="flag-outline" size={13} color={colors.primary} />
-                  <Text style={styles.setGoalBtnText}>{goal ? 'Edit Goal' : 'Set Goal'}</Text>
+                  <Text style={styles.setGoalBtnText}>{goal ? t('progressTab.editGoal') : t('progressTab.setGoal')}</Text>
                 </TouchableOpacity>
               </View>
 
               {hasData(bwChart) ? (
                 <View style={styles.chartCard}>
                   <Text style={styles.cardTitle}>Weight Trend</Text>
-                  <Text style={styles.cardSubtitle}>Last 12 entries</Text>
+                  <Text style={styles.cardSubtitle}>{t('progressTab.lastEntries', { count: 12 })}</Text>
                   <LineChart
                     data={{ labels: bwChart.labels, datasets: [{ data: bwChart.data, strokeWidth: 2 }] }}
                     width={SCREEN_W - 48}
@@ -934,7 +944,7 @@ export default function ProgressScreen() {
                   </View>
                 </View>
               ) : (
-                <EmptyState icon="scale-outline" title="No bodyweight data" subtitle="Log measurements to track your weight over time" />
+                <EmptyState icon="scale-outline" title={t('progressTab.noBodyweightData')} subtitle={t('progressTab.logMeasurementsForWeight')} />
               )}
 
               {/* ── Goal Summary Card ── */}
@@ -1006,9 +1016,7 @@ export default function ProgressScreen() {
               {projectionChart && (
                 <View style={styles.chartCard}>
                   <Text style={styles.cardTitle}>Goal Projection</Text>
-                  <Text style={styles.cardSubtitle}>
-                    Actual weight → projected path at {goal?.weeklyRate} kg/wk
-                  </Text>
+                  <Text style={styles.cardSubtitle}>{t('progressTab.goalProjectionSubtitle', { rate: goal?.weeklyRate ?? 0 })}</Text>
                   <LineChart
                     data={{
                       labels: projectionChart.labels,
@@ -1068,7 +1076,7 @@ export default function ProgressScreen() {
               {nutritionChart.daysLogged > 0 && (
                 <View style={styles.chartCard}>
                   <Text style={styles.cardTitle}>Calorie Intake</Text>
-                  <Text style={styles.cardSubtitle}>Alongside your weight trend — last 7 days</Text>
+                  <Text style={styles.cardSubtitle}>{t('progressTab.calorieIntakeSubtitle')}</Text>
                   <BarChart
                     data={{ labels: nutritionChart.labels, datasets: [{ data: nutritionChart.calories }] }}
                     width={SCREEN_W - 48}
@@ -1097,9 +1105,9 @@ export default function ProgressScreen() {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowPicker(false)}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Select Exercise</Text>
+            <Text style={styles.modalTitle}>{t('progressTab.selectExercise')}</Text>
             {allExerciseNames.length === 0 ? (
-              <Text style={styles.emptyTitle}>No exercises in workout history yet</Text>
+              <Text style={styles.emptyTitle}>{t('progressTab.noExercisesInHistory')}</Text>
             ) : (
               <FlatList
                 data={allExerciseNames}

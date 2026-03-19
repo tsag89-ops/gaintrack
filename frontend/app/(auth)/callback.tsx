@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../src/store/authStore';
+import { useLanguage } from '../../src/context/LanguageContext';
 
 // Callback screen: checks if user is already logged in via local storage.
 // With the new local auth flow, login happens directly in login.tsx.
@@ -9,6 +10,7 @@ import { useAuthStore } from '../../src/store/authStore';
 // or unauthenticated users back to login.
 export default function CallbackScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const { isAuthenticated, isLoading } = useAuthStore();
 
   useEffect(() => {
@@ -23,7 +25,7 @@ export default function CallbackScreen() {
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color="#4CAF50" />
-      <Text style={styles.text}>Loading GainTrack...</Text>
+      <Text style={styles.text}>{t('authCallback.loading')}</Text>
     </View>
   );
 }
