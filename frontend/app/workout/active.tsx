@@ -35,18 +35,26 @@ import { sendEngagementTelemetry, sendFirstWorkoutCompletedTelemetry, sendSupers
 
 // MUST be set at module level — without this, expo-notifications silently drops all
 // notifications when the app is in the foreground (always the case during an active workout).
+// Countdown vibration notifications are suppressed in-app (they exist only to trigger haptics
+// via the OS vibration motor when the app is backgrounded).
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (notification) => {
+    const isCountdown = notification.request.content.data?.isCountdown === true;
+    return {
+      shouldShowAlert: !isCountdown,
+      shouldPlaySound: !isCountdown,
+      shouldSetBadge: false,
+      shouldShowBanner: !isCountdown,
+      shouldShowList: !isCountdown,
+    };
+  },
 });
 
 const DEFAULT_REST_SECONDS = 90;
 const REST_TIMER_CHANNEL_ID = 'rest-timer-alerts';
+// Low-profile Android channel for the 3-pulse countdown vibration.
+// DEFAULT importance keeps it out of the heads-up window; no sound.
+const REST_COUNTDOWN_CHANNEL_ID = 'rest-countdown-alerts';
 const REST_DURATION_KEY = 'gaintrack_rest_duration';
 const REST_TIMER_SOUND = 'rest-bell.wav';
 const SUPERSET_COLORS = ['#FF6200', '#4CAF50', '#29B6F6', '#FFB300', '#EF5350', '#AB47BC'];
@@ -222,6 +230,25 @@ const ActiveWorkoutScreen: React.FC = () => {
     setRestTime(secs);
     setActiveRest(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Android: schedule a silent 3-pulse vibration notification at secs-3 so the
+    // device vibrates at 3-2-1 remaining even when the app is backgrounded/screen off.
+    if (Platform.OS === 'android' && secs > 3) {
+      try {
+        const cdId = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: '',
+            body: '',
+            data: { isCountdown: true },
+            ...(Platform.OS === 'android' ? { android: { channelId: REST_COUNTDOWN_CHANNEL_ID } } : {}),
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+            seconds: secs - 3,
+          },
+        });
+        restNotifIdsRef.current.push(cdId);
+      } catch {}
+    }
     try {
       const id = await Notifications.scheduleNotificationAsync({
         content: {
@@ -402,6 +429,14 @@ const ActiveWorkoutScreen: React.FC = () => {
         sound: REST_TIMER_SOUND,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF6200',
+      }).catch(() => null);
+      // Countdown channel: DEFAULT importance = drawer only (no heads-up banner), no sound set,
+      // 3-pulse vibration pattern that approximates the 3-2-1 second countdown.
+      Notifications.setNotificationChannelAsync(REST_COUNTDOWN_CHANNEL_ID, {
+        name: 'Rest Countdown',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        enableVibrate: true,
+        vibrationPattern: [0, 200, 800, 200, 800, 200],
       }).catch(() => null);
     }
 
