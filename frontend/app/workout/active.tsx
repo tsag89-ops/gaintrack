@@ -27,6 +27,7 @@ import { useNativeAuthState } from '../../src/hooks/useAuth';
 import { usePro } from '../../src/hooks/usePro';
 import { useWeightUnit } from '../../src/hooks/useWeightUnit';
 import { seedExercises } from '../../src/data/seedData';
+import { useLanguage } from '../../src/context/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { sendEngagementTelemetry, sendFirstWorkoutCompletedTelemetry, sendSupersetTelemetry } from '../../src/services/notifications';
@@ -55,8 +56,10 @@ const EXERCISE_HISTORY_KEY = 'gaintrack_exercise_history';
 
 const ActiveWorkoutScreen: React.FC = () => {
   const router = useRouter();
+  const { t } = useLanguage();
   const { name: nameParam, programId, templateId, dayIndex } = useLocalSearchParams<{ name: string; programId?: string; templateId?: string; dayIndex?: string }>();
-  const workoutTitle = nameParam || 'New Workout';
+  const workoutTitle = nameParam || t('workoutActive.newWorkoutTitle');
+  const quickWorkoutName = t('exercisesTab.quickWorkoutName');
   const { currentWorkout, updateExerciseInWorkout, setCurrentWorkout, createWorkout, startWorkout,
     persistInProgress, restoreInProgress, clearInProgress } = useWorkoutStore();
   const { uid } = useNativeAuthState();
@@ -219,8 +222,8 @@ const ActiveWorkoutScreen: React.FC = () => {
     try {
       const id = await Notifications.scheduleNotificationAsync({
         content: {
-          title: '\uD83D\uDD14 Rest over!',
-          body: 'Time for your next set \uD83D\uDCAA',
+            title: t('workoutActive.restOverTitle'),
+            body: t('workoutActive.restOverMessage'),
           sound: REST_TIMER_SOUND,
           ...(Platform.OS === 'android' ? { android: { channelId: REST_TIMER_CHANNEL_ID } } : {}),
         },
@@ -241,7 +244,7 @@ const ActiveWorkoutScreen: React.FC = () => {
     if (!restOverrideModal) return;
     const parsed = parseInt(restOverrideInput, 10);
     if (!parsed || parsed < 5 || parsed > 3600) {
-      Alert.alert('Invalid duration', 'Enter a value between 5 and 3600 seconds.');
+      Alert.alert(t('workoutActive.invalidDurationTitle'), t('workoutActive.invalidDurationMessage'));
       return;
     }
     setExerciseList((prev) =>
@@ -275,7 +278,7 @@ const ActiveWorkoutScreen: React.FC = () => {
     const groupIds = getSupersetGroupIds();
     const idx = Math.max(0, groupIds.indexOf(groupId));
     return {
-      label: `Group ${idx + 1}`,
+        label: t('workoutActive.groupLabel', { count: idx + 1 }),
       color: SUPERSET_COLORS[idx % SUPERSET_COLORS.length],
     };
   };
@@ -307,10 +310,10 @@ const ActiveWorkoutScreen: React.FC = () => {
         isPro: false,
         context: 'active_workout_toggle',
       });
-      Alert.alert('Pro Feature', 'Supersets are available with GainTrack Pro (EUR 5.99/mo or EUR 39.99/yr).', [
-        { text: 'Not now', style: 'cancel' },
+        Alert.alert(t('workoutActive.proFeatureTitle'), t('workoutActive.proFeatureSupersetMessage'), [
+          { text: t('workoutActive.notNowButton'), style: 'cancel' },
         {
-          text: 'Upgrade',
+            text: t('workoutActive.upgradeButton'),
           onPress: () => {
             void sendSupersetTelemetry({
               eventType: 'superset_paywall_view',
@@ -335,7 +338,7 @@ const ActiveWorkoutScreen: React.FC = () => {
     if (!exercise) return;
 
     if (exerciseList.length < 2) {
-      Alert.alert('Add another exercise', 'Add at least one more exercise before creating a superset group.');
+      Alert.alert(t('workoutActive.addAnotherExerciseTitle'), t('workoutActive.addAnotherExerciseMessage'));
       return;
     }
 
@@ -343,28 +346,28 @@ const ActiveWorkoutScreen: React.FC = () => {
     const createGroupId = `ss_${Date.now()}`;
     const buttons: Array<{ text: string; style?: 'default' | 'cancel' | 'destructive'; onPress?: () => void }> = [
       {
-        text: 'Create New Group',
+          text: t('workoutActive.createNewGroupButton'),
         onPress: () => assignExerciseToSupersetGroup(exerciseId, createGroupId),
       },
       ...existingGroups.map((groupId) => ({
-        text: `Add to ${getSupersetGroupMeta(groupId).label}`,
+          text: t('workoutActive.addToGroupButton', { group: getSupersetGroupMeta(groupId).label }),
         onPress: () => assignExerciseToSupersetGroup(exerciseId, groupId),
       })),
     ];
 
     if (exercise.superset_group) {
       buttons.push({
-        text: `Remove from ${getSupersetGroupMeta(exercise.superset_group).label}`,
+          text: t('workoutActive.removeFromGroupButton', { group: getSupersetGroupMeta(exercise.superset_group).label }),
         style: 'destructive',
         onPress: () => removeExerciseFromSupersetGroup(exerciseId),
       });
     }
 
-    buttons.push({ text: 'Cancel', style: 'cancel' });
+      buttons.push({ text: t('common.cancel'), style: 'cancel' });
 
     Alert.alert(
-      'Superset Group',
-      'Choose which superset group this exercise should be added to.',
+        t('workoutActive.supersetGroupTitle'),
+        t('workoutActive.supersetGroupMessage'),
       buttons
     );
   };
@@ -391,7 +394,7 @@ const ActiveWorkoutScreen: React.FC = () => {
     // Without an explicit channel, Android may suppress sound entirely.
     if (Platform.OS === 'android') {
       Notifications.setNotificationChannelAsync(REST_TIMER_CHANNEL_ID, {
-        name: 'Rest Timer Alerts',
+        name: t('workoutActive.restTimerChannelName'),
         importance: Notifications.AndroidImportance.HIGH,
         sound: REST_TIMER_SOUND,
         vibrationPattern: [0, 250, 250, 250],
@@ -562,8 +565,8 @@ const ActiveWorkoutScreen: React.FC = () => {
       if (r <= 0 || w < 0) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         Alert.alert(
-          'Missing values',
-          'Weight and reps must be filled in before marking a set as completed.',
+          t('workoutActive.missingValuesTitle'),
+          t('workoutActive.missingValuesMessage'),
         );
         return;
       }
@@ -660,7 +663,7 @@ const ActiveWorkoutScreen: React.FC = () => {
         activeOpacity={0.8}
       >
         <Animated.Text style={[styles.swipeDeleteText, { transform: [{ scale }] }]}>
-          🗑 Delete
+          {t('workoutActive.deleteExerciseAction')}
         </Animated.Text>
       </TouchableOpacity>
     );
@@ -746,7 +749,7 @@ const ActiveWorkoutScreen: React.FC = () => {
   const finishWorkout = async (skipIncompleteCheck = false, overrideExerciseList?: WorkoutExercise[]) => {
     if (!currentWorkout) return;
     if (!uid) {
-      Alert.alert('Not signed in', 'Please log in to save workouts.');
+      Alert.alert(t('workoutActive.notSignedInTitle'), t('workoutActive.notSignedInMessage'));
       return;
     }
 
@@ -756,13 +759,15 @@ const ActiveWorkoutScreen: React.FC = () => {
         return count + ex.sets.filter((s) => !s.completed && (Number(s.reps) > 0 || Number(s.weight) > 0)).length;
       }, 0);
       if (incompleteSets > 0) {
+        const suffix = incompleteSets > 1 ? t('workoutActive.pluralSuffix') : '';
+        const message = incompleteSets > 1 ? t('workoutActive.areVerb') : t('workoutActive.isVerb');
         Alert.alert(
-          'Incomplete sets',
-          `You have ${incompleteSets} set${incompleteSets > 1 ? 's' : ''} that ${incompleteSets > 1 ? 'are' : 'is'} not marked as completed. What would you like to do?`,
+          t('workoutActive.incompleteSetsTitle'),
+          t('workoutActive.incompleteSetsMessage', { count: incompleteSets, suffix, message }),
           [
-            { text: 'Keep editing', style: 'cancel' },
+            { text: t('workoutActive.keepEditingButton'), style: 'cancel' },
             {
-              text: 'Discard incomplete & finish',
+              text: t('workoutActive.discardIncompleteAndFinishButton'),
               style: 'destructive',
               onPress: () => {
                 // Build filtered list synchronously — avoids stale closure / setTimeout race
@@ -798,18 +803,18 @@ const ActiveWorkoutScreen: React.FC = () => {
 
     if (!hasValidSets || validExercises.length === 0) {
       Alert.alert(
-        'Empty Workout',
-        'No sets were logged. Add at least one set with reps to save this workout.',
+        t('workoutActive.emptyWorkoutTitle'),
+        t('workoutActive.emptyWorkoutMessage'),
         [
-          { text: 'Keep Editing', style: 'cancel' },
+          { text: t('workoutActive.keepEditingButton'), style: 'cancel' },
           {
-            text: 'Discard Workout',
+            text: t('workoutActive.discardWorkoutButton'),
             style: 'destructive',
             onPress: async () => {
               sendEngagementTelemetry({
                 feature: 'workout_active',
                 action: 'empty_workout_discarded',
-                context: currentWorkout?.name || workoutTitle || 'Quick Workout',
+                context: currentWorkout?.name || workoutTitle || quickWorkoutName,
               });
               await clearInProgress();
               setCurrentWorkout(null);
@@ -879,8 +884,11 @@ const ActiveWorkoutScreen: React.FC = () => {
         if (WORKOUT_MILESTONES.includes(completedCount)) {
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           Alert.alert(
-            'Milestone unlocked',
-            `Great work! You just completed ${completedCount} workout${completedCount > 1 ? 's' : ''}. Keep the streak alive.`,
+            t('workoutActive.milestoneUnlockedTitle'),
+            t('workoutActive.milestoneUnlockedMessage', {
+              count: completedCount,
+              suffix: completedCount > 1 ? t('workoutActive.pluralSuffix') : '',
+            }),
           );
         }
       }
@@ -899,14 +907,14 @@ const ActiveWorkoutScreen: React.FC = () => {
             context: 'active_workout_finish',
           });
           Alert.alert(
-            'Superset milestone unlocked',
-            'First superset session completed. Track progression and fatigue trends in Progress to keep pushing smart overload.',
+            t('workoutActive.supersetMilestoneTitle'),
+            t('workoutActive.supersetMilestoneMessage'),
             [
               {
-                text: 'View Progress',
+                text: t('workoutActive.viewProgressButton'),
                 onPress: () => router.push('/(tabs)/progress' as any),
               },
-              { text: 'Later', style: 'cancel' },
+              { text: t('workoutActive.laterButton'), style: 'cancel' },
             ],
           );
         }
@@ -976,43 +984,63 @@ const ActiveWorkoutScreen: React.FC = () => {
         const currMap = new Map(currentExercises.map((e: any) => [e.exercise_id, e]));
 
         for (const [id, orig] of origMap) {
-          if (!currMap.has(id)) lines.push(`• Removed: ${orig.exercise_name}`);
+          if (!currMap.has(id)) lines.push(t('workoutActive.templateDiffRemoved', { name: orig.exercise_name }));
         }
         for (const [id, curr] of currMap) {
           if (!origMap.has(id)) {
-            lines.push(`• Added: ${curr.exercise_name}`);
+            lines.push(t('workoutActive.templateDiffAdded', { name: curr.exercise_name }));
           } else {
             const orig = origMap.get(id)!;
             const origSets: any[] = orig.sets ?? [];
             const currSets: any[] = curr.sets ?? [];
             if (origSets.length !== currSets.length) {
-              lines.push(`• ${curr.exercise_name}: ${origSets.length} → ${currSets.length} sets`);
+              lines.push(t('workoutActive.templateDiffSetCount', {
+                name: curr.exercise_name,
+                from: origSets.length,
+                to: currSets.length,
+              }));
             } else {
               const setChanges: string[] = [];
               currSets.forEach((cs, i) => {
                 const os = origSets[i];
                 if (!os) return;
                 const parts: string[] = [];
-                if (Number(cs.reps) !== Number(os.reps)) parts.push(`reps ${os.reps}→${cs.reps}`);
+                if (Number(cs.reps) !== Number(os.reps)) {
+                  parts.push(t('workoutActive.templateDiffRepsChange', { from: os.reps, to: cs.reps }));
+                }
                 if (Number(cs.weight) !== Number(os.weight)) parts.push(`${os.weight}→${cs.weight}${weightUnit}`);
-                if ((cs.rpe ?? '') !== (os.rpe ?? '')) parts.push(`RPE ${os.rpe ?? '-'}→${cs.rpe ?? '-'}`);
-                if (parts.length) setChanges.push(`set ${i + 1}: ${parts.join(', ')}`);
+                if ((cs.rpe ?? '') !== (os.rpe ?? '')) {
+                  parts.push(t('workoutActive.templateDiffRpeChange', { from: os.rpe ?? '-', to: cs.rpe ?? '-' }));
+                }
+                if (parts.length) {
+                  setChanges.push(t('workoutActive.templateDiffSetChanges', { count: i + 1, changes: parts.join(', ') }));
+                }
               });
-              if (setChanges.length) lines.push(`• ${curr.exercise_name}: ${setChanges.join('; ')}`);
+              if (setChanges.length) {
+                lines.push(t('workoutActive.templateDiffExerciseChanges', {
+                  name: curr.exercise_name,
+                  changes: setChanges.join('; '),
+                }));
+              }
             }
           }
         }
-        return lines.length ? lines.join('\n') : 'No changes detected.';
+        return lines.length ? lines.join('\n') : t('workoutActive.templateDiffNoChanges');
       };
 
       if (isOffline) {
-        Alert.alert('📥 Saved offline', "No connection — your workout is stored locally and will sync when you're back online.", [{ text: 'OK', style: 'cancel' }]);
+        Alert.alert(
+          t('workoutActive.savedOfflineTitle'),
+          t('workoutActive.savedOfflineMessage'),
+          [{ text: t('workoutActive.okButton'), style: 'cancel' }],
+        );
       } else if (hasIncompleteExercise) {
         if (newPRs.length > 0) {
+          const suffix = newPRs.length > 1 ? t('workoutActive.pluralSuffix') : '';
           Alert.alert(
-            `🏆 ${newPRs.length} new PR${newPRs.length > 1 ? 's' : ''}!`,
-            `Records broken: ${newPRs.join(', ')}`,
-            [{ text: 'OK' }],
+            t('workoutActive.prTitle', { count: newPRs.length, suffix }),
+            t('workoutActive.prMessage', { list: newPRs.join(', ') }),
+            [{ text: t('workoutActive.okButton') }],
           );
         }
       } else if (templateId) {
@@ -1020,31 +1048,48 @@ const ActiveWorkoutScreen: React.FC = () => {
         const tmplRaw = await AsyncStorage.getItem('gaintrack_templates');
         const allTemplates: any[] = tmplRaw ? JSON.parse(tmplRaw) : [];
         const sourceTemplate = allTemplates.find((t: any) => t.id === templateId);
-        const prLine = newPRs.length > 0 ? `🏆 ${newPRs.join(', ')}\n\n` : '';
+        const prLine = newPRs.length > 0 ? `${t('workoutActive.prMedalLine', { list: newPRs.join(', ') })}\n\n` : '';
         if (sourceTemplate) {
           const diff = buildTemplateDiff(sourceTemplate.exercises ?? [], buildTemplateExercises());
+          const suffix = newPRs.length > 1 ? t('workoutActive.pluralSuffix') : '';
           Alert.alert(
-            newPRs.length > 0 ? `🏆 ${newPRs.length} new PR${newPRs.length > 1 ? 's' : ''}!` : 'Workout saved!',
-            `${prLine}Update template "${sourceTemplate.name}"?\n\n${diff}`,
+            newPRs.length > 0 ? t('workoutActive.prTitle', { count: newPRs.length, suffix }) : t('workoutActive.workoutSavedTitle'),
+            t('workoutActive.updateTemplateMessage', {
+              message: prLine,
+              name: sourceTemplate.name,
+              diff,
+            }),
             [
               {
-                text: 'Update Template',
+                text: t('workoutActive.updateTemplateButton'),
                 onPress: () => saveTemplateExercises(templateId, buildTemplateExercises()),
               },
-              { text: 'Keep Original', style: 'cancel' },
+              { text: t('workoutActive.keepOriginalButton'), style: 'cancel' },
             ],
           );
         } else {
           // Template no longer exists — just show PR info if any
-          if (newPRs.length > 0) Alert.alert(`🏆 ${newPRs.length} new PR${newPRs.length > 1 ? 's' : ''}!`, `Records broken: ${newPRs.join(', ')}`, [{ text: 'OK' }]);
+          if (newPRs.length > 0) {
+            const suffix = newPRs.length > 1 ? t('workoutActive.pluralSuffix') : '';
+            Alert.alert(
+              t('workoutActive.prTitle', { count: newPRs.length, suffix }),
+              t('workoutActive.prMessage', { list: newPRs.join(', ') }),
+              [{ text: t('workoutActive.okButton') }],
+            );
+          }
         }
       } else {
         // Regular workout — offer to save as a new template
-        const title = newPRs.length > 0 ? `🏆 ${newPRs.length} new PR${newPRs.length > 1 ? 's' : ''}!` : 'Workout saved!';
-        const body = newPRs.length > 0 ? `Records broken: ${newPRs.join(', ')}\n\nSave as template?` : 'Save as a template for next time?';
+        const suffix = newPRs.length > 1 ? t('workoutActive.pluralSuffix') : '';
+        const title = newPRs.length > 0
+          ? t('workoutActive.prTitle', { count: newPRs.length, suffix })
+          : t('workoutActive.workoutSavedTitle');
+        const body = newPRs.length > 0
+          ? t('workoutActive.saveAsTemplateWithPrMessage', { message: t('workoutActive.prMessage', { list: newPRs.join(', ') }) })
+          : t('workoutActive.saveAsTemplateMessage');
         Alert.alert(title, body, [
           {
-            text: 'Save Template',
+            text: t('workoutActive.saveTemplateButton'),
             onPress: async () => {
               const tmplRaw = await AsyncStorage.getItem('gaintrack_templates');
               const templates = tmplRaw ? JSON.parse(tmplRaw) : [];
@@ -1063,7 +1108,7 @@ const ActiveWorkoutScreen: React.FC = () => {
               });
             },
           },
-          { text: 'Skip', style: 'cancel' },
+          { text: t('workoutActive.skipButton'), style: 'cancel' },
         ]);
       }
       setCurrentWorkout(null);
@@ -1113,7 +1158,7 @@ const ActiveWorkoutScreen: React.FC = () => {
         context: String(e),
       });
       console.error('Save workout error:', e);
-      Alert.alert('Error saving workout', String(e));
+      Alert.alert(t('workoutActive.errorSavingWorkoutTitle'), t('workoutActive.errorSavingWorkoutMessage', { message: String(e) }));
     } finally {
       setSaving(false);
     }
@@ -1145,18 +1190,18 @@ const ActiveWorkoutScreen: React.FC = () => {
           sendEngagementTelemetry({
             feature: 'workout_active',
             action: 'add_exercise_opened',
-            context: currentWorkout?.name || workoutTitle || 'Quick Workout',
+            context: currentWorkout?.name || workoutTitle || quickWorkoutName,
           });
           router.push({
             pathname: '/(tabs)/exercises',
             params: {
               fromWorkout: '1',
-              workoutName: currentWorkout?.name || workoutTitle || 'Quick Workout',
+              workoutName: currentWorkout?.name || workoutTitle || quickWorkoutName,
             },
           });
         }}
       >
-        <Text style={styles.addExerciseText}>+ Add Exercise</Text>
+        <Text style={styles.addExerciseText}>{t('workoutActive.addExerciseButton')}</Text>
       </TouchableOpacity>
       <DraggableFlatList
         data={exerciseList}
@@ -1203,14 +1248,14 @@ const ActiveWorkoutScreen: React.FC = () => {
               ListHeaderComponent={
                 <View>
                   {prefilledFromLastSession.has(item.exercise_id) && (
-                    <Text style={styles.lastSessionHeader}>Last session</Text>
+                    <Text style={styles.lastSessionHeader}>{t('workoutActive.lastSessionLabel')}</Text>
                   )}
                   <View style={styles.setColumnsHeaderRow}>
                     <View style={styles.setColumnsCheckSpacer} />
-                    <Text style={styles.setColumnsSet}>Set</Text>
-                    <Text style={styles.setColumnsLabel}>Weight ({weightUnit})</Text>
-                    <Text style={styles.setColumnsLabel}>Reps</Text>
-                    <Text style={styles.setColumnsLabel}>RPE</Text>
+                    <Text style={styles.setColumnsSet}>{t('workoutActive.setHeader')}</Text>
+                    <Text style={styles.setColumnsLabel}>{t('workoutActive.weightHeader', { unit: weightUnit })}</Text>
+                    <Text style={styles.setColumnsLabel}>{t('workoutActive.repsHeader')}</Text>
+                    <Text style={styles.setColumnsLabel}>{t('workoutActive.rpeHeader')}</Text>
                     <View style={{ width: 28 }} />
                   </View>
                 </View>
@@ -1234,7 +1279,9 @@ const ActiveWorkoutScreen: React.FC = () => {
                       <Text style={styles.warmupNumText}>🔥</Text>
                     </View>
                   ) : (
-                    <Text style={styles.setNum}>Set {item.sets.filter((s: WorkoutSet) => !s.is_warmup).indexOf(set) + 1}</Text>
+                    <Text style={styles.setNum}>
+                      {t('workoutActive.setNumberLabel', { count: item.sets.filter((s: WorkoutSet) => !s.is_warmup).indexOf(set) + 1 })}
+                    </Text>
                   )}
                   <TextInput
                     style={styles.input}
@@ -1251,7 +1298,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                     rejectResponderTermination={false}
                     value={set.reps.toString()}
                     onChangeText={(v) => updateSet(item.exercise_id, index, 'reps', Number(v))}
-                    placeholder="reps"
+                    placeholder={t('workoutActive.repsPlaceholder')}
                     placeholderTextColor="#B0B0B0"
                   />
                   <TextInput
@@ -1260,7 +1307,7 @@ const ActiveWorkoutScreen: React.FC = () => {
                     rejectResponderTermination={false}
                     value={set.rpe?.toString() || ''}
                     onChangeText={(v) => updateSet(item.exercise_id, index, 'rpe', Number(v))}
-                    placeholder="RPE"
+                    placeholder={t('workoutActive.rpePlaceholder')}
                     placeholderTextColor="#B0B0B0"
                   />
                   <TouchableOpacity
@@ -1275,10 +1322,10 @@ const ActiveWorkoutScreen: React.FC = () => {
               ListFooterComponent={
                 <View style={styles.setFooterRow}>
                   <TouchableOpacity style={styles.warmupSetBtn} onPress={() => addWarmupSet(item.exercise_id)}>
-                    <Text style={styles.warmupSetBtnText}>🔥 Warm Up</Text>
+                    <Text style={styles.warmupSetBtnText}>{t('workoutActive.warmupButton')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.addSetBtn} onPress={() => addSet(item.exercise_id)}>
-                    <Text style={styles.addSetText}>+ Add Set</Text>
+                    <Text style={styles.addSetText}>{t('workoutActive.addSetButton')}</Text>
                   </TouchableOpacity>
                 </View>
               }
@@ -1294,7 +1341,7 @@ const ActiveWorkoutScreen: React.FC = () => {
               delayLongPress={400}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.restBtnText}>⏱ Rest</Text>
+                <Text style={styles.restBtnText}>{t('workoutActive.restButton')}</Text>
                 {item.restSeconds != null && (
                   <View style={styles.restOverrideBadge}>
                     <Text style={styles.restOverrideBadgeText}>
@@ -1303,17 +1350,19 @@ const ActiveWorkoutScreen: React.FC = () => {
                   </View>
                 )}
                 {item.restSeconds == null && (
-                  <Text style={styles.restBtnSubtext}>{restSeconds}s</Text>
+                  <Text style={styles.restBtnSubtext}>{t('workoutActive.secondsShort', { count: restSeconds })}</Text>
                 )}
               </View>
             </TouchableOpacity>
             {activeRest && (
               <View style={styles.restTimerRow}>
                 <Text style={[styles.restTimer, restTime <= 5 && { color: '#F44336' }]}>
-                  {restTime <= 5 ? '⚠️' : '⏱'} {restTime}s {restTime <= 5 ? '— go!' : 'rest…'}
+                  {restTime <= 5
+                    ? t('workoutActive.restCountdownCritical', { count: restTime, message: t('workoutActive.goMessage') })
+                    : t('workoutActive.restCountdownNormal', { count: restTime, message: t('workoutActive.restMessage') })}
                 </Text>
                 <TouchableOpacity style={styles.skipRestBtn} onPress={skipRestTimer}>
-                  <Text style={styles.skipRestText}>Skip</Text>
+                  <Text style={styles.skipRestText}>{t('workoutActive.skipButton')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -1329,25 +1378,25 @@ const ActiveWorkoutScreen: React.FC = () => {
                 color={groupMeta ? '#1A1A1A' : '#B0B0B0'}
               />
               <Text style={[styles.supersetBtnText, groupMeta && styles.supersetBtnTextActive]}>
-                {groupMeta ? groupMeta.label : 'Superset Group'}
+                {groupMeta ? groupMeta.label : t('workoutActive.supersetGroupButton')}
               </Text>
             </TouchableOpacity>
           </View>
           </Swipeable>
         );
       }}
-        ListEmptyComponent={<Text style={styles.emptyText}>No exercises added.</Text>}
+        ListEmptyComponent={<Text style={styles.emptyText}>{t('workoutActive.noExercisesAdded')}</Text>}
         ListFooterComponent={
           <View style={styles.finishBtnFooter}>
             <TouchableOpacity style={styles.finishBtn} onPress={() => {
               sendEngagementTelemetry({
                 feature: 'workout_active',
                 action: 'finish_cta_tapped',
-                context: currentWorkout?.name || workoutTitle || 'Quick Workout',
+                context: currentWorkout?.name || workoutTitle || quickWorkoutName,
               });
               void finishWorkout();
             }} disabled={saving}>
-              <Text style={styles.finishBtnText}>{saving ? 'Saving...' : 'Finish Workout'}</Text>
+              <Text style={styles.finishBtnText}>{saving ? t('common.saving') : t('workoutActive.finishWorkoutButton')}</Text>
             </TouchableOpacity>
           </View>
         }
@@ -1363,7 +1412,7 @@ const ActiveWorkoutScreen: React.FC = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { padding: 20 }]}>
-            <Text style={styles.modalTitle}>Rest Duration</Text>
+            <Text style={styles.modalTitle}>{t('workoutActive.restDurationTitle')}</Text>
             <Text style={{ color: '#B0B0B0', textAlign: 'center', marginBottom: 16, fontSize: 13 }}>
               {restOverrideModal?.exerciseName}
             </Text>
@@ -1391,22 +1440,22 @@ const ActiveWorkoutScreen: React.FC = () => {
               keyboardType="numeric"
               value={restOverrideInput}
               onChangeText={setRestOverrideInput}
-              placeholder="seconds"
+              placeholder={t('workoutActive.secondsPlaceholder')}
               placeholderTextColor="#B0B0B0"
             />
             <TouchableOpacity style={styles.restSaveBtn} onPress={saveRestOverride}>
-              <Text style={styles.restSaveBtnText}>Set Override</Text>
+              <Text style={styles.restSaveBtnText}>{t('workoutActive.setOverrideButton')}</Text>
             </TouchableOpacity>
             {restOverrideModal && exerciseList.find((e) => e.exercise_id === restOverrideModal.exerciseId)?.restSeconds != null && (
               <TouchableOpacity
                 style={styles.restClearBtn}
                 onPress={() => clearRestOverride(restOverrideModal.exerciseId)}
               >
-                <Text style={styles.restClearBtnText}>Clear Override (use global {restSeconds}s)</Text>
+                <Text style={styles.restClearBtnText}>{t('workoutActive.clearOverrideButton', { count: restSeconds })}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.closeModalBtn} onPress={() => setRestOverrideModal(null)}>
-              <Text style={styles.closeModalText}>Cancel</Text>
+              <Text style={styles.closeModalText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1429,7 +1478,7 @@ const ActiveWorkoutScreen: React.FC = () => {
               )}
               <Text style={styles.modalInstructions}>{getExerciseInstructions(modalExercise?.exercise_name)}</Text>
               <TouchableOpacity style={styles.closeModalBtn} onPress={() => setModalVisible(false)}>
-                <Text style={styles.closeModalText}>Close</Text>
+                <Text style={styles.closeModalText}>{t('common.close')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -1441,23 +1490,23 @@ const ActiveWorkoutScreen: React.FC = () => {
         <TouchableOpacity style={styles.rpeInfoOverlay} activeOpacity={1} onPress={() => setShowRpeInfo(false)}>
           <View style={styles.rpeInfoContent}>
             <View style={styles.rpeInfoHeader}>
-              <Text style={styles.rpeInfoTitle}>RPE Scale</Text>
-              <Text style={styles.rpeInfoSubtitle}>Rate of Perceived Exertion</Text>
+              <Text style={styles.rpeInfoTitle}>{t('workoutActive.rpeScaleTitle')}</Text>
+              <Text style={styles.rpeInfoSubtitle}>{t('workoutActive.rpeScaleSubtitle')}</Text>
             </View>
             <ScrollView style={styles.rpeTableScroll}>
               <View style={styles.rpeTable}>
                 <View style={[styles.rpeTableRow, styles.rpeTableHeader]}>
-                  <Text style={[styles.rpeTableHeaderText, { width: 50 }]}>RPE</Text>
-                  <Text style={[styles.rpeTableHeaderText, { flex: 1 }]}>Description</Text>
-                  <Text style={[styles.rpeTableHeaderText, { width: 80 }]}>RIR Guide</Text>
+                  <Text style={[styles.rpeTableHeaderText, { width: 50 }]}>{t('workoutActive.rpeHeader')}</Text>
+                  <Text style={[styles.rpeTableHeaderText, { flex: 1 }]}>{t('workoutActive.descriptionHeader')}</Text>
+                  <Text style={[styles.rpeTableHeaderText, { width: 80 }]}>{t('workoutActive.rirGuideHeader')}</Text>
                 </View>
                 {[
-                  { rpe: 5, desc: 'Easy, sustainable', rir: '5+ reps left' },
-                  { rpe: 6, desc: 'Moderate, controlled', rir: '4 reps left' },
-                  { rpe: 7, desc: 'Challenging', rir: '3 reps left' },
-                  { rpe: 8, desc: 'Hard, 2–3 more reps', rir: '2 reps left' },
-                  { rpe: 9, desc: 'Very hard, 1 more rep', rir: '1 rep left' },
-                  { rpe: 10, desc: 'Maximal, failure', rir: '0 reps left' },
+                  { rpe: 5, desc: t('workoutActive.rpeDesc5'), rir: t('workoutActive.rpeRir5') },
+                  { rpe: 6, desc: t('workoutActive.rpeDesc6'), rir: t('workoutActive.rpeRir6') },
+                  { rpe: 7, desc: t('workoutActive.rpeDesc7'), rir: t('workoutActive.rpeRir7') },
+                  { rpe: 8, desc: t('workoutActive.rpeDesc8'), rir: t('workoutActive.rpeRir8') },
+                  { rpe: 9, desc: t('workoutActive.rpeDesc9'), rir: t('workoutActive.rpeRir9') },
+                  { rpe: 10, desc: t('workoutActive.rpeDesc10'), rir: t('workoutActive.rpeRir10') },
                 ].map((row) => (
                   <View key={row.rpe} style={styles.rpeTableRow}>
                     <Text style={[styles.rpeTableCell, { width: 50, fontWeight: '600' }]}>{row.rpe}</Text>
@@ -1468,7 +1517,7 @@ const ActiveWorkoutScreen: React.FC = () => {
               </View>
             </ScrollView>
             <TouchableOpacity style={styles.rpeInfoCloseBtn} onPress={() => setShowRpeInfo(false)}>
-              <Text style={styles.rpeInfoCloseBtnText}>Close</Text>
+              <Text style={styles.rpeInfoCloseBtnText}>{t('common.close')}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -1491,13 +1540,13 @@ const ActiveWorkoutScreen: React.FC = () => {
           ]}
         >
           <Text style={styles.undoToastText} numberOfLines={1}>
-            “{pendingDelete.exercise.exercise_name}” removed
+            {t('workoutActive.exerciseRemovedToast', { name: pendingDelete.exercise.exercise_name })}
           </Text>
           <View style={styles.undoCountdownBadge}>
             <Text style={styles.undoCountdownText}>{undoCountdown}</Text>
           </View>
           <TouchableOpacity style={styles.undoBtn} onPress={handleUndo} activeOpacity={0.8}>
-            <Text style={styles.undoBtnText}>UNDO</Text>
+            <Text style={styles.undoBtnText}>{t('workoutActive.undoButton')}</Text>
           </TouchableOpacity>
         </Animated.View>
       )}

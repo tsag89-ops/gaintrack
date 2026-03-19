@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { format, addWeeks } from 'date-fns';
 import { colors, typography, spacing, radii } from '../src/constants/theme';
+import { useLanguage } from '../src/context/LanguageContext';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ const RATE_COLORS: Record<RateType, string> = {
 
 export default function BodyCompositionGoalScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [currentWeight, setCurrentWeight] = useState('');
   const [targetWeight, setTargetWeight] = useState('');
   const [targetBodyFat, setTargetBodyFat] = useState('');
@@ -161,11 +163,11 @@ export default function BodyCompositionGoalScreen() {
     const tw = parseFloat(targetWeight);
 
     if (!cw || isNaN(cw)) {
-      Alert.alert('Missing Field', 'Please enter your current weight.');
+      Alert.alert(t('bodyGoal.missingFieldTitle'), t('bodyGoal.missingCurrentWeightMessage'));
       return;
     }
     if (!tw || isNaN(tw)) {
-      Alert.alert('Missing Field', 'Please enter your target weight.');
+      Alert.alert(t('bodyGoal.missingFieldTitle'), t('bodyGoal.missingTargetWeightMessage'));
       return;
     }
     if (weeklyRate !== 0) {
@@ -196,20 +198,20 @@ export default function BodyCompositionGoalScreen() {
       await AsyncStorage.setItem(GOAL_KEY, JSON.stringify(goal));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const projText = projection?.targetDate
-        ? `\nProjected: ${format(projection.targetDate, 'MMM d, yyyy')}`
+        ? t('bodyGoal.projectedLine', { projection: format(projection.targetDate, 'MMM d, yyyy') })
         : '';
-      Alert.alert('Goal Saved', `Target: ${tw} kg${projText}`, [
+      Alert.alert(t('bodyGoal.goalSavedTitle'), t('bodyGoal.goalSavedMessage', { weight: tw, projection: projText }), [
         { text: 'Done', onPress: () => router.back() },
       ]);
     } catch {
-      Alert.alert('Error', 'Failed to save goal. Please try again.');
+      Alert.alert(t('bodyGoal.saveErrorTitle'), t('bodyGoal.saveErrorMessage'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleClearGoal = () => {
-    Alert.alert('Clear Goal', 'Remove your current body composition goal?', [
+    Alert.alert(t('bodyGoal.clearGoalTitle'), t('bodyGoal.clearGoalMessage'), [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',
