@@ -254,9 +254,9 @@ const equipmentTranslations: Record<Exclude<SupportedLocale, 'en'>, Record<strin
     Cable: 'Τροχαλία',
     Bands: 'Λάστιχα',
     Kettlebell: 'Kettlebell',
-    'Smith Machine': 'Smith Machine',
+    'Smith Machine': 'Μηχάνημα Smith',
     Bodyweight: 'Σωματικό βάρος',
-    'Cardio Machine': 'Cardio μηχάνημα',
+    'Cardio Machine': 'Μηχάνημα Cardio',
     Other: 'Άλλο',
   },
   de: {
@@ -300,6 +300,43 @@ const equipmentTranslations: Record<Exclude<SupportedLocale, 'en'>, Record<strin
   },
 };
 
+const normalizeLookupKey = (value: string) =>
+  value
+    .trim()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+const normalizedEquipmentTranslations: Record<Exclude<SupportedLocale, 'en'>, Record<string, string>> = {
+  el: Object.fromEntries(
+    Object.entries(equipmentTranslations.el).map(([key, value]) => [normalizeLookupKey(key), value]),
+  ),
+  de: Object.fromEntries(
+    Object.entries(equipmentTranslations.de).map(([key, value]) => [normalizeLookupKey(key), value]),
+  ),
+  fr: Object.fromEntries(
+    Object.entries(equipmentTranslations.fr).map(([key, value]) => [normalizeLookupKey(key), value]),
+  ),
+  it: Object.fromEntries(
+    Object.entries(equipmentTranslations.it).map(([key, value]) => [normalizeLookupKey(key), value]),
+  ),
+};
+
+const normalizedMuscleGroupTranslations: Record<Exclude<SupportedLocale, 'en'>, Record<string, string>> = {
+  el: Object.fromEntries(
+    Object.entries(muscleGroupTranslations.el).map(([key, value]) => [normalizeLookupKey(key), value]),
+  ),
+  de: Object.fromEntries(
+    Object.entries(muscleGroupTranslations.de).map(([key, value]) => [normalizeLookupKey(key), value]),
+  ),
+  fr: Object.fromEntries(
+    Object.entries(muscleGroupTranslations.fr).map(([key, value]) => [normalizeLookupKey(key), value]),
+  ),
+  it: Object.fromEntries(
+    Object.entries(muscleGroupTranslations.it).map(([key, value]) => [normalizeLookupKey(key), value]),
+  ),
+};
+
 const replaceWholeWord = (value: string, source: string, target: string) =>
   value.replace(new RegExp(`\\b${source}\\b`, 'gi'), target);
 
@@ -315,12 +352,16 @@ export const localizeExerciseName = (name: string, locale: SupportedLocale): str
 
 export const localizeMuscleGroup = (label: string, locale: SupportedLocale): string => {
   if (locale === 'en') return label;
-  return muscleGroupTranslations[locale][label] ?? label;
+  const directHit = muscleGroupTranslations[locale][label];
+  if (directHit) return directHit;
+  return normalizedMuscleGroupTranslations[locale][normalizeLookupKey(label)] ?? label;
 };
 
 export const localizeEquipmentLabel = (label: string, locale: SupportedLocale): string => {
   if (locale === 'en') return label;
-  return equipmentTranslations[locale][label] ?? label;
+  const directHit = equipmentTranslations[locale][label];
+  if (directHit) return directHit;
+  return normalizedEquipmentTranslations[locale][normalizeLookupKey(label)] ?? label;
 };
 
 export const localizeExerciseInstruction = (instruction: string, locale: SupportedLocale): string => {
