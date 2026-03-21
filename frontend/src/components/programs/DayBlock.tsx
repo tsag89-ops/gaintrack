@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { ProgramDay } from '../../types';
 import { colors, typography, radii, spacing } from '../../constants/theme';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface DayBlockProps {
   day: ProgramDay;
@@ -38,6 +39,7 @@ export const DayBlock: React.FC<DayBlockProps> = ({
   drag,
   isActive = false,
 }) => {
+  const { t } = useLanguage();
   const atLimit = !isPro && day.exercises.length >= FREE_EXERCISE_LIMIT;
   const canAdd = isPro || day.exercises.length < FREE_EXERCISE_LIMIT;
 
@@ -61,12 +63,12 @@ export const DayBlock: React.FC<DayBlockProps> = ({
           <Ionicons name="reorder-three" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
         <View style={styles.labelWrap}>
-          <Text style={styles.dayIndex}>Day {index + 1}</Text>
+          <Text style={styles.dayIndex}>{t('programBuilder.dayNumberLabel', { count: index + 1 })}</Text>
           <TextInput
             style={styles.dayLabelInput}
             value={day.label}
             onChangeText={(v) => onLabelChange(day.id, v)}
-            placeholder="Day label"
+            placeholder={t('programBuilder.dayLabelPlaceholder')}
             placeholderTextColor={colors.textDisabled}
           />
         </View>
@@ -120,7 +122,7 @@ export const DayBlock: React.FC<DayBlockProps> = ({
           color={canAdd ? colors.primary : colors.textDisabled}
         />
         <Text style={[styles.addBtnText, !canAdd && styles.addBtnTextDisabled]}>
-          {canAdd ? 'Add Exercise' : `Pro — add more than ${FREE_EXERCISE_LIMIT}`}
+          {canAdd ? t('programBuilder.addExercise') : t('programBuilder.proAddMoreThan', { limit: FREE_EXERCISE_LIMIT })}
         </Text>
       </TouchableOpacity>
 
@@ -129,7 +131,7 @@ export const DayBlock: React.FC<DayBlockProps> = ({
         <View style={styles.upsellBanner}>
           <Ionicons name="lock-closed" size={13} color={colors.accent} />
           <Text style={styles.upsellText}>
-            Upgrade to Pro for unlimited exercises per day {/* [PRO] */}
+            {t('programBuilder.unlimitedExercisesPerDay')} {/* [PRO] */}
           </Text>
         </View>
       )}

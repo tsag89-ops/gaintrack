@@ -188,7 +188,7 @@ export default function AddFoodScreen() {
           <View style={styles.foodInfo}>
             <Text style={styles.foodName} numberOfLines={1}>{item.name}</Text>
             {item.brand ? <Text style={styles.foodServing} numberOfLines={1}>{item.brand}</Text> : null}
-            <Text style={styles.foodServing}>per 100g</Text>
+            <Text style={styles.foodServing}>{t('addFood.per100g')}</Text>
           </View>
           <View style={styles.foodMacros}>
             <Text style={styles.foodCalories}>{Math.round(item.calories)} kcal</Text>

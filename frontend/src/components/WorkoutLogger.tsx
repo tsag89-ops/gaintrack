@@ -74,10 +74,12 @@ const RightDeleteAction = ({
   progress,
   dragX,
   onDelete,
+  label,
 }: {
   progress: any;
   dragX: any;
   onDelete: () => void;
+  label: string;
 }) => (
   <TouchableOpacity
     style={styles.deleteAction}
@@ -87,19 +89,20 @@ const RightDeleteAction = ({
     }}
     activeOpacity={0.8}
   >
-    <Text style={styles.deleteActionText}>Delete</Text>
+    <Text style={styles.deleteActionText}>{label}</Text>
   </TouchableOpacity>
 );
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 const WorkoutLogger: React.FC<Props> = ({
-  workoutName = 'New Workout',
+  workoutName,
   userId,
   isPro = false,
   onFinish,
 }) => {
   const { t } = useLanguage();
+  const resolvedWorkoutName = workoutName || t('workoutLogger.newWorkoutTitle');
   const [blocks, setBlocks] = useState<ExerciseBlock[]>([]);
   const [saving, setSaving] = useState(false);
   const [restActive, setRestActive] = useState(false);
@@ -229,7 +232,7 @@ const WorkoutLogger: React.FC<Props> = ({
     setSaving(true);
     const workout: SavedWorkout = {
       workout_id: `wkt_${Date.now()}`,
-      name: workoutName,
+      name: resolvedWorkoutName,
       date: new Date().toISOString(),
       duration: Math.round((Date.now() - startTimeRef.current) / 1000),
       exercises: blocks,
@@ -280,6 +283,7 @@ const WorkoutLogger: React.FC<Props> = ({
             progress={progress}
             dragX={dragX}
             onDelete={() => deleteSet(b.uid, s.set_id)}
+            label={t('workoutLogger.deleteAction')}
           />
         )}
       >
@@ -295,7 +299,7 @@ const WorkoutLogger: React.FC<Props> = ({
           {/* Set number */}
           <View style={styles.setNumBadge}>
             <Text style={styles.setNumText}>
-              {s.is_warmup ? 'W' : s.set_number}
+              {s.is_warmup ? t('workoutLogger.warmupShort') : s.set_number}
             </Text>
           </View>
 
@@ -309,7 +313,7 @@ const WorkoutLogger: React.FC<Props> = ({
               defaultValue={s.weight > 0 ? String(s.weight) : ''}
               onChangeText={(v) => updateSetField(b.uid, s.set_id, 'weight', v)}
             />
-            <Text style={styles.setInputLabel}>kg</Text>
+            <Text style={styles.setInputLabel}>{t('workoutLogger.kgUnit')}</Text>
           </View>
 
           {/* Reps input */}
@@ -322,7 +326,7 @@ const WorkoutLogger: React.FC<Props> = ({
               defaultValue={s.reps > 0 ? String(s.reps) : ''}
               onChangeText={(v) => updateSetField(b.uid, s.set_id, 'reps', v)}
             />
-            <Text style={styles.setInputLabel}>reps</Text>
+            <Text style={styles.setInputLabel}>{t('workoutLogger.repsUnit')}</Text>
           </View>
 
           {/* RPE input */}
@@ -330,7 +334,7 @@ const WorkoutLogger: React.FC<Props> = ({
             <TextInput
               style={[styles.setInput, styles.setInputRpe]}
               keyboardType="decimal-pad"
-              placeholder="RPE"
+              placeholder={t('workoutLogger.rpeHeader')}
               placeholderTextColor={colors.textDisabled}
               defaultValue={s.rpe !== undefined ? String(s.rpe) : ''}
               onChangeText={(v) => updateSetField(b.uid, s.set_id, 'rpe', v)}
@@ -341,7 +345,7 @@ const WorkoutLogger: React.FC<Props> = ({
           {s.oneRM != null && s.oneRM > 0 && (
             <View style={styles.oneRMBadge}>
               <Text style={styles.oneRMText}>{s.oneRM}</Text>
-              <Text style={styles.oneRMLabel}>1RM</Text>
+              <Text style={styles.oneRMLabel}>{t('workoutLogger.oneRmHeader')}</Text>
             </View>
           )}
 
@@ -359,7 +363,7 @@ const WorkoutLogger: React.FC<Props> = ({
       {/* [PRO] Superset group badge */}
       {isPro && b.supersetGroup && (
         <View style={styles.supersetBadge}>
-          <Text style={styles.supersetText}>Superset {b.supersetGroup}</Text>
+          <Text style={styles.supersetText}>{t('workoutLogger.supersetLabel', { group: b.supersetGroup || '' })}</Text>
         </View>
       )}
 
@@ -382,7 +386,7 @@ const WorkoutLogger: React.FC<Props> = ({
       {/* Notes */}
       <TextInput
         style={styles.notesInput}
-        placeholder="Add note…"
+        placeholder={t('workoutLogger.addNotePlaceholder')}
         placeholderTextColor={colors.textDisabled}
         value={b.notes}
         onChangeText={(t) => updateNotes(b.uid, t)}
@@ -390,11 +394,11 @@ const WorkoutLogger: React.FC<Props> = ({
 
       {/* Column headers */}
       <View style={styles.setHeader}>
-        <Text style={[styles.setHeaderText, { width: 32 }]}>SET</Text>
-        <Text style={[styles.setHeaderText, { flex: 1 }]}>KG</Text>
-        <Text style={[styles.setHeaderText, { flex: 1 }]}>REPS</Text>
-        <Text style={[styles.setHeaderText, { width: 48 }]}>RPE</Text>
-        <Text style={[styles.setHeaderText, { width: 52 }]}>1RM</Text>
+        <Text style={[styles.setHeaderText, { width: 32 }]}>{t('workoutLogger.setHeader')}</Text>
+        <Text style={[styles.setHeaderText, { flex: 1 }]}>{t('workoutLogger.kgHeader')}</Text>
+        <Text style={[styles.setHeaderText, { flex: 1 }]}>{t('workoutLogger.repsHeader')}</Text>
+        <Text style={[styles.setHeaderText, { width: 48 }]}>{t('workoutLogger.rpeHeader')}</Text>
+        <Text style={[styles.setHeaderText, { width: 52 }]}>{t('workoutLogger.oneRmHeader')}</Text>
         <View style={{ width: 28 }} />
       </View>
 
@@ -407,7 +411,7 @@ const WorkoutLogger: React.FC<Props> = ({
         onPress={() => addSet(b.uid)}
         activeOpacity={0.8}
       >
-        <Text style={styles.addSetBtnText}>+ Add Set</Text>
+        <Text style={styles.addSetBtnText}>{t('workoutLogger.addSetButton')}</Text>
       </TouchableOpacity>
 
       {/* [PRO] Superset controls */}
@@ -428,7 +432,7 @@ const WorkoutLogger: React.FC<Props> = ({
                   b.supersetGroup === g && styles.supersetGroupTextActive,
                 ]}
               >
-                Superset {g}
+                {t('workoutLogger.supersetLabel', { group: g })}
               </Text>
             </TouchableOpacity>
           ))}
@@ -437,7 +441,7 @@ const WorkoutLogger: React.FC<Props> = ({
               style={styles.supersetGroupBtn}
               onPress={() => assignSuperset(b.uid, '')}
             >
-              <Text style={styles.supersetGroupText}>Clear</Text>
+              <Text style={styles.supersetGroupText}>{t('workoutLogger.clearButton')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -452,7 +456,7 @@ const WorkoutLogger: React.FC<Props> = ({
         {/* Rest Timer */}
         {restActive && (
           <View style={styles.restTimerContainer}>
-            <Text style={styles.restTimerLabel}>Rest</Text>
+            <Text style={styles.restTimerLabel}>{t('workoutLogger.restLabel')}</Text>
             <CountdownCircleTimer
               key={restKey}
               isPlaying
@@ -468,7 +472,7 @@ const WorkoutLogger: React.FC<Props> = ({
               }}
             >
               {({ remainingTime }: { remainingTime: number }) => (
-                <Text style={styles.restTimerCount}>{remainingTime}s</Text>
+                <Text style={styles.restTimerCount}>{t('workoutLogger.secondsShort', { count: remainingTime })}</Text>
               )}
             </CountdownCircleTimer>
             <View style={styles.restDurationRow}>
@@ -491,7 +495,7 @@ const WorkoutLogger: React.FC<Props> = ({
                       restDuration === d && styles.restDurationTextActive,
                     ]}
                   >
-                    {d}s
+                    {t('workoutLogger.secondsShort', { count: d })}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -503,7 +507,7 @@ const WorkoutLogger: React.FC<Props> = ({
                 setRestActive(false);
               }}
             >
-              <Text style={styles.restSkipText}>Skip</Text>
+              <Text style={styles.restSkipText}>{t('workoutLogger.skipButton')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -516,9 +520,9 @@ const WorkoutLogger: React.FC<Props> = ({
           {blocks.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyIcon}>🏋️</Text>
-              <Text style={styles.emptyTitle}>No exercises yet</Text>
+              <Text style={styles.emptyTitle}>{t('workoutLogger.emptyTitle')}</Text>
               <Text style={styles.emptySubtitle}>
-                Tap "+ Add Exercise" below to get started
+                {t('workoutLogger.emptySubtitle')}
               </Text>
             </View>
           ) : (
@@ -544,7 +548,7 @@ const WorkoutLogger: React.FC<Props> = ({
             }}
             activeOpacity={0.85}
           >
-            <Text style={styles.addExerciseBtnText}>+ Add Exercise</Text>
+            <Text style={styles.addExerciseBtnText}>{t('workoutLogger.addExerciseButton')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -554,7 +558,7 @@ const WorkoutLogger: React.FC<Props> = ({
             activeOpacity={0.85}
           >
             <Text style={styles.finishBtnText}>
-              {saving ? 'Saving…' : 'Finish Workout'}
+              {saving ? t('common.saving') : t('workoutLogger.finishWorkoutButton')}
             </Text>
           </TouchableOpacity>
         </View>

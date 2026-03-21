@@ -21,6 +21,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors, typography, spacing, radii, shadows } from '../constants/theme';
+import { useLanguage } from '../context/LanguageContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -149,6 +150,7 @@ interface Props {
 }
 
 const PlateCalculator: React.FC<Props> = ({ initialWeight }) => {
+  const { t } = useLanguage();
   const [unit, setUnit] = useState<Unit>('kg');
   const [inputValue, setInputValue] = useState(
     initialWeight ? String(initialWeight) : ''
@@ -202,9 +204,9 @@ const PlateCalculator: React.FC<Props> = ({ initialWeight }) => {
       showsVerticalScrollIndicator={false}
     >
       {/* Header */}
-      <Text style={styles.title}>Plate Calculator</Text>
+      <Text style={styles.title}>{t('plateCalculatorTab.title')}</Text>
       <Text style={styles.subtitle}>
-        {barWeight}{unit} bar · Plates per side
+        {t('plateCalculatorTab.barAndPerSideSubtitle', { barWeight, unit })}
       </Text>
 
       {/* Unit toggle */}
@@ -231,7 +233,7 @@ const PlateCalculator: React.FC<Props> = ({ initialWeight }) => {
           onChangeText={setInputValue}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          placeholder={`Target weight (${unit})`}
+          placeholder={t('plateCalculatorTab.targetWeightPlaceholder', { unit })}
           placeholderTextColor={colors.textDisabled}
           keyboardType="decimal-pad"
           returnKeyType="done"
@@ -243,17 +245,17 @@ const PlateCalculator: React.FC<Props> = ({ initialWeight }) => {
       {showBar && (
         <View style={styles.chipRow}>
           <View style={styles.chip}>
-            <Text style={styles.chipLabel}>Bar</Text>
+            <Text style={styles.chipLabel}>{t('plateCalculatorTab.barLabel')}</Text>
             <Text style={styles.chipValue}>{barWeight}{unit}</Text>
           </View>
           <View style={styles.chip}>
-            <Text style={styles.chipLabel}>Plates</Text>
+            <Text style={styles.chipLabel}>{t('plateCalculatorTab.platesLabel')}</Text>
             <Text style={styles.chipValue}>
               {valid ? `${(targetWeight - barWeight).toFixed(2).replace(/\.?0+$/, '')}${unit}` : '—'}
             </Text>
           </View>
           <View style={styles.chip}>
-            <Text style={styles.chipLabel}>Per side</Text>
+            <Text style={styles.chipLabel}>{t('plateCalculatorTab.perSideLabel')}</Text>
             <Text style={styles.chipValue}>
               {valid ? `${((targetWeight - barWeight) / 2).toFixed(2).replace(/\.?0+$/, '')}${unit}` : '—'}
             </Text>
@@ -264,7 +266,7 @@ const PlateCalculator: React.FC<Props> = ({ initialWeight }) => {
       {/* Visual barbell */}
       {showBar && (
         <View style={styles.barbellCard}>
-          <Text style={styles.barbellLabel}>Visual Preview</Text>
+          <Text style={styles.barbellLabel}>{t('plateCalculatorTab.visualPreview')}</Text>
           <View style={styles.barbellRow}>
             {/* Left collar */}
             <View style={styles.collar} />
@@ -302,7 +304,10 @@ const PlateCalculator: React.FC<Props> = ({ initialWeight }) => {
 
           {plates.length > maxBarPlates && (
             <Text style={styles.overflowNote}>
-              +{plates.length - maxBarPlates} more plate{plates.length - maxBarPlates > 1 ? 's' : ''} per side
+              {t('plateCalculatorTab.morePlatesPerSide', {
+                count: plates.length - maxBarPlates,
+                suffix: plates.length - maxBarPlates > 1 ? t('workoutActive.pluralSuffix') : '',
+              })}
             </Text>
           )}
         </View>
@@ -311,7 +316,7 @@ const PlateCalculator: React.FC<Props> = ({ initialWeight }) => {
       {/* Plate list */}
       {showBar && perSide.length > 0 && (
         <View style={styles.plateListCard}>
-          <Text style={styles.sectionTitle}>Plates per side</Text>
+          <Text style={styles.sectionTitle}>{t('plateCalculatorTab.platesPerSideTitle')}</Text>
           {valid ? (
             perSide.map(({ plate, count }, i) => (
               <View key={i} style={styles.plateRow}>
@@ -330,7 +335,7 @@ const PlateCalculator: React.FC<Props> = ({ initialWeight }) => {
           ) : (
             <View style={styles.errorRow}>
               <Text style={styles.errorText}>
-                ⚠ {targetWeight}{unit} can't be loaded exactly — off by {remainder.toFixed(2)}{unit} per side.
+                {t('plateCalculatorTab.cannotLoadExactly', { targetWeight, unit, remainder: remainder.toFixed(2) })}
               </Text>
             </View>
           )}
@@ -341,7 +346,7 @@ const PlateCalculator: React.FC<Props> = ({ initialWeight }) => {
       {inputValue.length > 0 && !showBar && (
         <View style={styles.emptyCard}>
           <Text style={styles.emptyText}>
-            Minimum weight is {barWeight}{unit} (bar only)
+            {t('plateCalculatorTab.minimumWeightBarOnly', { barWeight, unit })}
           </Text>
         </View>
       )}
@@ -350,7 +355,7 @@ const PlateCalculator: React.FC<Props> = ({ initialWeight }) => {
       {showBar && valid && perSide.length > 0 && (
         <Animated.View style={copyAnimStyle}>
           <TouchableOpacity style={styles.copyBtn} onPress={handleCopy} activeOpacity={0.82}>
-            <Text style={styles.copyBtnText}>Copy Plates</Text>
+            <Text style={styles.copyBtnText}>{t('plateCalculatorTab.copyPlates')}</Text>
           </TouchableOpacity>
         </Animated.View>
       )}

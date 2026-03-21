@@ -12,6 +12,7 @@ import { colors, typography, spacing, radii } from '../../constants/theme';
 import { usePro } from '../../hooks/usePro';
 import { calc1RM } from '../../utils/fitness';
 import type { Workout, WorkoutExercise } from '../../types';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface Props {
   exerciseName: string;
@@ -27,6 +28,7 @@ const shortDate = (dateStr: string): string => {
 
 export function OneRMChart({ exerciseName, workouts }: Props) {
   const { isPro } = usePro();
+  const { t } = useLanguage();
   const router = useRouter();
 
   // [PRO] — block non-Pro users
@@ -36,15 +38,15 @@ export function OneRMChart({ exerciseName, workouts }: Props) {
         <View style={styles.proGateIconWrap}>
           <Ionicons name="lock-closed" size={24} color={colors.primary} />
         </View>
-        <Text style={styles.proGateTitle}>1RM Progress Chart</Text>
-        <Text style={styles.proGateBody}>Unlock strength trending with GainTrack Pro</Text>
+        <Text style={styles.proGateTitle}>{t('progressTab.estimatedOneRm')}</Text>
+        <Text style={styles.proGateBody}>{t('oneRmChart.proGateBody')}</Text>
         <TouchableOpacity
           style={styles.proGateBtn}
           activeOpacity={0.85}
           onPress={() => router.push('/pro-paywall' as any)}
         >
           <Ionicons name="flash" size={14} color={colors.background} />
-          <Text style={styles.proGateBtnText}>Upgrade — EUR 5.99/mo or EUR 39.99/yr</Text>
+          <Text style={styles.proGateBtnText}>{t('progressTab.upgradeCta')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -78,8 +80,8 @@ export function OneRMChart({ exerciseName, workouts }: Props) {
     return (
       <View style={styles.emptyCard}>
         <Ionicons name="bar-chart-outline" size={36} color={colors.textDisabled} />
-        <Text style={styles.emptyTitle}>Not enough data</Text>
-        <Text style={styles.emptySubtitle}>Log at least 2 sessions with {exerciseName} to see a trend</Text>
+        <Text style={styles.emptyTitle}>{t('measurements.notEnoughData')}</Text>
+        <Text style={styles.emptySubtitle}>{t('oneRmChart.notEnoughDataSubtitle', { exercise: exerciseName })}</Text>
       </View>
     );
   }
@@ -91,8 +93,8 @@ export function OneRMChart({ exerciseName, workouts }: Props) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>Estimated 1RM — {exerciseName}</Text>
-      <Text style={styles.cardSubtitle}>Brzycki formula · last {chartData.labels.length} sessions</Text>
+      <Text style={styles.cardTitle}>{t('oneRmChart.title', { exercise: exerciseName })}</Text>
+      <Text style={styles.cardSubtitle}>{t('oneRmChart.subtitle', { count: chartData.labels.length })}</Text>
 
       <LineChart
         data={{
@@ -121,17 +123,17 @@ export function OneRMChart({ exerciseName, workouts }: Props) {
       <View style={styles.statRow}>
         <View style={styles.statBox}>
           <Text style={styles.statValue}>{best} kg</Text>
-          <Text style={styles.statLabel}>Best 1RM</Text>
+          <Text style={styles.statLabel}>{t('progressTab.bestOneRm')}</Text>
         </View>
         <View style={styles.statBox}>
           <Text style={styles.statValue}>{latest} kg</Text>
-          <Text style={styles.statLabel}>Latest</Text>
+          <Text style={styles.statLabel}>{t('progressTab.latest')}</Text>
         </View>
         <View style={styles.statBox}>
           <Text style={[styles.statValue, { color: delta >= 0 ? colors.success : colors.error }]}>
             {delta >= 0 ? '+' : ''}{delta} kg
           </Text>
-          <Text style={styles.statLabel}>Change</Text>
+          <Text style={styles.statLabel}>{t('progressTab.change')}</Text>
         </View>
       </View>
     </View>

@@ -24,8 +24,10 @@ import { usePlateCalculator, BAR_OPTIONS, DEFAULT_PLATES } from '../../src/hooks
 import PlateBarVisual from '../../src/components/PlateBarVisual';
 import { colors, typography, spacing, radii, shadows } from '../../src/constants/theme';
 import { Unit } from '../../src/types/plates';
+import { useLanguage } from '../../src/context/LanguageContext';
 
 export default function PlatesScreen() {
+  const { t } = useLanguage();
   const {
     unit,
     barWeight,
@@ -83,7 +85,7 @@ export default function PlatesScreen() {
     const perSide = result.platesPerSide
       .map((p) => `${p.weight}${unit} × ${p.countPerSide}`)
       .join(', ');
-    return `Per side: ${perSide}`;
+    return t('plateCalculatorTab.perSideSummary', { summary: perSide });
   }
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -105,9 +107,9 @@ export default function PlatesScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Header ──────────────────────────────────────────────────────── */}
-        <Text style={styles.title}>Plate Calculator</Text>
+        <Text style={styles.title}>{t('plateCalculatorTab.title')}</Text>
         <Text style={styles.subtitle}>
-          Figure out which plates to load for any target weight
+          {t('plateCalculatorTab.subtitle')}
         </Text>
 
         {/* ── Unit toggle: KG / LB ─────────────────────────────────────── */}
@@ -141,7 +143,7 @@ export default function PlatesScreen() {
             onChangeText={setTargetWeight}
             onFocus={() => setInputFocused(true)}
             onBlur={() => setInputFocused(false)}
-            placeholder={`Target weight (${unit})`}
+            placeholder={t('plateCalculatorTab.targetWeightPlaceholder', { unit })}
             placeholderTextColor={colors.textDisabled}
             keyboardType="decimal-pad"
             returnKeyType="done"
@@ -150,7 +152,7 @@ export default function PlatesScreen() {
         </View>
 
         {/* ── Bar weight selector ───────────────────────────────────────── */}
-        <Text style={styles.sectionTitle}>Bar Weight</Text>
+        <Text style={styles.sectionTitle}>{t('plateCalculatorTab.barWeightTitle')}</Text>
         <View style={styles.chipRow}>
           {BAR_OPTIONS[unit].map((w) => (
             <TouchableOpacity
@@ -191,7 +193,7 @@ export default function PlatesScreen() {
             {!result || result.platesPerSide.length === 0 ? (
               /* Target is at or below bar weight */
               <Text style={styles.resultNote}>
-                {`Target must be greater than bar weight (${barWeight} ${unit})`}
+                {t('plateCalculatorTab.targetMustExceedBar', { barWeight, unit })}
               </Text>
             ) : result.success ? (
               /* Exact match */
@@ -199,7 +201,7 @@ export default function PlatesScreen() {
                 <View style={styles.resultHeader}>
                   <Ionicons name="checkmark-circle" size={20} color={colors.success} />
                   <Text style={styles.resultTitle}>
-                    Exact — {result.achievedTotal} {unit}
+                    {t('plateCalculatorTab.exactResult', { achieved: result.achievedTotal, unit })}
                   </Text>
                 </View>
                 <Text style={styles.resultDetail}>{buildSummary()}</Text>
@@ -210,18 +212,13 @@ export default function PlatesScreen() {
                 <View style={styles.resultHeader}>
                   <Ionicons name="alert-circle" size={20} color={colors.warning} />
                   <Text style={styles.resultTitle}>
-                    Closest: {result.achievedTotal} {unit}
-                    {'  '}
-                    <Text style={styles.resultMissing}>
-                      (asked {parseFloat(targetWeight)} {unit})
-                    </Text>
+                    {t('plateCalculatorTab.closestResult', { achieved: result.achievedTotal, unit, asked: parseFloat(targetWeight) })}
                   </Text>
                 </View>
                 <Text style={styles.resultDetail}>{buildSummary()}</Text>
                 {result.missing !== undefined && Math.abs(result.missing) > 0 && (
                   <Text style={styles.resultMissingNote}>
-                    Off by {Math.abs(result.missing).toFixed(2)} {unit} — no matching plates for the
-                    remainder
+                    {t('plateCalculatorTab.offByMessage', { amount: Math.abs(result.missing).toFixed(2), unit })}
                   </Text>
                 )}
               </>
@@ -233,19 +230,19 @@ export default function PlatesScreen() {
         {hasResult && result!.platesPerSide.length > 0 && (
           <View style={styles.infoRow}>
             <View style={styles.infoChip}>
-              <Text style={styles.infoChipLabel}>Bar</Text>
+              <Text style={styles.infoChipLabel}>{t('plateCalculatorTab.barLabel')}</Text>
               <Text style={styles.infoChipValue}>
                 {barWeight} {unit}
               </Text>
             </View>
             <View style={styles.infoChip}>
-              <Text style={styles.infoChipLabel}>Plates</Text>
+              <Text style={styles.infoChipLabel}>{t('plateCalculatorTab.platesLabel')}</Text>
               <Text style={styles.infoChipValue}>
                 {(result!.achievedTotal - barWeight).toFixed(2).replace(/\.?0+$/, '')} {unit}
               </Text>
             </View>
             <View style={styles.infoChip}>
-              <Text style={styles.infoChipLabel}>Per side</Text>
+              <Text style={styles.infoChipLabel}>{t('plateCalculatorTab.perSideLabel')}</Text>
               <Text style={styles.infoChipValue}>
                 {((result!.achievedTotal - barWeight) / 2)
                   .toFixed(2)
@@ -257,9 +254,9 @@ export default function PlatesScreen() {
         )}
 
         {/* ── Plate bank config ─────────────────────────────────────────── */}
-        <Text style={styles.sectionTitle}>Plates Available</Text>
+        <Text style={styles.sectionTitle}>{t('plateCalculatorTab.platesAvailableTitle')}</Text>
         <Text style={styles.sectionSubtitle}>
-          Total single plates you own (need 2 for a pair)
+          {t('plateCalculatorTab.platesAvailableSubtitle')}
         </Text>
         <View style={styles.plateListCard}>
           {plates.map((plate, idx) => {
@@ -299,7 +296,7 @@ export default function PlatesScreen() {
                 </View>
                 {/* Visual pair indicator */}
                 <Text style={styles.pairLabel}>
-                  {Math.floor(plate.count / 2)} pair{Math.floor(plate.count / 2) !== 1 ? 's' : ''}
+                  {t('plateCalculatorTab.pairCount', { count: Math.floor(plate.count / 2), suffix: Math.floor(plate.count / 2) !== 1 ? t('workoutActive.pluralSuffix') : '' })}
                 </Text>
               </View>
             );
@@ -332,7 +329,7 @@ export default function PlatesScreen() {
               !canUseInWorkout && styles.primaryBtnTextDisabled,
             ]}
           >
-            Use in Active Workout
+            {t('plateCalculatorTab.useInActiveWorkout')}
           </Text>
         </TouchableOpacity>
 
@@ -348,7 +345,7 @@ export default function PlatesScreen() {
             color={colors.textSecondary}
             style={{ marginRight: spacing[2] }}
           />
-          <Text style={styles.secondaryBtnText}>Reset to Defaults</Text>
+          <Text style={styles.secondaryBtnText}>{t('plateCalculatorTab.resetToDefaults')}</Text>
         </TouchableOpacity>
 
         <View style={styles.bottomPad} />

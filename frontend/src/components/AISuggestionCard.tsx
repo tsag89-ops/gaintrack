@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '../context/LanguageContext';
 
 // Category → icon mapping
 const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -40,6 +41,7 @@ export function AISuggestionCard({
   isProLocked = false,
   onPressUpgrade,
 }: AISuggestionCardProps) {
+  const { t } = useLanguage();
   const iconName  = CATEGORY_ICONS[category] ?? 'bulb-outline';
   const accentColor = CATEGORY_COLORS[category] ?? '#FF6200';
 
@@ -57,7 +59,7 @@ export function AISuggestionCard({
 
         {isProLocked && (
           <View style={styles.proBadge}>
-            <Text style={styles.proBadgeText}>PRO</Text>
+            <Text style={styles.proBadgeText}>{t('progressTab.proBadge')}</Text>
           </View>
         )}
       </View>
@@ -78,7 +80,7 @@ export function AISuggestionCard({
           activeOpacity={0.8}
         >
           <Ionicons name="lock-open-outline" size={14} color="#1A1A1A" />
-          <Text style={styles.upgradeBtnText}>Unlock with Pro</Text>
+          <Text style={styles.upgradeBtnText}>{t('aiSuggestions.unlockWithPro')}</Text>
         </TouchableOpacity>
       )}
     </View>

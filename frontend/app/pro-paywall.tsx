@@ -25,8 +25,10 @@ import {
   getPaywallVariantCopy,
   type PaywallExperimentAssignment,
 } from '../src/services/paywallExperiment';
+import { useLanguage } from '../src/context/LanguageContext';
 
 export default function ProPaywallScreen() {
+  const { t } = useLanguage();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [assignment, setAssignment] = useState<PaywallExperimentAssignment | null>(null);
@@ -95,10 +97,10 @@ export default function ProPaywallScreen() {
         <Ionicons name="alert-circle-outline" size={48} color="#F44336" />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => setError(null)}>
-          <Text style={styles.retryText}>Try Again</Text>
+          <Text style={styles.retryText}>{t('calendarTab.retry')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.backButton} onPress={() => handleDismiss('dismiss')}>
-          <Text style={styles.backText}>Go Back</Text>
+          <Text style={styles.backText}>{t('programDetail.goBack')}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );

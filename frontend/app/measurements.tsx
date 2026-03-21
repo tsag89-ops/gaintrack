@@ -323,7 +323,7 @@ export default function MeasurementsScreen() {
                 <View style={styles.chartCard}>
                   <View style={styles.chartHeaderRow}>
                     <View>
-                      <Text style={styles.chartTitle}>Weight Trend</Text>
+                      <Text style={styles.chartTitle}>{t('progressTab.weightTrendTitle')}</Text>
                       <Text style={styles.chartSubtitle}>{t('measurements.lastEntries', { count: weightChartData.data.length })}</Text>
                     </View>
                     <TouchableOpacity

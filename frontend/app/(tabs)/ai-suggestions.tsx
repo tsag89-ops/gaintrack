@@ -35,6 +35,7 @@ import { AISuggestionCard } from '../../src/components/AISuggestionCard';
 import { useAISuggestions } from '../../src/hooks/useAISuggestions'; // [PRO]
 import { storage } from '../../src/utils/storage';
 import { sendEngagementTelemetry, sendPaywallTelemetry } from '../../src/services/notifications';
+import { useLanguage } from '../../src/context/LanguageContext';
 import {
   type HealthProvider,
   getHealthSyncSettings,
@@ -62,65 +63,41 @@ const STATIC_SUGGESTIONS = [
   {
     id: 'tip1',
     category: 'exercise',
-    title: 'Progressive Overload',
-    description:
-      'Gradually increase weight, reps, or sets each week. Even 2.5 kg more on bench press each week compounds to 130 kg extra per year.',
     isProLocked: false,
   },
   {
     id: 'tip2',
     category: 'nutrition',
-    title: 'Protein Timing',
-    description:
-      'Aim for 20–40 g of protein within 2 hours of training. Distributing intake evenly across 3–5 meals maximises muscle protein synthesis.',
     isProLocked: false,
   },
   {
     id: 'tip3',
     category: 'program',
-    title: 'Rest & Recovery',
-    description:
-      'Allow 48–72 hours between training the same muscle group. Sleep 7–9 hours per night — the majority of GH is released during deep sleep.',
     isProLocked: false,
   },
   {
     id: 'tip4',
     category: 'exercise',
-    title: 'Compound Movements First',
-    description:
-      'Perform compound lifts (squat, deadlift, bench, rows) before isolation work. You\'re strongest at the start of a session — spend that strength where it matters most.',
     isProLocked: false,
   },
   {
     id: 'tip5',
     category: 'superset',
-    title: 'Antagonist Supersets',
-    description:
-      'Pair opposing muscle groups (chest/back, biceps/triceps) to cut rest time and increase weekly volume without sacrificing strength output.',
     isProLocked: true,
   },
   {
     id: 'tip6',
     category: 'nutrition',
-    title: 'Calorie Cycling',
-    description:
-      'Eat more on training days, less on rest days. This optimises muscle growth while minimising fat gain during a bulk — a simple form of nutrient timing.',
     isProLocked: true,
   },
   {
     id: 'tip7',
     category: 'program',
-    title: 'Periodisation',
-    description:
-      'Rotate between hypertrophy (8–12 reps), strength (3–6 reps), and deload weeks every 4–6 weeks. Periodisation prevents adaptation and drives continued strength gains.',
     isProLocked: true,
   },
   {
     id: 'tip8',
     category: 'exercise',
-    title: 'Time Under Tension',
-    description:
-      'Use a 3-1-2 tempo (3 s eccentric, 1 s pause, 2 s concentric) for hypertrophy work. Increased TUT maximises mechanical damage and metabolic stress.',
     isProLocked: true,
   },
 ] as const;
@@ -142,10 +119,10 @@ interface DailyUsage {
 
 // ── Quick suggestion chips ─────────────────────────────────────────────────────
 const CHIPS = [
-  'Analyze my weekly workout',
-  'Am I hitting my protein goals?',
-  'Suggest a workout for today',
-  'Am I on track for my body goal?',
+  'analyzeWeeklyWorkout',
+  'proteinGoals',
+  'suggestWorkoutToday',
+  'bodyGoalTrack',
 ] as const;
 
 // ── API URL helper ─────────────────────────────────────────────────────────────
@@ -225,6 +202,7 @@ export default function AISuggestions() {
   const router    = useRouter();
   const { user }  = useAuthStore();
   const { isPro } = usePro();
+  const { t } = useLanguage();
 
   // Chat state
   const [messages,    setMessages]    = useState<ChatMessage[]>([]);
@@ -353,8 +331,8 @@ export default function AISuggestions() {
       if (!healthSettings.consentGiven && providers.length > 0) {
         tips.push({
           id: 'health-consent',
-          title: 'Enable health sync for deeper coaching',
-          body: 'Turn on Health Data consent in Profile to unlock coaching suggestions based on real activity and recovery snapshots.',
+          title: t('aiSuggestions.health.enableSyncTitle'),
+          body: t('aiSuggestions.health.enableSyncBody'),
         });
       }
 
@@ -366,8 +344,8 @@ export default function AISuggestions() {
         if (!providerState?.connected) {
           tips.push({
             id: `health-connect-${provider}`,
-            title: `${providerLabel} not connected`,
-            body: `Connect ${providerLabel} in Profile to receive coaching tied to your activity baseline and health sync quality.`,
+            title: t('aiSuggestions.health.providerNotConnectedTitle', { provider: providerLabel }),
+            body: t('aiSuggestions.health.providerNotConnectedBody', { provider: providerLabel }),
           });
           continue;
         }
@@ -375,8 +353,8 @@ export default function AISuggestions() {
         if (!snapshot) {
           tips.push({
             id: `health-sync-${provider}`,
-            title: `Run first ${providerLabel} sync`,
-            body: `No ${providerLabel} snapshot found yet. Use Sync now in Profile so AI can personalize training load and recovery guidance.`,
+            title: t('aiSuggestions.health.firstSyncTitle', { provider: providerLabel }),
+            body: t('aiSuggestions.health.firstSyncBody', { provider: providerLabel }),
           });
           continue;
         }
@@ -392,14 +370,14 @@ export default function AISuggestions() {
         if (daysSinceSync >= 4) {
           tips.push({
             id: `health-stale-${provider}`,
-            title: `${providerLabel} sync is stale`,
-            body: `Last sync was ${daysSinceSync} days ago. Sync again before your next session so coaching reflects current fatigue and activity.` ,
+            title: t('aiSuggestions.health.syncStaleTitle', { provider: providerLabel }),
+            body: t('aiSuggestions.health.syncStaleBody', { days: daysSinceSync }),
           });
         } else {
           tips.push({
             id: `health-ready-${provider}`,
-            title: `${providerLabel} coaching signal ready`,
-            body: `Latest sync captured ${readCount.toLocaleString()} provider records with ${workoutsImported} workouts and ${nutritionImported} nutrition logs. Keep sync cadence at least every 48 hours for better coaching accuracy.`,
+            title: t('aiSuggestions.health.signalReadyTitle', { provider: providerLabel }),
+            body: t('aiSuggestions.health.signalReadyBody', { records: readCount.toLocaleString(), workouts: workoutsImported, nutrition: nutritionImported }),
           });
         }
       }
@@ -407,6 +385,7 @@ export default function AISuggestions() {
       setHealthCoachingTips(tips.slice(0, 3));
     } catch (e) {
       console.error('[AISuggestions] loadAll error:', e);
+      console.error(t('aiSuggestions.loadAllErrorLog'), e);
     }
   };
 
@@ -480,7 +459,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
       });
 
       if (!serverUrl) {
-        throw Object.assign(new Error('no_api_key'), { errorType: 'no_api_key' as const, detail: 'AI endpoint not configured' });
+        throw Object.assign(new Error('no_api_key'), { errorType: 'no_api_key' as const, detail: t('aiSuggestions.aiEndpointNotConfigured') });
       }
 
       const res = await fetchWithTimeout(serverUrl, {
@@ -594,10 +573,10 @@ Always give specific, personalized advice referencing the user's actual data, cu
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>AI Coach</Text>
+          <Text style={styles.title}>{t('aiSuggestions.title')}</Text>
           {isPro && (
             <View style={styles.proBadge}>
-              <Text style={styles.proBadgeText}>PRO</Text>
+              <Text style={styles.proBadgeText}>{t('progressTab.proBadge')}</Text>
             </View>
           )}
         </View>
@@ -617,17 +596,17 @@ Always give specific, personalized advice referencing the user's actual data, cu
         <View style={styles.consentOverlay}>
           <View style={styles.consentCard}>
             <Ionicons name="shield-checkmark-outline" size={40} color="#FF6200" />
-            <Text style={styles.consentTitle}>AI Coach — Data & Health Notice</Text>
+            <Text style={styles.consentTitle}>{t('aiSuggestions.consentTitle')}</Text>
             <ScrollView style={{ maxHeight: 340, width: '100%' }} showsVerticalScrollIndicator={true}>
               <Text style={styles.consentBody}>
-                {'📊 DATA SHARING\n\nTo use GainTrack\'s AI coach, we need your permission to share your prompts and AI replies with our AI provider, OpenRouter.\n\nOpenRouter\'s free models may record and store what you type, along with the AI\'s responses, to improve their services and monitor abuse. These logs can be kept for research and quality purposes and may be reviewed by humans.\n\nYou can withdraw this consent at any time in Profile → Settings, which will immediately disable all AI features.\n\n⚕️ HEALTH & SAFETY DISCLAIMER\n\nThe AI coach provides general fitness, workout and nutrition suggestions for information and education only. It does not provide medical advice, diagnosis or treatment and is not a substitute for a doctor, physiotherapist, dietitian or any other licensed health professional.\n\nThe AI does not know your full medical history, current injuries, medications or specific health risks. Its answers are generated automatically and may be incomplete, inaccurate, or not appropriate for your personal situation. Always verify suggestions with a qualified professional and use your own judgment.\n\nBefore starting any new exercise program, changing your training load, or making significant nutrition changes based on AI suggestions, you should talk to a qualified healthcare professional — especially if you have any medical condition, past injuries, pain, dizziness, chest discomfort, shortness of breath, high blood pressure, heart issues or other health concerns.\n\nIf you feel pain, dizziness, shortness of breath, chest pain, joint instability or any unusual discomfort while following any suggestion, stop immediately and seek medical advice. In an emergency, contact your local emergency services right away — do not rely on this app or the AI.\n\nThis app is intended for users aged 16 and over. If you are under 16, please obtain parental or guardian consent before using AI features.\n\n✅ BY AGREEING, YOU ACKNOWLEDGE THAT:\n\n• You use all workouts, programs and nutrition suggestions at your own risk.\n\n• You are solely responsible for deciding what is safe and appropriate for you.\n\n• The creators, developers and partners of GainTrack are not liable for any injuries, health problems, worsening of conditions, lost progress, or other damages that may result from following any AI or app recommendations.\n\n• You consent to your prompts and AI replies being shared with OpenRouter as described above.\n\nIf you do not accept these terms, tap "I don\'t agree" and AI features will remain disabled.'}
+                {t('aiSuggestions.consentBody')}
               </Text>
             </ScrollView>
             <TouchableOpacity style={styles.consentAgreeBtn} onPress={handleConsentAgree} activeOpacity={0.85}>
-              <Text style={styles.consentAgreeBtnText}>I agree, enable AI</Text>
+              <Text style={styles.consentAgreeBtnText}>{t('aiSuggestions.consentAgree')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.consentDeclineBtn} onPress={handleConsentDecline} activeOpacity={0.85}>
-              <Text style={styles.consentDeclineBtnText}>I don't agree</Text>
+              <Text style={styles.consentDeclineBtnText}>{t('aiSuggestions.consentDecline')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -654,7 +633,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
             color={activeTab === 'suggestions' ? '#FFFFFF' : '#B0B0B0'}
           />
           <Text style={[styles.segmentText, activeTab === 'suggestions' && styles.segmentTextActive]} numberOfLines={1}>
-            Tips
+            {t('aiSuggestions.tipsTab')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -685,7 +664,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
             color={activeTab === 'chat' ? '#FFFFFF' : '#B0B0B0'}
           />
           <Text style={[styles.segmentText, activeTab === 'chat' && styles.segmentTextActive]} numberOfLines={1}>
-            AI Chat
+            {t('aiSuggestions.chatTab')}
           </Text>
           {!isPro && (
             <Ionicons name="lock-closed" size={11} color={activeTab === 'chat' ? '#FFFFFF' : '#FF6200'} style={{ marginLeft: 2 }} />
@@ -704,7 +683,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
           {isPro && (
             <>
               <View style={styles.aiPicksHeader}>
-                <Text style={styles.sectionLabel}>AI Picks</Text>
+                <Text style={styles.sectionLabel}>{t('aiSuggestions.aiPicks')}</Text>
                 <TouchableOpacity
                   onPress={refreshAIPicks}
                   disabled={aiPicksLoading}
@@ -737,7 +716,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
 
               {healthCoachingTips.length > 0 && (
                 <>
-                  <Text style={[styles.sectionLabel, { marginTop: 6 }]}>Health Sync Coaching</Text>
+                  <Text style={[styles.sectionLabel, { marginTop: 6 }]}>{t('aiSuggestions.healthSyncCoaching')}</Text>
                   {healthCoachingTips.map((tip) => (
                     <View key={tip.id} style={styles.healthTipCard}>
                       <Text style={styles.healthTipTitle}>{tip.title}</Text>
@@ -749,14 +728,14 @@ Always give specific, personalized advice referencing the user's actual data, cu
             </>
           )}
 
-          <Text style={styles.sectionLabel}>Coaching Tips</Text>
+          <Text style={styles.sectionLabel}>{t('aiSuggestions.coachingTips')}</Text>
           {STATIC_SUGGESTIONS.map((s) => (
             <AISuggestionCard
               key={s.id}
               id={s.id}
               category={s.category}
-              title={s.title}
-              description={s.description}
+              title={t(`aiSuggestions.static.${s.id}.title`)}
+              description={t(`aiSuggestions.static.${s.id}.description`)}
               isProLocked={s.isProLocked && !isPro}
               onPressUpgrade={() => {
                 sendPaywallTelemetry({
@@ -772,9 +751,9 @@ Always give specific, personalized advice referencing the user's actual data, cu
           {!isPro && (
             <View style={styles.upgradeCard}>
               <Ionicons name="sparkles" size={24} color="#FF6200" />
-              <Text style={styles.upgradeTitle}>Unlock All Tips + AI Chat</Text>
+              <Text style={styles.upgradeTitle}>{t('aiSuggestions.unlockAllTitle')}</Text>
               <Text style={styles.upgradeSubtitle}>
-                {'Upgrade to Pro for personalised GPT-powered coaching, full coaching tip library, and unlimited AI chat.'}
+                {t('aiSuggestions.unlockAllSubtitle')}
               </Text>
               <TouchableOpacity
                 style={styles.goProBtn}
@@ -788,7 +767,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
                   router.push('/pro-paywall');
                 }}
               >
-                <Text style={styles.goProBtnText}>Go Pro — EUR 5.99/mo or EUR 39.99/yr</Text>
+                <Text style={styles.goProBtnText}>{t('aiSuggestions.goProPrice')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -799,9 +778,9 @@ Always give specific, personalized advice referencing the user's actual data, cu
       {activeTab === 'chat' && !isPro && (
         <View style={styles.chatPaywall}>
           <Ionicons name="chatbubble-ellipses-outline" size={48} color="#FF6200" />
-          <Text style={[styles.upgradeTitle, { marginTop: 16 }]}>AI Chat is a Pro feature</Text>
+          <Text style={[styles.upgradeTitle, { marginTop: 16 }]}>{t('aiSuggestions.chatProFeatureTitle')}</Text>
           <Text style={styles.upgradeSubtitle}>
-            {'Get unlimited, context-aware GPT coaching personalised to your workouts, nutrition, and body goals.'}
+            {t('aiSuggestions.chatProFeatureSubtitle')}
           </Text>
           <TouchableOpacity
             style={[styles.goProBtn, { marginTop: 20 }]}
@@ -815,13 +794,13 @@ Always give specific, personalized advice referencing the user's actual data, cu
               router.push('/pro-paywall');
             }}
           >
-            <Text style={styles.goProBtnText}>Go Pro — EUR 5.99/mo or EUR 39.99/yr</Text>
+            <Text style={styles.goProBtnText}>{t('aiSuggestions.goProPrice')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.backToTipsBtn}
             onPress={() => setActiveTab('suggestions')}
           >
-            <Text style={styles.backToTipsBtnText}>Back to free tips</Text>
+            <Text style={styles.backToTipsBtnText}>{t('aiSuggestions.backToFreeTips')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -831,7 +810,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
         <>
           <View style={styles.usageBar}>
             <Text style={styles.usageText}>
-              AI Coach: {usedToday}/{PRO_DAILY_AI_CHAT_LIMIT} messages used today ({remainingToday} left)
+              {t('aiSuggestions.usageBar', { used: usedToday, limit: PRO_DAILY_AI_CHAT_LIMIT, remaining: remainingToday })}
             </Text>
           </View>
 
@@ -843,16 +822,16 @@ Always give specific, personalized advice referencing the user's actual data, cu
           >
             {chipsVisible && (
               <View style={styles.chips}>
-                <Text style={styles.chipsLabel}>Quick prompts</Text>
+                <Text style={styles.chipsLabel}>{t('aiSuggestions.quickPrompts')}</Text>
                 <View style={styles.chipsRow}>
                   {CHIPS.map((chip) => (
                     <TouchableOpacity
                       key={chip}
-                      onPress={() => sendMessage(chip)}
+                      onPress={() => sendMessage(t(`aiSuggestions.chips.${chip}`))}
                       activeOpacity={0.7}
                     >
                       <View style={styles.chip}>
-                        <Text style={styles.chipText}>{chip}</Text>
+                        <Text style={styles.chipText}>{t(`aiSuggestions.chips.${chip}`)}</Text>
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -885,26 +864,26 @@ Always give specific, personalized advice referencing the user's actual data, cu
                         <Ionicons name="warning-outline" size={16} color="#F44336" />
                         <Text style={styles.errorTitle}>
                           {msg.errorType === 'rate_limit'
-                            ? 'Too many requests'
+                            ? t('aiSuggestions.errors.tooManyRequests')
                             : msg.errorType === 'no_api_key'
-                            ? 'AI not configured'
+                            ? t('aiSuggestions.errors.aiNotConfigured')
                             : msg.errorType === 'network'
-                            ? 'Connection error'
-                            : 'Something went wrong'}
+                            ? t('aiSuggestions.errors.connectionError')
+                            : t('aiSuggestions.errors.somethingWentWrong')}
                         </Text>
                       </View>
                       <Text style={styles.errorText}>
                         {msg.errorType === 'rate_limit'
-                          ? 'Please try again in 30 seconds.'
+                          ? t('aiSuggestions.errors.tryAgain30s')
                           : msg.errorType === 'no_api_key'
-                          ? 'Contact support to resolve this.'
+                          ? t('aiSuggestions.errors.contactSupport')
                           : msg.errorType === 'network'
-                          ? "Couldn't reach the AI server. Check your connection."
-                          : 'An unexpected error occurred.'}
+                          ? t('aiSuggestions.errors.networkReachability')
+                          : t('aiSuggestions.errors.unexpectedError')}
                         {msg.errorDetail ? `\n\n${msg.errorDetail}` : ''}
                       </Text>
                       {canRetry && (
-                        <Text style={styles.errorRetry}>Tap to retry</Text>
+                        <Text style={styles.errorRetry}>{t('aiSuggestions.errors.tapToRetry')}</Text>
                       )}
                     </TouchableOpacity>
                   </View>
@@ -936,7 +915,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
                 style={styles.input}
                 value={input}
                 onChangeText={setInput}
-                placeholder="Ask your AI coach…"
+                placeholder={t('aiSuggestions.askPlaceholder')}
                 placeholderTextColor="#555"
                 multiline
                 maxLength={600}

@@ -668,10 +668,10 @@ export default function ProgressScreen() {
             ) : (
               <>
                 <Ionicons name="download-outline" size={15} color={isPro ? colors.textPrimary : colors.textSecondary} />
-                <Text style={[styles.exportBtnText, !isPro && { color: colors.textSecondary }]}>CSV</Text>
+                <Text style={[styles.exportBtnText, !isPro && { color: colors.textSecondary }]}>{t('progressTab.csvLabel')}</Text>
                 {!isPro && (
                   <View style={styles.miniProBadge}>
-                    <Text style={styles.miniProBadgeText}>PRO</Text>
+                    <Text style={styles.miniProBadgeText}>{t('progressTab.proBadge')}</Text>
                   </View>
                 )}
               </>
@@ -820,7 +820,7 @@ export default function ProgressScreen() {
               <ExerciseSelector selectedExercise={selectedExercise} onPress={openExercisePicker} />
               {hasData(volumeChart) ? (
                 <View style={styles.chartCard}>
-                  <Text style={styles.cardTitle}>Weekly Volume Load</Text>
+                  <Text style={styles.cardTitle}>{t('progressTab.weeklyVolumeLoadTitle')}</Text>
                   <Text style={styles.cardSubtitle}>{(selectedExercise || t('progressTab.allExercises')) + ' - ' + t('progressTab.setsRepsWeight')}</Text>
                   <BarChart
                     data={{ labels: volumeChart.labels, datasets: [{ data: volumeChart.data }] }}
@@ -835,9 +835,9 @@ export default function ProgressScreen() {
                     withInnerLines
                   />
                   <View style={styles.statRow}>
-                    <StatBox label="Avg / week" value={Math.round(volumeChart.data.reduce((a, b) => a + b, 0) / volumeChart.data.length) + ' kg'} />
-                    <StatBox label="Peak week" value={Math.max(...volumeChart.data) + ' kg'} />
-                    <StatBox label="Total" value={volumeChart.data.reduce((a, b) => a + b, 0) + ' kg'} />
+                    <StatBox label={t('progressTab.avgPerWeek')} value={Math.round(volumeChart.data.reduce((a, b) => a + b, 0) / volumeChart.data.length) + ' kg'} />
+                    <StatBox label={t('progressTab.peakWeek')} value={Math.max(...volumeChart.data) + ' kg'} />
+                    <StatBox label={t('progressTab.total')} value={volumeChart.data.reduce((a, b) => a + b, 0) + ' kg'} />
                   </View>
                 </View>
               ) : (
@@ -849,7 +849,7 @@ export default function ProgressScreen() {
                 <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 16 }} />
               ) : overviewVolumeData?.muscleGroup.data.length ? (
                 <View style={styles.chartCard}>
-                  <Text style={styles.cardTitle}>This Week — Volume by Muscle Group</Text>
+                  <Text style={styles.cardTitle}>{t('progressTab.volumeByMuscleTitle')}</Text>
                   <Text style={styles.cardSubtitle}>{t('progressTab.volumeByMuscleSubtitle')}</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <BarChart
@@ -873,7 +873,7 @@ export default function ProgressScreen() {
 
           {activeTab === 'prs' && (
             <View>
-              <Text style={styles.sectionTitle}>Personal Records</Text>
+              <Text style={styles.sectionTitle}>{t('progressTab.personalRecordsTitle')}</Text>
               <Text style={styles.sectionSubtitle}>{t('progressTab.personalRecordsSubtitle')}</Text>
               {prList.length === 0 ? (
                 <EmptyState icon="trophy-outline" title={t('progressTab.noPrsTitle')} subtitle={t('progressTab.noPrsSubtitle')} />
@@ -885,11 +885,11 @@ export default function ProgressScreen() {
                     </View>
                     <View style={styles.prInfo}>
                       <Text style={styles.prName}>{pr.exerciseName}</Text>
-                      <Text style={styles.prDetail}>{pr.weight + ' kg x ' + pr.reps + ' rep' + (pr.reps !== 1 ? 's' : '') + ' - ' + shortDate(pr.date)}</Text>
+                      <Text style={styles.prDetail}>{t('progressTab.prDetail', { weight: pr.weight, reps: pr.reps, suffix: pr.reps !== 1 ? t('workoutActive.pluralSuffix') : '', date: shortDate(pr.date) })}</Text>
                     </View>
                     <View style={styles.prBadge}>
                       <Text style={styles.prBadgeValue}>{pr.oneRM}</Text>
-                      <Text style={styles.prBadgeUnit}>kg</Text>
+                      <Text style={styles.prBadgeUnit}>{t('progressTab.kgUnit')}</Text>
                     </View>
                   </View>
                 ))
@@ -902,7 +902,7 @@ export default function ProgressScreen() {
               {/* Title row with Set Goal button */}
               <View style={styles.bwHeaderRow}>
                 <View>
-                  <Text style={styles.sectionTitle}>Bodyweight</Text>
+                  <Text style={styles.sectionTitle}>{t('progressTab.bodyweightTitle')}</Text>
                   <Text style={styles.sectionSubtitle}>{t('progressTab.trackWeightOverTime')}</Text>
                 </View>
                 <TouchableOpacity
@@ -920,7 +920,7 @@ export default function ProgressScreen() {
 
               {hasData(bwChart) ? (
                 <View style={styles.chartCard}>
-                  <Text style={styles.cardTitle}>Weight Trend</Text>
+                  <Text style={styles.cardTitle}>{t('progressTab.weightTrendTitle')}</Text>
                   <Text style={styles.cardSubtitle}>{t('progressTab.lastEntries', { count: 12 })}</Text>
                   <LineChart
                     data={{ labels: bwChart.labels, datasets: [{ data: bwChart.data, strokeWidth: 2 }] }}
@@ -934,10 +934,10 @@ export default function ProgressScreen() {
                     formatYLabel={(y) => String(Math.round(Number(y)))}
                   />
                   <View style={styles.statRow}>
-                    <StatBox label="Current" value={bwChart.data[bwChart.data.length - 1] + ' kg'} />
-                    <StatBox label="Lowest" value={Math.min(...bwChart.data) + ' kg'} />
+                    <StatBox label={t('progressTab.current')} value={bwChart.data[bwChart.data.length - 1] + ' kg'} />
+                    <StatBox label={t('progressTab.lowest')} value={Math.min(...bwChart.data) + ' kg'} />
                     <StatBox
-                      label="Change"
+                      label={t('progressTab.change')}
                       value={(bwChart.data[bwChart.data.length - 1] >= bwChart.data[0] ? '+' : '') + Math.round((bwChart.data[bwChart.data.length - 1] - bwChart.data[0]) * 10) / 10 + ' kg'}
                       valueColor={bwChart.data[bwChart.data.length - 1] <= bwChart.data[0] ? colors.success : colors.error}
                     />
@@ -962,16 +962,16 @@ export default function ProgressScreen() {
                       <Ionicons name="flag" size={16} color={colors.primary} />
                     </View>
                     <Text style={styles.goalCardTitle}>
-                      {goal.weeklyRate < 0 ? 'Cut Goal' : goal.weeklyRate > 0 ? 'Bulk Goal' : 'Maintain Goal'}
+                      {goal.weeklyRate < 0 ? t('progressTab.cutGoalTitle') : goal.weeklyRate > 0 ? t('progressTab.bulkGoalTitle') : t('progressTab.maintainGoalTitle')}
                     </Text>
                     <View style={styles.goalEditChip}>
-                      <Text style={styles.goalEditChipText}>Edit</Text>
+                      <Text style={styles.goalEditChipText}>{t('progressTab.editGoal')}</Text>
                     </View>
                   </View>
                   <View style={styles.goalStatRow}>
                     <View style={styles.goalStat}>
                       <Text style={styles.goalStatValue}>{goal.targetWeight} kg</Text>
-                      <Text style={styles.goalStatLabel}>Target</Text>
+                      <Text style={styles.goalStatLabel}>{t('progressTab.target')}</Text>
                     </View>
                     <Ionicons name="arrow-forward-outline" size={14} color={colors.textDisabled} />
                     <View style={styles.goalStat}>
@@ -981,7 +981,7 @@ export default function ProgressScreen() {
                       ]}>
                         {goal.weeklyRate > 0 ? '+' : ''}{goal.weeklyRate} kg/wk
                       </Text>
-                      <Text style={styles.goalStatLabel}>Rate</Text>
+                      <Text style={styles.goalStatLabel}>{t('progressTab.rate')}</Text>
                     </View>
                     {projectionChart && (
                       <>
@@ -990,7 +990,7 @@ export default function ProgressScreen() {
                           <Text style={[styles.goalStatValue, { color: colors.primary, fontSize: typography.fontSize.sm }]}>
                             {format(projectionChart.projectedDate, 'MMM d')}
                           </Text>
-                          <Text style={styles.goalStatLabel}>Projected</Text>
+                          <Text style={styles.goalStatLabel}>{t('progressTab.projected')}</Text>
                         </View>
                       </>
                     )}
@@ -999,14 +999,14 @@ export default function ProgressScreen() {
                         <Ionicons name="arrow-forward-outline" size={14} color={colors.textDisabled} />
                         <View style={styles.goalStat}>
                           <Text style={styles.goalStatValue}>{goal.targetBodyFat}%</Text>
-                          <Text style={styles.goalStatLabel}>Body Fat</Text>
+                          <Text style={styles.goalStatLabel}>{t('progressTab.bodyFat')}</Text>
                         </View>
                       </>
                     )}
                   </View>
                   {projectionChart && (
                     <Text style={styles.goalKcalNote}>
-                      {projectionChart.dailyKcal < 0 ? '−' : '+'}{Math.abs(projectionChart.dailyKcal)} kcal/day · {projectionChart.weeksToGoal} weeks to goal
+                      {t('progressTab.goalKcalNote', { sign: projectionChart.dailyKcal < 0 ? '−' : '+', kcal: Math.abs(projectionChart.dailyKcal), weeks: projectionChart.weeksToGoal })}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -1015,7 +1015,7 @@ export default function ProgressScreen() {
               {/* ── Goal Projection Chart ── */}
               {projectionChart && (
                 <View style={styles.chartCard}>
-                  <Text style={styles.cardTitle}>Goal Projection</Text>
+                  <Text style={styles.cardTitle}>{t('progressTab.goalProjectionTitle')}</Text>
                   <Text style={styles.cardSubtitle}>{t('progressTab.goalProjectionSubtitle', { rate: goal?.weeklyRate ?? 0 })}</Text>
                   <LineChart
                     data={{
@@ -1045,21 +1045,21 @@ export default function ProgressScreen() {
                   <View style={styles.projLegendRow}>
                     <View style={styles.projLegendItem}>
                       <View style={[styles.projLegendDot, { backgroundColor: colors.primary }]} />
-                      <Text style={styles.projLegendText}>Logged</Text>
+                      <Text style={styles.projLegendText}>{t('progressTab.logged')}</Text>
                     </View>
                     <View style={styles.projLegendItem}>
                       <View style={[styles.projLegendDot, { backgroundColor: colors.warning, opacity: 0.7 }]} />
-                      <Text style={styles.projLegendText}>Projected</Text>
+                      <Text style={styles.projLegendText}>{t('progressTab.projected')}</Text>
                     </View>
                     <Text style={styles.projLegendGoal}>
-                      Goal: {goal?.targetWeight} kg
+                      {t('progressTab.goalLegend', { weight: goal?.targetWeight ?? 0 })}
                     </Text>
                   </View>
                 </View>
               )}
               {measurements.length > 0 && (
                 <View style={styles.bwListCard}>
-                  <Text style={styles.cardTitle}>Recent Entries</Text>
+                  <Text style={styles.cardTitle}>{t('progressTab.recentEntriesTitle')}</Text>
                   {[...measurements].reverse().slice(0, 10).map((m, i) => {
                     const bw = getBW(m);
                     if (!bw) return null;
@@ -1075,7 +1075,7 @@ export default function ProgressScreen() {
               {/* Calorie Intake alongside weight — correlation view */}
               {nutritionChart.daysLogged > 0 && (
                 <View style={styles.chartCard}>
-                  <Text style={styles.cardTitle}>Calorie Intake</Text>
+                  <Text style={styles.cardTitle}>{t('progressTab.calorieIntakeTitle')}</Text>
                   <Text style={styles.cardSubtitle}>{t('progressTab.calorieIntakeSubtitle')}</Text>
                   <BarChart
                     data={{ labels: nutritionChart.labels, datasets: [{ data: nutritionChart.calories }] }}
@@ -1090,9 +1090,9 @@ export default function ProgressScreen() {
                     withInnerLines
                   />
                   <View style={styles.statRow}>
-                    <StatBox label="Avg / day" value={nutritionChart.avgCalories + ' kcal'} />
-                    <StatBox label="Avg protein" value={nutritionChart.avgProtein + 'g'} />
-                    <StatBox label="Days logged" value={nutritionChart.daysLogged + ' / 7'} />
+                    <StatBox label={t('progressTab.avgPerDay')} value={nutritionChart.avgCalories + ' kcal'} />
+                    <StatBox label={t('progressTab.avgProtein')} value={nutritionChart.avgProtein + 'g'} />
+                    <StatBox label={t('progressTab.daysLogged')} value={nutritionChart.daysLogged + ' / 7'} />
                   </View>
                 </View>
               )}

@@ -16,6 +16,9 @@ import { useAuthStore } from '../src/store/authStore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
+import { getDeviceLocale, translate } from '../src/i18n/translations';
+
+const appLocale = getDeviceLocale();
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -35,14 +38,14 @@ class ErrorBoundary extends React.Component<
                        alignItems: 'center', backgroundColor: '#000', padding: 20 }}>
           <Text style={{ color: '#FF6200', fontSize: 18,
                          fontWeight: 'bold', marginBottom: 12 }}>
-            Something went wrong
+            {translate(appLocale, 'common.error')}
           </Text>
           <Text style={{ color: '#fff', fontSize: 13,
                          textAlign: 'center', marginBottom: 24 }}>
             {this.state.error}
           </Text>
           <TouchableOpacity onPress={() => this.setState({ hasError: false, error: '' })}>
-            <Text style={{ color: '#FF6200' }}>Try Again</Text>
+            <Text style={{ color: '#FF6200' }}>{translate(appLocale, 'calendarTab.retry')}</Text>
           </TouchableOpacity>
         </View>
       );

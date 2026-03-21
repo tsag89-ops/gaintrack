@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Workout } from '../types';
 import { formatDate, calculateWorkoutVolume, calculateTotalSets, formatVolume } from '../utils/helpers';
 import { useWeightUnit } from '../hooks/useWeightUnit';
+import { useLanguage } from '../context/LanguageContext';
 
 interface WorkoutCardProps {
   workout: Workout;
@@ -14,6 +15,7 @@ interface WorkoutCardProps {
 }
 
 export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDelete }) => {
+  const { t } = useLanguage();
   const exercises = workout.exercises ?? [];
   const volume = calculateWorkoutVolume(exercises);
   const totalSets = calculateTotalSets(exercises);
@@ -23,12 +25,12 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDe
   const handleDeletePress = () => {
     swipeRef.current?.close();
     Alert.alert(
-      'Delete Workout',
-      `Delete "${workout.name}"? This cannot be undone.`,
+      t('workoutCard.deleteWorkoutTitle'),
+      t('workoutCard.deleteWorkoutMessage', { name: workout.name }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('workoutCard.deleteAction'),
           style: 'destructive',
           onPress: onDelete,
         },
@@ -43,7 +45,7 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDe
       activeOpacity={0.8}
     >
       <Ionicons name="trash-outline" size={24} color="#FFFFFF" />
-      <Text style={styles.deleteActionText}>Delete</Text>
+      <Text style={styles.deleteActionText}>{t('workoutCard.deleteAction')}</Text>
     </TouchableOpacity>
   );
 
@@ -61,17 +63,17 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDe
         <View style={styles.statItem}>
           <Ionicons name="barbell-outline" size={18} color="#4CAF50" />
           <Text style={styles.statValue}>{exercises.length}</Text>
-          <Text style={styles.statLabel}>Exercises</Text>
+          <Text style={styles.statLabel}>{t('workoutCard.exercisesLabel')}</Text>
         </View>
         <View style={styles.statItem}>
           <Ionicons name="layers-outline" size={18} color="#2196F3" />
           <Text style={styles.statValue}>{totalSets}</Text>
-          <Text style={styles.statLabel}>Sets</Text>
+          <Text style={styles.statLabel}>{t('workoutCard.setsLabel')}</Text>
         </View>
         <View style={styles.statItem}>
           <Ionicons name="trending-up-outline" size={18} color="#FFC107" />
           <Text style={styles.statValue}>{formatVolume(volume)}</Text>
-          <Text style={styles.statLabel}>Vol ({weightUnit})</Text>
+          <Text style={styles.statLabel}>{t('workoutCard.volumeLabel', { unit: weightUnit })}</Text>
         </View>
       </View>
 
@@ -84,7 +86,7 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDe
           ))}
           {exercises.length > 3 && (
             <Text style={styles.moreExercises}>
-              +{exercises.length - 3} more
+              {t('workoutCard.moreExercises', { count: exercises.length - 3 })}
             </Text>
           )}
         </View>

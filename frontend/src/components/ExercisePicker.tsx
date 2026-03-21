@@ -186,7 +186,7 @@ const VideoPreview: React.FC<{ exercise: Exercise; isPro: boolean }> = ({
       <View style={previewStyles.locked}>
         <Ionicons name="lock-closed-outline" size={20} color={theme.primary} />
         <Text style={previewStyles.lockedText}>
-          Upgrade to Pro to unlock video previews
+          {translate(locale, 'exercisePicker.unlockVideoPreviews')}
         </Text>
       </View>
     );
@@ -195,7 +195,7 @@ const VideoPreview: React.FC<{ exercise: Exercise; isPro: boolean }> = ({
   if (!exercise.videoUrl) {
     return (
       <View style={previewStyles.locked}>
-        <Text style={previewStyles.lockedText}>No video available</Text>
+        <Text style={previewStyles.lockedText}>{translate(locale, 'exercisePicker.noVideoAvailable')}</Text>
       </View>
     );
   }
@@ -208,7 +208,7 @@ const VideoPreview: React.FC<{ exercise: Exercise; isPro: boolean }> = ({
         onPress={() => Linking.openURL(exercise.videoUrl)}
       >
         <Ionicons name="play-circle-outline" size={18} color={theme.primary} />
-        <Text style={previewStyles.webLinkText}>Open exercise video</Text>
+        <Text style={previewStyles.webLinkText}>{translate(locale, 'exercisePicker.openExerciseVideo')}</Text>
       </TouchableOpacity>
     );
   }

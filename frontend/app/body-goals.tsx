@@ -32,6 +32,7 @@ import { format, addWeeks } from 'date-fns';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../src/config/firebase';
 import { useAuthStore } from '../src/store/authStore';
+import { useLanguage } from '../src/context/LanguageContext';
 import type { BodyCompositionGoals } from '../src/types/bodyGoals';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -44,21 +45,23 @@ const SLIDER_MAX = 0.5;
 const SLIDER_STEP = 0.1;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function getPhaseLabel(rate: number): string {
-  if (rate < -0.75) return 'Aggressive Cut';
-  if (rate < -0.25) return 'Cutting';
-  if (rate < 0.1) return 'Maintenance';
-  if (rate <= 0.3) return 'Lean Bulk';
-  return 'Bulk';
+type PhaseKey = 'aggressiveCut' | 'cutting' | 'maintenance' | 'leanBulk' | 'bulk';
+
+function getPhaseKey(rate: number): PhaseKey {
+  if (rate < -0.75) return 'aggressiveCut';
+  if (rate < -0.25) return 'cutting';
+  if (rate < 0.1) return 'maintenance';
+  if (rate <= 0.3) return 'leanBulk';
+  return 'bulk';
 }
 
-function getPhaseColor(label: string): string {
-  switch (label) {
-    case 'Aggressive Cut': return '#F44336';
-    case 'Cutting':        return '#2196F3';
-    case 'Maintenance':    return '#4CAF50';
-    case 'Lean Bulk':      return '#FF9800';
-    case 'Bulk':           return '#9C27B0';
+function getPhaseColor(phaseKey: PhaseKey): string {
+  switch (phaseKey) {
+    case 'aggressiveCut': return '#F44336';
+    case 'cutting':       return '#2196F3';
+    case 'maintenance':   return '#4CAF50';
+    case 'leanBulk':      return '#FF9800';
+    case 'bulk':          return '#9C27B0';
     default:               return '#B0B0B0';
   }
 }
@@ -217,6 +220,7 @@ const sliderSt = StyleSheet.create({
 export default function BodyGoalsScreen() {
   const router    = useRouter();
   const { user }  = useAuthStore();
+  const { t } = useLanguage();
 
   const [loading,         setLoading]         = useState(true);
   const [saving,          setSaving]          = useState(false);
@@ -363,8 +367,8 @@ export default function BodyGoalsScreen() {
   };
 
   // ── UI ─────────────────────────────────────────────────────────────────────
-  const phaseLabel = getPhaseLabel(weeklyRate);
-  const phaseColor = getPhaseColor(phaseLabel);
+  const phaseKey = getPhaseKey(weeklyRate);
+  const phaseColor = getPhaseColor(phaseKey);
   const weightUnit = (user as any)?.units?.weight ?? 'kg';
 
   if (loading) {
@@ -389,8 +393,8 @@ export default function BodyGoalsScreen() {
           <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>Body Composition Goal</Text>
-          <Text style={styles.headerSubtitle}>Set your target & projected timeline</Text>
+          <Text style={styles.headerTitle}>{t('bodyGoal.headerTitle')}</Text>
+          <Text style={styles.headerSubtitle}>{t('bodyGoal.headerSubtitle')}</Text>
         </View>
       </View>
 
@@ -405,25 +409,25 @@ export default function BodyGoalsScreen() {
         >
           {/* Current weight (read-only) */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Current Weight</Text>
+            <Text style={styles.cardTitle}>{t('bodyGoal.currentWeightCardTitle')}</Text>
             <View style={styles.readOnlyRow}>
               <Ionicons name="scale-outline" size={20} color="#B0B0B0" />
               <Text style={styles.readOnlyValue}>
-                {currentWeight ? `${currentWeight} ${weightUnit}` : 'Not logged'}
+                {currentWeight ? `${currentWeight} ${weightUnit}` : t('bodyGoal.notLoggedFallback')}
               </Text>
-              <Text style={styles.readOnlyHint}>from latest measurement</Text>
+              <Text style={styles.readOnlyHint}>{t('bodyGoal.fromLatestMeasurement')}</Text>
             </View>
           </View>
 
           {/* Target Weight */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Target Weight ({weightUnit})</Text>
+            <Text style={styles.cardTitle}>{t('bodyGoal.targetWeightCardTitle', { unit: weightUnit })}</Text>
             <TextInput
               style={styles.input}
               value={targetWeight}
               onChangeText={setTargetWeight}
               keyboardType="decimal-pad"
-              placeholder={`e.g. ${weightUnit === 'lbs' ? '165' : '75'}`}
+              placeholder={t('bodyGoal.targetWeightExample', { value: weightUnit === 'lbs' ? 165 : 75 })}
               placeholderTextColor="#555"
               returnKeyType="done"
             />
@@ -431,28 +435,28 @@ export default function BodyGoalsScreen() {
 
           {/* Body Fat Row */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Body Fat % (optional)</Text>
+            <Text style={styles.cardTitle}>{t('bodyGoal.bodyFatOptionalCardTitle')}</Text>
             <View style={styles.inputRow}>
               <View style={[styles.inputHalf, { marginRight: 8 }]}>
-                <Text style={styles.inputLabel}>Current</Text>
+                <Text style={styles.inputLabel}>{t('bodyGoal.currentLabel')}</Text>
                 <TextInput
                   style={styles.input}
                   value={currentBodyFat}
                   onChangeText={setCurrentBodyFat}
                   keyboardType="decimal-pad"
-                  placeholder="e.g. 20"
+                  placeholder={t('bodyGoal.currentBodyFatPlaceholder')}
                   placeholderTextColor="#555"
                   returnKeyType="done"
                 />
               </View>
               <View style={styles.inputHalf}>
-                <Text style={styles.inputLabel}>Target</Text>
+                <Text style={styles.inputLabel}>{t('bodyGoal.targetLabel')}</Text>
                 <TextInput
                   style={styles.input}
                   value={targetBodyFat}
                   onChangeText={setTargetBodyFat}
                   keyboardType="decimal-pad"
-                  placeholder="e.g. 15"
+                  placeholder={t('bodyGoal.targetBodyFatPlaceholder')}
                   placeholderTextColor="#555"
                   returnKeyType="done"
                 />
@@ -462,10 +466,10 @@ export default function BodyGoalsScreen() {
 
           {/* Weekly Change Slider */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Weekly Change Goal</Text>
+            <Text style={styles.cardTitle}>{t('bodyGoal.weeklyChangeGoalTitle')}</Text>
             <View style={styles.sliderLabelRow}>
-              <Text style={styles.sliderRangeLabel}>−1.0 {weightUnit}/wk</Text>
-              <Text style={styles.sliderRangeLabel}>+0.5 {weightUnit}/wk</Text>
+              <Text style={styles.sliderRangeLabel}>{t('bodyGoal.sliderMinLabel', { unit: weightUnit })}</Text>
+              <Text style={styles.sliderRangeLabel}>{t('bodyGoal.sliderMaxLabel', { unit: weightUnit })}</Text>
             </View>
             <GoalSlider
               value={weeklyRate}
@@ -476,10 +480,14 @@ export default function BodyGoalsScreen() {
             />
             <View style={styles.sliderValueRow}>
               <View style={[styles.phaseBadge, { backgroundColor: phaseColor + '20', borderColor: phaseColor }]}>
-                <Text style={[styles.phaseText, { color: phaseColor }]}>{phaseLabel}</Text>
+                <Text style={[styles.phaseText, { color: phaseColor }]}>{t(`bodyGoal.phase.${phaseKey}`)}</Text>
               </View>
               <Text style={styles.sliderValue}>
-                {weeklyRate >= 0 ? '+' : ''}{weeklyRate.toFixed(1)} {weightUnit}/week
+                {t('bodyGoal.weeklyRateValue', {
+                  sign: weeklyRate >= 0 ? '+' : '',
+                  rate: weeklyRate.toFixed(1),
+                  unit: weightUnit,
+                })}
               </Text>
             </View>
           </View>
@@ -490,10 +498,13 @@ export default function BodyGoalsScreen() {
               <Ionicons name="calendar-outline" size={20} color={projection.color} />
               <View style={styles.projectionText}>
                 <Text style={[styles.projectionMain, { color: projection.color }]}>
-                  Estimated to reach goal by {projection.projDateStr}
+                  {t('bodyGoal.estimatedReachGoalBy', { date: projection.projDateStr })}
                 </Text>
                 <Text style={styles.projectionSub}>
-                  (~{Math.round(projection.weeks)} week{Math.round(projection.weeks) !== 1 ? 's' : ''})
+                  {t('bodyGoal.weeksApprox', {
+                    count: Math.round(projection.weeks),
+                    suffix: Math.round(projection.weeks) !== 1 ? t('bodyGoal.pluralSuffix') : '',
+                  })}
                 </Text>
               </View>
             </View>
@@ -502,8 +513,8 @@ export default function BodyGoalsScreen() {
               <Ionicons name="information-circle-outline" size={20} color="#B0B0B0" />
               <Text style={styles.projectionHint}>
                 {weeklyRate === 0
-                  ? 'Set a weekly rate to see a projected timeline.'
-                  : 'Enter a target weight to see a projected timeline.'}
+                  ? t('bodyGoal.setWeeklyRateProjectionHint')
+                  : t('bodyGoal.enterTargetWeightProjectionHint')}
               </Text>
             </View>
           ) : null}
@@ -519,7 +530,7 @@ export default function BodyGoalsScreen() {
             ) : (
               <>
                 <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.saveBtnText}>Save Goal</Text>
+                <Text style={styles.saveBtnText}>{t('bodyGoal.saveGoalButton')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -530,7 +541,7 @@ export default function BodyGoalsScreen() {
       {showToast && (
         <Animated.View style={[styles.toast, { opacity: toastOpacity }]}>
           <Ionicons name="checkmark-circle" size={18} color="#FFFFFF" />
-          <Text style={styles.toastText}>Goal saved!</Text>
+          <Text style={styles.toastText}>{t('bodyGoal.goalSavedToast')}</Text>
         </Animated.View>
       )}
     </SafeAreaView>

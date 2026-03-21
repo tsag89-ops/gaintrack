@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { progressionApi } from '../src/services/api';
 import { useWeightUnit } from '../src/hooks/useWeightUnit';
+import { useLanguage } from '../src/context/LanguageContext';
 
 interface ProgressionSuggestion {
   exercise_name: string;
@@ -74,6 +75,7 @@ const TREND_ICONS: Record<string, { icon: string; color: string }> = {
 
 export default function ProgressionScreen() {
   const router = useRouter();
+  const { t } = useLanguage();
   const weightUnit = useWeightUnit();
   const [suggestions, setSuggestions] = useState<ProgressionSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -119,10 +121,10 @@ export default function ProgressionScreen() {
     const phaseOrder: Array<AnalyticsDepthInsights['periodizationPhase']> = ['base', 'build', 'peak', 'deload'];
     const periodizationPhase = phaseOrder[weekBucket];
     const periodizationMessageMap: Record<AnalyticsDepthInsights['periodizationPhase'], string> = {
-      base: 'Base week: prioritize clean technique and stable volume targets.',
-      build: 'Build week: push progressive overload with conservative jumps.',
-      peak: 'Peak week: keep intensity high, reduce accessory fatigue.',
-      deload: 'Deload week: reduce load and volume to restore readiness.',
+      base: t('progression.baseWeekMessage'),
+      build: t('progression.buildWeekMessage'),
+      peak: t('progression.peakWeekMessage'),
+      deload: t('progression.deloadWeekMessage'),
     };
 
     return {
@@ -132,7 +134,7 @@ export default function ProgressionScreen() {
       periodizationPhase,
       periodizationMessage: periodizationMessageMap[periodizationPhase],
     };
-  }, [suggestions]);
+  }, [suggestions, t]);
 
   const fetchSuggestions = useCallback(async () => {
     try {
@@ -141,7 +143,7 @@ export default function ProgressionScreen() {
       setSuggestions(data.suggestions || []);
       setTotalAnalyzed(data.total_exercises_analyzed || 0);
     } catch (error) {
-      console.error('Error fetching progression suggestions:', error);
+      console.error(t('progression.fetchSuggestionsErrorLog'), error);
     } finally {
       setIsLoading(false);
     }
@@ -180,8 +182,8 @@ export default function ProgressionScreen() {
           <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.headerTitle}>AI Progression</Text>
-          <Text style={styles.headerSubtitle}>Smart weight recommendations</Text>
+          <Text style={styles.headerTitle}>{t('progression.headerTitle')}</Text>
+          <Text style={styles.headerSubtitle}>{t('progression.headerSubtitle')}</Text>
         </View>
         <View style={styles.aiIcon}>
           <Ionicons name="sparkles" size={24} color="#4CAF50" />
@@ -191,7 +193,7 @@ export default function ProgressionScreen() {
       {isLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4CAF50" />
-          <Text style={styles.loadingText}>Analyzing your workouts...</Text>
+          <Text style={styles.loadingText}>{t('progression.loadingText')}</Text>
         </View>
       ) : (
         <ScrollView
@@ -205,11 +207,11 @@ export default function ProgressionScreen() {
           <View style={styles.statsCard}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{totalAnalyzed}</Text>
-              <Text style={styles.statLabel}>Exercises Tracked</Text>
+              <Text style={styles.statLabel}>{t('progression.exercisesTracked')}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{suggestions.length}</Text>
-              <Text style={styles.statLabel}>Ready to Progress</Text>
+              <Text style={styles.statLabel}>{t('progression.readyToProgress')}</Text>
             </View>
           </View>
 
@@ -217,17 +219,17 @@ export default function ProgressionScreen() {
             <View style={styles.depthCard}>
               <View style={styles.depthHeader}>
                 <Ionicons name="pulse-outline" size={18} color="#F59E0B" />
-                <Text style={styles.depthTitle}>Fatigue Load</Text>
+                <Text style={styles.depthTitle}>{t('progression.fatigueLoadTitle')}</Text>
               </View>
               <Text style={styles.depthValue}>{analyticsInsights.fatigueScore}/100</Text>
               <Text style={styles.depthBody}>
                 {analyticsInsights.deloadRecommended
-                  ? 'Recovery deload suggested based on high strain + slowed progression.'
-                  : 'Training strain looks manageable. Continue progressive loading.'}
+                  ? t('progression.deloadSuggestedMessage')
+                  : t('progression.manageableStrainMessage')}
               </Text>
               {analyticsInsights.highStrainExercises.length > 0 ? (
                 <Text style={styles.depthMeta}>
-                  High strain: {analyticsInsights.highStrainExercises.join(', ')}
+                  {t('progression.highStrainLabel', { exercises: analyticsInsights.highStrainExercises.join(', ') })}
                 </Text>
               ) : null}
             </View>
@@ -235,28 +237,27 @@ export default function ProgressionScreen() {
             <View style={styles.depthCard}>
               <View style={styles.depthHeader}>
                 <Ionicons name="layers-outline" size={18} color="#3B82F6" />
-                <Text style={styles.depthTitle}>Periodization</Text>
+                <Text style={styles.depthTitle}>{t('progression.periodizationTitle')}</Text>
               </View>
               <Text style={styles.depthValue}>
                 {analyticsInsights.periodizationPhase.charAt(0).toUpperCase() + analyticsInsights.periodizationPhase.slice(1)}
               </Text>
               <Text style={styles.depthBody}>{analyticsInsights.periodizationMessage}</Text>
-              <Text style={styles.depthMeta}>Cycle cadence: 4-week rotation</Text>
+              <Text style={styles.depthMeta}>{t('progression.cycleCadence')}</Text>
             </View>
           </View>
 
           {suggestions.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="analytics-outline" size={64} color="#303030" />
-              <Text style={styles.emptyTitle}>No Suggestions Yet</Text>
+              <Text style={styles.emptyTitle}>{t('progression.noSuggestionsTitle')}</Text>
               <Text style={styles.emptySubtitle}>
-                Complete more workouts to get personalized progression recommendations.
-                We need at least 2 sessions per exercise to analyze your performance.
+                {t('progression.noSuggestionsSubtitle')}
               </Text>
             </View>
           ) : (
             <>
-              <Text style={styles.sectionTitle}>Progression Suggestions</Text>
+              <Text style={styles.sectionTitle}>{t('progression.progressionSuggestionsTitle')}</Text>
               {suggestions.map((suggestion, index) => (
                 <TouchableOpacity
                   key={index}
@@ -290,7 +291,7 @@ export default function ProgressionScreen() {
                             { color: CONFIDENCE_COLORS[suggestion.confidence] },
                           ]}
                         >
-                          {suggestion.confidence} confidence
+                          {t('progression.confidenceLabel', { confidence: suggestion.confidence })}
                         </Text>
                       </View>
                     </View>
@@ -314,7 +315,7 @@ export default function ProgressionScreen() {
                   <Text style={styles.reason}>{suggestion.reason}</Text>
 
                   <View style={styles.recentPerformance}>
-                    <Text style={styles.recentTitle}>Recent Sessions:</Text>
+                    <Text style={styles.recentTitle}>{t('progression.recentSessions')}</Text>
                     <View style={styles.performanceRow}>
                       {suggestion.recent_performance.slice(0, 3).map((perf, idx) => (
                         <View key={idx} style={styles.perfItem}>
@@ -351,12 +352,12 @@ export default function ProgressionScreen() {
                   <View style={styles.prItem}>
                     <Ionicons name="trophy" size={24} color="#FFC107" />
                     <Text style={styles.prValue}>{exerciseHistory.personal_records.max_weight} {weightUnit}</Text>
-                    <Text style={styles.prLabel}>Max Weight</Text>
+                    <Text style={styles.prLabel}>{t('progression.maxWeight')}</Text>
                   </View>
                   <View style={styles.prItem}>
                     <Ionicons name="flame" size={24} color="#F44336" />
                     <Text style={styles.prValue}>{exerciseHistory.personal_records.max_volume}</Text>
-                    <Text style={styles.prLabel}>Max Volume</Text>
+                    <Text style={styles.prLabel}>{t('progression.maxVolume')}</Text>
                   </View>
                   <View style={styles.prItem}>
                     <Ionicons
@@ -367,12 +368,12 @@ export default function ProgressionScreen() {
                     <Text style={[styles.prValue, { textTransform: 'capitalize' }]}>
                       {exerciseHistory.trend.replace('_', ' ')}
                     </Text>
-                    <Text style={styles.prLabel}>Trend</Text>
+                    <Text style={styles.prLabel}>{t('progression.trend')}</Text>
                   </View>
                 </View>
 
                 <Text style={styles.historyTitle}>
-                  Session History ({exerciseHistory.total_sessions} total)
+                  {t('progression.sessionHistory', { total: exerciseHistory.total_sessions })}
                 </Text>
 
                 <ScrollView style={styles.historyList}>
@@ -388,15 +389,15 @@ export default function ProgressionScreen() {
                         </View>
                         <View style={styles.historyStat}>
                           <Text style={styles.historyValue}>{session.sets}x{Math.round(session.total_reps / session.sets)}</Text>
-                          <Text style={styles.historyLabel}>sets×reps</Text>
+                          <Text style={styles.historyLabel}>{t('progression.setsReps')}</Text>
                         </View>
                         <View style={styles.historyStat}>
                           <Text style={styles.historyValue}>{session.avg_rpe}</Text>
-                          <Text style={styles.historyLabel}>RPE</Text>
+                          <Text style={styles.historyLabel}>{t('progression.rpe')}</Text>
                         </View>
                         <View style={styles.historyStat}>
                           <Text style={styles.historyValue}>{session.total_volume}</Text>
-                          <Text style={styles.historyLabel}>volume</Text>
+                          <Text style={styles.historyLabel}>{t('progression.volume')}</Text>
                         </View>
                       </View>
                     </View>

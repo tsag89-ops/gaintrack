@@ -353,10 +353,10 @@ export default function NutritionScreen() {
               const fat = Math.round((editTarget.entry.fat      ?? 0) * base * s);
               return (
                 <View style={styles.editMacroRow}>
-                  <View style={styles.editMacroItem}><Text style={styles.editMacroVal}>{cal}</Text><Text style={styles.editMacroLbl}>kcal</Text></View>
-                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#FF6200' }]}>{pro}g</Text><Text style={styles.editMacroLbl}>P</Text></View>
-                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#3B82F6' }]}>{car}g</Text><Text style={styles.editMacroLbl}>C</Text></View>
-                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#F59E0B' }]}>{fat}g</Text><Text style={styles.editMacroLbl}>F</Text></View>
+                  <View style={styles.editMacroItem}><Text style={styles.editMacroVal}>{cal}</Text><Text style={styles.editMacroLbl}>{t('addFood.calAbbrev')}</Text></View>
+                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#FF6200' }]}>{pro}g</Text><Text style={styles.editMacroLbl}>{t('nutritionTab.protein').slice(0, 1)}</Text></View>
+                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#3B82F6' }]}>{car}g</Text><Text style={styles.editMacroLbl}>{t('nutritionTab.carbs').slice(0, 1)}</Text></View>
+                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#F59E0B' }]}>{fat}g</Text><Text style={styles.editMacroLbl}>{t('nutritionTab.fat').slice(0, 1)}</Text></View>
                 </View>
               );
             })()}

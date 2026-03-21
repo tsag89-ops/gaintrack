@@ -15,6 +15,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { PlateSideConfig, Unit } from '../types/plates';
 import { colors, spacing, radii, typography } from '../constants/theme';
+import { useLanguage } from '../context/LanguageContext';
 
 interface Props {
   platesPerSide: PlateSideConfig[];
@@ -86,6 +87,7 @@ const MAX_VISIBLE = 8; // cap so the bar doesn't overflow on-screen
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const PlateBarVisual: React.FC<Props> = ({ platesPerSide, unit }) => {
+  const { t } = useLanguage();
   const allPlates   = expandPlates(platesPerSide); // largest first
   const visible     = allPlates.slice(0, MAX_VISIBLE);
   const overflowCt  = Math.max(0, allPlates.length - MAX_VISIBLE);
@@ -119,7 +121,7 @@ const PlateBarVisual: React.FC<Props> = ({ platesPerSide, unit }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionLabel}>VISUAL PREVIEW</Text>
+      <Text style={styles.sectionLabel}>{t('plateCalculatorTab.visualPreview')}</Text>
 
       <View style={styles.barbellRow}>
         {/* ── Left side: reversed so the largest plate is next to the collar ── */}
@@ -158,7 +160,10 @@ const PlateBarVisual: React.FC<Props> = ({ platesPerSide, unit }) => {
 
       {overflowCt > 0 && (
         <Text style={styles.overflow}>
-          +{overflowCt} more plate{overflowCt > 1 ? 's' : ''} per side not shown
+          {t('plateCalculatorTab.morePlatesNotShown', {
+            count: overflowCt,
+            suffix: overflowCt > 1 ? t('workoutActive.pluralSuffix') : '',
+          })}
         </Text>
       )}
     </View>

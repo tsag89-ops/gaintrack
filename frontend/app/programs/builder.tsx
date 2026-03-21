@@ -471,13 +471,13 @@ export default function ProgramBuilderScreen() {
 
       <View style={styles.reviewCard}>
         <Text style={styles.reviewName}>{name || t('programBuilder.emptyName')}</Text>
-        <Text style={styles.reviewMeta}>{daysPerWeek}× / week · {days.reduce((acc, d) => acc + d.exercises.length, 0)} exercises total</Text>
+        <Text style={styles.reviewMeta}>{t('programBuilder.reviewMeta', { daysPerWeek, exercises: days.reduce((acc, d) => acc + d.exercises.length, 0) })}</Text>
       </View>
 
       {days.map((day, i) => (
         <View key={day.id} style={styles.reviewDayRow}>
           <Text style={styles.reviewDayLabel}>
-            Day {i + 1}: {day.label}
+            {t('programBuilder.reviewDayLabel', { count: i + 1, label: day.label })}
           </Text>
           {day.exercises.length === 0 ? (
             <Text style={styles.reviewExEmpty}>{t('programBuilder.noExercises')}</Text>

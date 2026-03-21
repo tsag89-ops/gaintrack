@@ -10,6 +10,7 @@ import {
   Linking,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { useLanguage } from '../context/LanguageContext';
 
 interface ExerciseVideoProps {
   videoUrl: string;
@@ -18,6 +19,7 @@ interface ExerciseVideoProps {
 const { width } = Dimensions.get('window');
 
 export const ExerciseVideo: React.FC<ExerciseVideoProps> = ({ videoUrl }) => {
+  const { t } = useLanguage();
   // On web, show a simple link instead of WebView to avoid the platform error
   if (Platform.OS === 'web') {
     const handleOpen = () => {
@@ -27,10 +29,10 @@ export const ExerciseVideo: React.FC<ExerciseVideoProps> = ({ videoUrl }) => {
     return (
       <View style={styles.webContainer}>
         <Text style={styles.webText}>
-          Video preview works best on your phone. You can also open it in a new tab:
+          {t('exerciseVideo.webPreviewHint')}
         </Text>
         <TouchableOpacity onPress={handleOpen} style={styles.webButton}>
-          <Text style={styles.webButtonText}>Open exercise video</Text>
+          <Text style={styles.webButtonText}>{t('exerciseVideo.openVideoButton')}</Text>
         </TouchableOpacity>
       </View>
     );

@@ -433,7 +433,7 @@ const ActiveWorkoutScreen: React.FC = () => {
       // Countdown channel: DEFAULT importance = drawer only (no heads-up banner), no sound set,
       // 3-pulse vibration pattern that approximates the 3-2-1 second countdown.
       Notifications.setNotificationChannelAsync(REST_COUNTDOWN_CHANNEL_ID, {
-        name: 'Rest Countdown',
+        name: t('workoutActive.restCountdownChannelName'),
         importance: Notifications.AndroidImportance.DEFAULT,
         enableVibrate: true,
         vibrationPattern: [0, 200, 800, 200, 800, 200],

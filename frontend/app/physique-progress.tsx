@@ -149,6 +149,7 @@ async function persistPhoto(tempUri: string, id: string): Promise<string> {
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function WorkoutSummaryCard({ summary }: { summary: PhysiqueWorkoutSummary }) {
+  const { t } = useLanguage();
   return (
     <View style={styles.workoutCard}>
       <View style={styles.workoutCardHeader}>
@@ -158,17 +159,17 @@ function WorkoutSummaryCard({ summary }: { summary: PhysiqueWorkoutSummary }) {
       <View style={styles.workoutStats}>
         <View style={styles.workoutStat}>
           <Text style={styles.workoutStatValue}>{summary.exerciseCount}</Text>
-          <Text style={styles.workoutStatLabel}>exercises</Text>
+          <Text style={styles.workoutStatLabel}>{t('physiqueProgress.exercisesLabel')}</Text>
         </View>
         <View style={styles.workoutStatDivider} />
         <View style={styles.workoutStat}>
           <Text style={styles.workoutStatValue}>{summary.totalSets}</Text>
-          <Text style={styles.workoutStatLabel}>sets</Text>
+          <Text style={styles.workoutStatLabel}>{t('physiqueProgress.setsLabel')}</Text>
         </View>
         <View style={styles.workoutStatDivider} />
         <View style={styles.workoutStat}>
           <Text style={styles.workoutStatValue}>{Math.round(summary.totalVolume).toLocaleString()}</Text>
-          <Text style={styles.workoutStatLabel}>kg volume</Text>
+          <Text style={styles.workoutStatLabel}>{t('physiqueProgress.kgVolumeLabel')}</Text>
         </View>
       </View>
     </View>
@@ -176,6 +177,7 @@ function WorkoutSummaryCard({ summary }: { summary: PhysiqueWorkoutSummary }) {
 }
 
 function WorkoutDetailedLog({ summary }: { summary: PhysiqueWorkoutSummary }) {
+  const { t } = useLanguage();
   const workouts = summary.workouts ?? [];
 
   return (
@@ -184,7 +186,7 @@ function WorkoutDetailedLog({ summary }: { summary: PhysiqueWorkoutSummary }) {
 
       {workouts.map((workout, workoutIndex) => (
         <View key={`${workout.workoutId}_${workoutIndex}`} style={styles.workoutDetailsCard}>
-          <Text style={styles.workoutDetailsTitle}>{workout.name || `Workout ${workoutIndex + 1}`}</Text>
+          <Text style={styles.workoutDetailsTitle}>{workout.name || t('physiqueProgress.workoutFallback', { count: workoutIndex + 1 })}</Text>
 
           {workout.exercises.map((exercise, exerciseIndex) => (
             <View key={`${workout.workoutId}_${exercise.exerciseName}_${exerciseIndex}`} style={styles.exerciseDetailsCard}>
@@ -192,10 +194,10 @@ function WorkoutDetailedLog({ summary }: { summary: PhysiqueWorkoutSummary }) {
               {exercise.notes ? <Text style={styles.exerciseDetailsNotes}>{exercise.notes}</Text> : null}
 
               <View style={styles.exerciseTableHeader}>
-                <Text style={[styles.exerciseTableHeaderText, styles.exerciseColSet]}>Set</Text>
-                <Text style={[styles.exerciseTableHeaderText, styles.exerciseColReps]}>Reps</Text>
-                <Text style={[styles.exerciseTableHeaderText, styles.exerciseColWeight]}>Weight</Text>
-                <Text style={[styles.exerciseTableHeaderText, styles.exerciseColRpe]}>RPE</Text>
+                <Text style={[styles.exerciseTableHeaderText, styles.exerciseColSet]}>{t('workoutActive.setHeader')}</Text>
+                <Text style={[styles.exerciseTableHeaderText, styles.exerciseColReps]}>{t('workoutActive.repsHeader')}</Text>
+                <Text style={[styles.exerciseTableHeaderText, styles.exerciseColWeight]}>{t('workoutActive.weightHeader', { unit: 'kg' })}</Text>
+                <Text style={[styles.exerciseTableHeaderText, styles.exerciseColRpe]}>{t('workoutActive.rpeHeader')}</Text>
               </View>
 
               {exercise.sets.map((set, setIndex) => (
@@ -315,6 +317,7 @@ function AddPhotoModal({
   onCancel: () => void;
   saving: boolean;
 }) {
+  const { t } = useLanguage();
   const [notes, setNotes] = useState('');
 
   return (
@@ -325,11 +328,11 @@ function AddPhotoModal({
       >
         <View style={styles.addModalSheet}>
           <View style={styles.addModalHandle} />
-          <Text style={styles.addModalTitle}>Save Photo</Text>
+          <Text style={styles.addModalTitle}>{t('physiqueProgress.savePhotoTitle')}</Text>
           <Image source={{ uri: tempUri }} style={styles.addModalPreview} resizeMode="cover" />
           <TextInput
             style={styles.addModalInput}
-            placeholder="Add a note (optional)…"
+            placeholder={t('physiqueProgress.addNoteOptionalPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             value={notes}
             onChangeText={setNotes}
@@ -343,7 +346,7 @@ function AddPhotoModal({
               activeOpacity={0.75}
               disabled={saving}
             >
-              <Text style={styles.addModalBtnCancelText}>Cancel</Text>
+              <Text style={styles.addModalBtnCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.addModalBtn, styles.addModalBtnSave]}
@@ -354,7 +357,7 @@ function AddPhotoModal({
               {saving ? (
                 <ActivityIndicator size="small" color={colors.background} />
               ) : (
-                <Text style={styles.addModalBtnSaveText}>Save</Text>
+                <Text style={styles.addModalBtnSaveText}>{t('common.save')}</Text>
               )}
             </TouchableOpacity>
           </View>

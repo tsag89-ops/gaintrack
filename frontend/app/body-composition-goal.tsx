@@ -175,10 +175,10 @@ export default function BodyCompositionGoalScreen() {
       const mismatch = (weeklyRate < 0 && delta > 0) || (weeklyRate > 0 && delta < 0);
       if (mismatch) {
         Alert.alert(
-          'Goal Mismatch',
+          t('bodyGoal.goalMismatchTitle'),
           weeklyRate < 0
-            ? 'For a cut, target weight must be less than current weight.'
-            : 'For a bulk, target weight must be greater than current weight.',
+            ? t('bodyGoal.goalMismatchCutMessage')
+            : t('bodyGoal.goalMismatchBulkMessage'),
         );
         return;
       }
@@ -201,7 +201,7 @@ export default function BodyCompositionGoalScreen() {
         ? t('bodyGoal.projectedLine', { projection: format(projection.targetDate, 'MMM d, yyyy') })
         : '';
       Alert.alert(t('bodyGoal.goalSavedTitle'), t('bodyGoal.goalSavedMessage', { weight: tw, projection: projText }), [
-        { text: 'Done', onPress: () => router.back() },
+        { text: t('bodyGoal.doneButton'), onPress: () => router.back() },
       ]);
     } catch {
       Alert.alert(t('bodyGoal.saveErrorTitle'), t('bodyGoal.saveErrorMessage'));
@@ -212,9 +212,9 @@ export default function BodyCompositionGoalScreen() {
 
   const handleClearGoal = () => {
     Alert.alert(t('bodyGoal.clearGoalTitle'), t('bodyGoal.clearGoalMessage'), [
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Remove',
+        text: t('bodyGoal.removeButton'),
         style: 'destructive',
         onPress: async () => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -229,12 +229,12 @@ export default function BodyCompositionGoalScreen() {
   // ── Safety note ───────────────────────────────────────────────────────────
 
   const safetyNote = useMemo(() => {
-    if (weeklyRate === 0) return 'Maintain your current body composition.';
+    if (weeklyRate === 0) return t('bodyGoal.safetyMaintain');
     const abs = Math.abs(weeklyRate);
-    if (abs >= 1.0) return 'Aggressive rate — ensure high protein intake to preserve muscle.';
-    if (abs <= 0.25) return 'Conservative rate — ideal for minimising muscle loss during a cut.';
-    return 'Moderate rate — solid balance between fat loss and muscle retention.';
-  }, [weeklyRate]);
+    if (abs >= 1.0) return t('bodyGoal.safetyAggressive');
+    if (abs <= 0.25) return t('bodyGoal.safetyConservative');
+    return t('bodyGoal.safetyModerate');
+  }, [weeklyRate, t]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -262,7 +262,7 @@ export default function BodyCompositionGoalScreen() {
         >
           <Ionicons name="chevron-back" size={22} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Body Composition Goal</Text>
+        <Text style={styles.headerTitle}>{t('bodyGoal.headerTitle')}</Text>
         <TouchableOpacity
           style={[styles.headerSaveBtn, saving && styles.headerSaveBtnDisabled]}
           onPress={handleSave}
@@ -271,7 +271,7 @@ export default function BodyCompositionGoalScreen() {
         >
           {saving
             ? <ActivityIndicator size="small" color={colors.background} />
-            : <Text style={styles.headerSaveBtnText}>Save</Text>}
+            : <Text style={styles.headerSaveBtnText}>{t('common.save')}</Text>}
         </TouchableOpacity>
       </View>
 
@@ -286,28 +286,28 @@ export default function BodyCompositionGoalScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* ── Current Stats ── */}
-          <Text style={styles.sectionLabel}>CURRENT STATS</Text>
+          <Text style={styles.sectionLabel}>{t('bodyGoal.currentStatsSection')}</Text>
           <View style={styles.card}>
             <View style={styles.inputRow}>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Current Weight (kg)</Text>
+                <Text style={styles.inputLabel}>{t('bodyGoal.currentWeightLabel')}</Text>
                 <TextInput
                   style={styles.input}
                   value={currentWeight}
                   onChangeText={setCurrentWeight}
-                  placeholder="e.g. 80.0"
+                  placeholder={t('bodyGoal.currentWeightPlaceholder')}
                   placeholderTextColor={colors.textDisabled}
                   keyboardType="decimal-pad"
                   returnKeyType="next"
                 />
               </View>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Body Fat % (optional)</Text>
+                <Text style={styles.inputLabel}>{t('bodyGoal.currentBodyFatLabel')}</Text>
                 <TextInput
                   style={styles.input}
                   value={currentBodyFat}
                   onChangeText={setCurrentBodyFat}
-                  placeholder="e.g. 20"
+                  placeholder={t('bodyGoal.currentBodyFatPlaceholder')}
                   placeholderTextColor={colors.textDisabled}
                   keyboardType="decimal-pad"
                   returnKeyType="next"
@@ -317,28 +317,28 @@ export default function BodyCompositionGoalScreen() {
           </View>
 
           {/* ── Target ── */}
-          <Text style={styles.sectionLabel}>TARGET</Text>
+          <Text style={styles.sectionLabel}>{t('bodyGoal.targetSection')}</Text>
           <View style={styles.card}>
             <View style={styles.inputRow}>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Target Weight (kg)</Text>
+                <Text style={styles.inputLabel}>{t('bodyGoal.targetWeightLabel')}</Text>
                 <TextInput
                   style={styles.input}
                   value={targetWeight}
                   onChangeText={setTargetWeight}
-                  placeholder="e.g. 75.0"
+                  placeholder={t('bodyGoal.targetWeightPlaceholder')}
                   placeholderTextColor={colors.textDisabled}
                   keyboardType="decimal-pad"
                   returnKeyType="next"
                 />
               </View>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Target Body Fat % (opt)</Text>
+                <Text style={styles.inputLabel}>{t('bodyGoal.targetBodyFatLabel')}</Text>
                 <TextInput
                   style={styles.input}
                   value={targetBodyFat}
                   onChangeText={setTargetBodyFat}
-                  placeholder="e.g. 15"
+                  placeholder={t('bodyGoal.targetBodyFatPlaceholder')}
                   placeholderTextColor={colors.textDisabled}
                   keyboardType="decimal-pad"
                   returnKeyType="done"
@@ -348,9 +348,9 @@ export default function BodyCompositionGoalScreen() {
           </View>
 
           {/* ── Weekly Rate ── */}
-          <Text style={styles.sectionLabel}>WEEKLY RATE (kg/week)</Text>
+          <Text style={styles.sectionLabel}>{t('bodyGoal.weeklyRateSection')}</Text>
           <View style={styles.card}>
-            <Text style={styles.rateHint}>Negative = Cut · Zero = Maintain · Positive = Bulk</Text>
+            <Text style={styles.rateHint}>{t('bodyGoal.weeklyRateHint')}</Text>
             <View style={styles.rateGrid}>
               {RATE_PRESETS.map((preset) => {
                 const active = weeklyRate === preset.value;
@@ -385,10 +385,16 @@ export default function BodyCompositionGoalScreen() {
               <Ionicons name="flame-outline" size={13} color={colors.textDisabled} />
               <Text style={styles.rateNoteText}>
                 {weeklyRate === 0
-                  ? 'Maintenance — no calorie adjustment required'
+                  ? t('bodyGoal.maintenanceNoAdjustment')
                   : weeklyRate < 0
-                  ? `${Math.abs(weeklyRate)} kg/wk cut ≈ −${Math.abs(Math.round(weeklyRate * KCAL_PER_KG / 7))} kcal/day deficit`
-                  : `${weeklyRate} kg/wk bulk ≈ +${Math.round(weeklyRate * KCAL_PER_KG / 7)} kcal/day surplus`}
+                  ? t('bodyGoal.cutRateNote', {
+                      rate: Math.abs(weeklyRate),
+                      kcal: Math.abs(Math.round(weeklyRate * KCAL_PER_KG / 7)),
+                    })
+                  : t('bodyGoal.bulkRateNote', {
+                      rate: weeklyRate,
+                      kcal: Math.round(weeklyRate * KCAL_PER_KG / 7),
+                    })}
               </Text>
             </View>
           </View>
@@ -396,7 +402,7 @@ export default function BodyCompositionGoalScreen() {
           {/* ── Projection Summary ── */}
           {projection && (
             <>
-              <Text style={styles.sectionLabel}>PROJECTED TIMELINE</Text>
+              <Text style={styles.sectionLabel}>{t('bodyGoal.projectedTimelineSection')}</Text>
               <View style={[styles.card, styles.projectionCard]}>
                 {/* Goal header */}
                 <View style={styles.projectionHeader}>
@@ -405,8 +411,9 @@ export default function BodyCompositionGoalScreen() {
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.projectionTitle}>
-                      {weeklyRate < 0 ? 'Cut to ' : 'Bulk to '}
-                      {parseFloat(targetWeight).toFixed(1)} kg
+                      {weeklyRate < 0
+                        ? t('bodyGoal.cutToTitle', { weight: parseFloat(targetWeight).toFixed(1) })
+                        : t('bodyGoal.bulkToTitle', { weight: parseFloat(targetWeight).toFixed(1) })}
                     </Text>
                     {projection.targetDate && (
                       <Text style={styles.projectionDate}>
@@ -420,7 +427,7 @@ export default function BodyCompositionGoalScreen() {
                 <View style={styles.projStatRow}>
                   <View style={styles.projStatItem}>
                     <Text style={styles.projStatValue}>{projection.weeks}w</Text>
-                    <Text style={styles.projStatLabel}>Duration</Text>
+                    <Text style={styles.projStatLabel}>{t('bodyGoal.durationLabel')}</Text>
                   </View>
                   <View style={styles.projStatDivider} />
                   <View style={styles.projStatItem}>
@@ -431,7 +438,7 @@ export default function BodyCompositionGoalScreen() {
                       {weeklyRate < 0 ? '−' : '+'}{projection.fatChange} kg
                     </Text>
                     <Text style={styles.projStatLabel}>
-                      {weeklyRate < 0 ? 'Fat to Lose' : 'Mass to Gain'}
+                      {weeklyRate < 0 ? t('bodyGoal.fatToLoseLabel') : t('bodyGoal.massToGainLabel')}
                     </Text>
                   </View>
                   <View style={styles.projStatDivider} />
@@ -442,7 +449,7 @@ export default function BodyCompositionGoalScreen() {
                     ]}>
                       {projection.dailyKcal > 0 ? '+' : ''}{projection.dailyKcal}
                     </Text>
-                    <Text style={styles.projStatLabel}>kcal/day</Text>
+                    <Text style={styles.projStatLabel}>{t('bodyGoal.kcalPerDayLabel')}</Text>
                   </View>
                 </View>
 
@@ -451,13 +458,13 @@ export default function BodyCompositionGoalScreen() {
                   <View style={styles.lbmRow}>
                     {projection.lbm !== null && (
                       <View style={styles.lbmChip}>
-                        <Text style={styles.lbmChipLabel}>Current LBM</Text>
+                        <Text style={styles.lbmChipLabel}>{t('bodyGoal.currentLbmLabel')}</Text>
                         <Text style={styles.lbmChipValue}>{projection.lbm} kg</Text>
                       </View>
                     )}
                     {projection.targetLbm !== null && (
                       <View style={styles.lbmChip}>
-                        <Text style={styles.lbmChipLabel}>Target LBM</Text>
+                        <Text style={styles.lbmChipLabel}>{t('bodyGoal.targetLbmLabel')}</Text>
                         <Text style={styles.lbmChipValue}>{projection.targetLbm} kg</Text>
                       </View>
                     )}
@@ -481,7 +488,7 @@ export default function BodyCompositionGoalScreen() {
               activeOpacity={0.7}
             >
               <Ionicons name="trash-outline" size={16} color={colors.error} />
-              <Text style={styles.clearBtnText}>Remove Goal</Text>
+              <Text style={styles.clearBtnText}>{t('bodyGoal.removeGoalButton')}</Text>
             </TouchableOpacity>
           )}
 
