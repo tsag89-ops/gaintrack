@@ -20,3 +20,4 @@ Return format:
 - Why selected
 - Files changed
 - Validation run and result
+- Always commit, push and update to main after each completed task with a clear message; avoid large commits spanning multiple concerns
