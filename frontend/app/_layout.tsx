@@ -16,7 +16,12 @@ import { useAuthStore } from '../src/store/authStore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
+import * as SplashScreen from 'expo-splash-screen';
 import { getDeviceLocale, translate } from '../src/i18n/translations';
+
+// Keep the native splash screen visible until our JS AuthSplash overlay is
+// rendered and displayed, eliminating any blank-screen flash on cold start.
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const appLocale = getDeviceLocale();
 
@@ -66,9 +71,17 @@ export default function RootLayout() {
   const [hasMounted, setHasMounted] = useState(false);
   useEffect(() => { setHasMounted(true); }, []);
 
+  // Once the JS splash overlay is mounted and painted, release the native
+  // splash screen so the two swap seamlessly with no blank frame in between.
+  useEffect(() => {
+    if (hasMounted) SplashScreen.hideAsync().catch(() => {});
+  }, [hasMounted]);
+
   // OTA update: check on cold start (native + production only).
-  // If an update is available, download it and reload. The splash stays up
-  // during the download so the user never sees a half-loaded UI.
+  // If an update is available, download it silently while the splash is
+  // visible. After the download the splash exits and the auth gate routes
+  // normally to the login screen. The embedded update takes effect on the
+  // next cold start — no mid-session reload that would disorient the user.
   const [otaMessage, setOtaMessage] = useState<string | undefined>(undefined);
   useEffect(() => {
     if (Platform.OS === 'web' || __DEV__) return;
@@ -79,7 +92,11 @@ export default function RootLayout() {
         if (!result.isAvailable || cancelled) return;
         setOtaMessage('Installing update...');
         await Updates.fetchUpdateAsync();
-        if (!cancelled) await Updates.reloadAsync();
+        if (cancelled) return;
+        // Brief pause so the progress bar visually reaches 100 % before the
+        // splash exits, then clear the message to unblock auth routing.
+        await new Promise(r => setTimeout(r, 700));
+        if (!cancelled) setOtaMessage(undefined);
       } catch (e) {
         // Silent — never block the app for a failed update check
         console.warn('[OTA] update check skipped:', e);
