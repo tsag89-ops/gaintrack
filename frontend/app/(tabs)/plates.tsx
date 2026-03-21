@@ -15,12 +15,11 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { usePlateCalculator, BAR_OPTIONS, DEFAULT_PLATES } from '../../src/hooks/usePlateCalculator';
+import { usePlateCalculator, BAR_OPTIONS } from '../../src/hooks/usePlateCalculator';
 import PlateBarVisual from '../../src/components/PlateBarVisual';
 import { colors, typography, spacing, radii, shadows } from '../../src/constants/theme';
 import { Unit } from '../../src/types/plates';
@@ -40,7 +39,7 @@ export default function PlatesScreen() {
     setTargetWeight,
     setPlateCount,
     resetToDefaults,
-    useInActiveWorkout,
+    useInActiveWorkout: applyInActiveWorkout,
   } = usePlateCalculator();
 
   const [inputFocused, setInputFocused] = useState(false);
@@ -76,7 +75,7 @@ export default function PlatesScreen() {
 
   function handleUseInWorkout() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    useInActiveWorkout();
+    applyInActiveWorkout();
   }
 
   // ── Build the result summary string ───────────────────────────────────────

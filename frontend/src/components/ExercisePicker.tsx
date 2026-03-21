@@ -7,13 +7,11 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
-  useRef,
 } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   SectionList,
   TouchableOpacity,
   ScrollView,
@@ -39,8 +37,6 @@ import {
 } from '../services/storage';
 import { sendPaywallTelemetry } from '../services/notifications';
 import { Input } from './ui/Input';
-import { Badge } from './ui/Badge';
-import { Card } from './ui/Card';
 import { useLanguage } from '../context/LanguageContext';
 import {
   localizeEquipmentLabel,
@@ -181,12 +177,14 @@ const VideoPreview: React.FC<{ exercise: Exercise; isPro: boolean }> = ({
   exercise,
   isPro,
 }) => {
+  const { t } = useLanguage();
+
   if (!isPro) {
     return (
       <View style={previewStyles.locked}>
         <Ionicons name="lock-closed-outline" size={20} color={theme.primary} />
         <Text style={previewStyles.lockedText}>
-          {translate(locale, 'exercisePicker.unlockVideoPreviews')}
+          {t('exercisePicker.unlockVideoPreviews')}
         </Text>
       </View>
     );
@@ -195,7 +193,7 @@ const VideoPreview: React.FC<{ exercise: Exercise; isPro: boolean }> = ({
   if (!exercise.videoUrl) {
     return (
       <View style={previewStyles.locked}>
-        <Text style={previewStyles.lockedText}>{translate(locale, 'exercisePicker.noVideoAvailable')}</Text>
+        <Text style={previewStyles.lockedText}>{t('exercisePicker.noVideoAvailable')}</Text>
       </View>
     );
   }
@@ -208,7 +206,7 @@ const VideoPreview: React.FC<{ exercise: Exercise; isPro: boolean }> = ({
         onPress={() => Linking.openURL(exercise.videoUrl)}
       >
         <Ionicons name="play-circle-outline" size={18} color={theme.primary} />
-        <Text style={previewStyles.webLinkText}>{translate(locale, 'exercisePicker.openExerciseVideo')}</Text>
+        <Text style={previewStyles.webLinkText}>{t('exercisePicker.openExerciseVideo')}</Text>
       </TouchableOpacity>
     );
   }

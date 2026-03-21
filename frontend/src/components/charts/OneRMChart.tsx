@@ -3,11 +3,10 @@
 // [PRO] — renders ProGate for free users.
 
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { TouchableOpacity } from 'react-native';
 import { colors, typography, spacing, radii } from '../../constants/theme';
 import { usePro } from '../../hooks/usePro';
 import { calc1RM } from '../../utils/fitness';
@@ -30,27 +29,6 @@ export function OneRMChart({ exerciseName, workouts }: Props) {
   const { isPro } = usePro();
   const { t } = useLanguage();
   const router = useRouter();
-
-  // [PRO] — block non-Pro users
-  if (!isPro) {
-    return (
-      <View style={styles.proGate}>
-        <View style={styles.proGateIconWrap}>
-          <Ionicons name="lock-closed" size={24} color={colors.primary} />
-        </View>
-        <Text style={styles.proGateTitle}>{t('progressTab.estimatedOneRm')}</Text>
-        <Text style={styles.proGateBody}>{t('oneRmChart.proGateBody')}</Text>
-        <TouchableOpacity
-          style={styles.proGateBtn}
-          activeOpacity={0.85}
-          onPress={() => router.push('/pro-paywall' as any)}
-        >
-          <Ionicons name="flash" size={14} color={colors.background} />
-          <Text style={styles.proGateBtnText}>{t('progressTab.upgradeCta')}</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
 
   const chartData = useMemo(() => {
     const pts: { date: string; val: number }[] = [];
@@ -75,6 +53,27 @@ export function OneRMChart({ exerciseName, workouts }: Props) {
       data:   last.map((p) => p.val),
     };
   }, [workouts, exerciseName]);
+
+  // [PRO] — block non-Pro users
+  if (!isPro) {
+    return (
+      <View style={styles.proGate}>
+        <View style={styles.proGateIconWrap}>
+          <Ionicons name="lock-closed" size={24} color={colors.primary} />
+        </View>
+        <Text style={styles.proGateTitle}>{t('progressTab.estimatedOneRm')}</Text>
+        <Text style={styles.proGateBody}>{t('oneRmChart.proGateBody')}</Text>
+        <TouchableOpacity
+          style={styles.proGateBtn}
+          activeOpacity={0.85}
+          onPress={() => router.push('/pro-paywall' as any)}
+        >
+          <Ionicons name="flash" size={14} color={colors.background} />
+          <Text style={styles.proGateBtnText}>{t('progressTab.upgradeCta')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (chartData.labels.length < 2) {
     return (
