@@ -19,6 +19,11 @@ applyTo: "frontend/app/**/*.tsx, frontend/src/components/**/*.tsx"
 - Follow expo-router route patterns used in frontend/app and nested groups like (tabs), (auth), and workout.
 - Keep edits surgical in existing screens unless the task explicitly asks for broader refactors.
 
+## Localization
+- Every user-visible string in a new screen or component must use `t()` from `useLanguage()` from the very first commit.
+- Raw English string literals visible to the user are not allowed, except for domain-standard acronyms/units (RPE, 1RM, kg, lb/lbs, cm, in, kcal, cal, g, W, km, mi, BPM, VO2max, CSV, %, KG, REPS) and the `PRO`/`FREE` badges.
+- When adding a new key under `en` in `src/i18n/translations.ts`, add non-empty translations for el, de, fr, and it in the same change. Do not leave any locale relying on the English fallback for newly introduced text.
+
 ## Quality Gates
 - Keep TypeScript strict-safe and avoid any-casts unless there is no practical typed alternative.
 - Before closing UI tasks, run frontend lint and typecheck when feasible.

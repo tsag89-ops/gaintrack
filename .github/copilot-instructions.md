@@ -78,6 +78,8 @@ npx eas update --branch production --message "<description>"
 - Entries in translations.ts that are identical to `en` for these terms are intentional; do not flag or re-translate them.
 - Preserve `{{token}}` interpolation placeholders exactly as written in every locale.
 - Brand strings `GainTrack`, `GainTrack Pro`, `PRO`, and `FREE` are never translated.
+- **New UI must ship localized.** Any new screen, modal, component, or feature must use `t()` from the very first commit for all user-visible strings (titles, labels, placeholders, errors, empty states, CTAs, toasts, etc.). Raw English string literals visible to the user are not allowed, except for the blessed acronyms/units above and the `PRO`/`FREE` badges.
+- For every new key added under `en` in translations.ts, add non-empty values for el, de, fr, and it in the same change. Do not rely on English fallback for newly added text.
 
 ## Pro Gating and Data Rules
 - Gate paid features through frontend/src/hooks/usePro.ts.

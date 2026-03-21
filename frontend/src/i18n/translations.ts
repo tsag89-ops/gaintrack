@@ -17,6 +17,17 @@
  *
  * 4. Brand strings GainTrack, GainTrack Pro, PRO, and FREE are never
  *    translated or localised.
+ *
+ * 5. NEW UI MUST SHIP LOCALIZED — future-work rule
+ *    Any new screen, modal, component, or feature must use t() from the
+ *    very first commit for ALL user-visible strings (titles, subtitles,
+ *    labels, placeholders, errors, helpers, empty states, CTAs, toasts,
+ *    notifications, etc.).
+ *    Raw English string literals in TSX visible to the user are NOT allowed,
+ *    except for the acronyms/units listed in rule 2 and the PRO/FREE badges.
+ *    For every new key added under `en`, non-empty values for el, de, fr,
+ *    and it must be added in the SAME change. Do not rely on English fallback
+ *    for newly added text.
  */
 
 export type SupportedLocale = 'en' | 'el' | 'de' | 'fr' | 'it';
