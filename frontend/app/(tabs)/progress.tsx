@@ -101,7 +101,7 @@ interface PremiumInsightData {
 /** ISO week label e.g. "2025-W04" */
 const isoWeekLabel = (dateStr: string): string => {
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return 'bad';
+  if (isNaN(d.getTime())) return '--';
   const day = d.getDay() || 7;
   d.setDate(d.getDate() + 4 - day);
   const yearStart = new Date(d.getFullYear(), 0, 1);
@@ -111,7 +111,7 @@ const isoWeekLabel = (dateStr: string): string => {
 
 const shortDate = (dateStr: string): string => {
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return '?';
+  if (isNaN(d.getTime())) return '--';
   return (d.getMonth() + 1) + '/' + d.getDate();
 };
 
@@ -195,15 +195,17 @@ const CHART_CFG = {
 
 const ExerciseSelector = React.memo(function ExerciseSelector({
   selectedExercise,
+  placeholder,
   onPress,
 }: {
   selectedExercise: string;
+  placeholder: string;
   onPress: () => void;
 }) {
   return (
     <TouchableOpacity style={styles.exerciseSelector} onPress={onPress} activeOpacity={0.75}>
       <Text style={styles.exerciseSelectorText} numberOfLines={1}>
-        {selectedExercise || 'Select Exercise'}
+        {selectedExercise || placeholder}
       </Text>
       <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
     </TouchableOpacity>
@@ -365,10 +367,10 @@ export default function ProgressScreen() {
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(-8);
     return {
-      labels: sorted.map(([wk]) => 'W' + (wk.split('-W')[1] ?? wk)),
+      labels: sorted.map(([wk]) => `${t('progressTab.weekPrefix')}${wk.split('-W')[1] ?? wk}`),
       data: sorted.map(([, v]) => Math.round(v)),
     };
-  }, [workouts, selectedExercise]);
+  }, [workouts, selectedExercise, t]);
 
   const prList = useMemo((): PREntry[] => {
     const map = new Map<string, PREntry>();
@@ -578,7 +580,7 @@ export default function ProgressScreen() {
       const rows = ['Date,Workout,Exercise,Set,Reps,Weight_kg,1RM_kg'];
       workouts.forEach((w) => {
         const wDate = format(new Date(w.date), 'yyyy-MM-dd');
-        const wName = (w.name ?? 'Workout').replace(/,/g, ' ');
+        const wName = (w.name ?? t('workoutDetail.defaultWorkoutName')).replace(/,/g, ' ');
         (w.exercises ?? []).forEach((ex) => {
           const eName = getExName(ex).replace(/,/g, ' ');
           (ex.sets ?? []).forEach((s, i) => {
@@ -783,7 +785,7 @@ export default function ProgressScreen() {
 
           {activeTab === '1rm' && (
             <View>
-              <ExerciseSelector selectedExercise={selectedExercise} onPress={openExercisePicker} />
+              <ExerciseSelector selectedExercise={selectedExercise} placeholder={t('progressTab.selectExercise')} onPress={openExercisePicker} />
               {hasData(oneRMChart) ? (
                 <View style={styles.chartCard}>
                   <Text style={styles.cardTitle}>{t('progressTab.estimatedOneRm')}</Text>
@@ -796,15 +798,15 @@ export default function ProgressScreen() {
                     bezier
                     withShadow={false}
                     style={styles.chart}
-                    yAxisSuffix=" kg"
+                    yAxisSuffix={` ${t('progressTab.kgUnit')}`}
                     formatYLabel={(y) => String(Math.round(Number(y)))}
                   />
                   <View style={styles.statRow}>
-                    <StatBox label={t('progressTab.bestOneRm')} value={Math.max(...oneRMChart.data) + ' kg'} />
-                    <StatBox label={t('progressTab.latest')} value={oneRMChart.data[oneRMChart.data.length - 1] + ' kg'} />
+                    <StatBox label={t('progressTab.bestOneRm')} value={`${Math.max(...oneRMChart.data)} ${t('progressTab.kgUnit')}`} />
+                    <StatBox label={t('progressTab.latest')} value={`${oneRMChart.data[oneRMChart.data.length - 1]} ${t('progressTab.kgUnit')}`} />
                     <StatBox
                       label={t('progressTab.change')}
-                      value={(oneRMChart.data[oneRMChart.data.length - 1] >= oneRMChart.data[0] ? '+' : '') + (oneRMChart.data[oneRMChart.data.length - 1] - oneRMChart.data[0]) + ' kg'}
+                      value={`${oneRMChart.data[oneRMChart.data.length - 1] >= oneRMChart.data[0] ? '+' : ''}${oneRMChart.data[oneRMChart.data.length - 1] - oneRMChart.data[0]} ${t('progressTab.kgUnit')}`}
                       valueColor={oneRMChart.data[oneRMChart.data.length - 1] >= oneRMChart.data[0] ? colors.success : colors.error}
                     />
                   </View>
@@ -817,7 +819,7 @@ export default function ProgressScreen() {
 
           {activeTab === 'volume' && (
             <View>
-              <ExerciseSelector selectedExercise={selectedExercise} onPress={openExercisePicker} />
+              <ExerciseSelector selectedExercise={selectedExercise} placeholder={t('progressTab.selectExercise')} onPress={openExercisePicker} />
               {hasData(volumeChart) ? (
                 <View style={styles.chartCard}>
                   <Text style={styles.cardTitle}>{t('progressTab.weeklyVolumeLoadTitle')}</Text>
@@ -829,15 +831,15 @@ export default function ProgressScreen() {
                     chartConfig={CHART_CFG}
                     style={styles.chart}
                     yAxisLabel=""
-                    yAxisSuffix=" kg"
+                    yAxisSuffix={` ${t('progressTab.kgUnit')}`}
                     fromZero
                     showValuesOnTopOfBars={false}
                     withInnerLines
                   />
                   <View style={styles.statRow}>
-                    <StatBox label={t('progressTab.avgPerWeek')} value={Math.round(volumeChart.data.reduce((a, b) => a + b, 0) / volumeChart.data.length) + ' kg'} />
-                    <StatBox label={t('progressTab.peakWeek')} value={Math.max(...volumeChart.data) + ' kg'} />
-                    <StatBox label={t('progressTab.total')} value={volumeChart.data.reduce((a, b) => a + b, 0) + ' kg'} />
+                    <StatBox label={t('progressTab.avgPerWeek')} value={`${Math.round(volumeChart.data.reduce((a, b) => a + b, 0) / volumeChart.data.length)} ${t('progressTab.kgUnit')}`} />
+                    <StatBox label={t('progressTab.peakWeek')} value={`${Math.max(...volumeChart.data)} ${t('progressTab.kgUnit')}`} />
+                    <StatBox label={t('progressTab.total')} value={`${volumeChart.data.reduce((a, b) => a + b, 0)} ${t('progressTab.kgUnit')}`} />
                   </View>
                 </View>
               ) : (
@@ -859,7 +861,7 @@ export default function ProgressScreen() {
                       chartConfig={{ ...CHART_CFG, propsForLabels: { fontSize: '11' } }}
                       style={styles.chart}
                       yAxisLabel=""
-                      yAxisSuffix=" kg"
+                      yAxisSuffix={` ${t('progressTab.kgUnit')}`}
                       fromZero
                       showValuesOnTopOfBars
                       withInnerLines
@@ -930,15 +932,15 @@ export default function ProgressScreen() {
                     bezier
                     withShadow={false}
                     style={styles.chart}
-                    yAxisSuffix=" kg"
+                    yAxisSuffix={` ${t('progressTab.kgUnit')}`}
                     formatYLabel={(y) => String(Math.round(Number(y)))}
                   />
                   <View style={styles.statRow}>
-                    <StatBox label={t('progressTab.current')} value={bwChart.data[bwChart.data.length - 1] + ' kg'} />
-                    <StatBox label={t('progressTab.lowest')} value={Math.min(...bwChart.data) + ' kg'} />
+                    <StatBox label={t('progressTab.current')} value={`${bwChart.data[bwChart.data.length - 1]} ${t('progressTab.kgUnit')}`} />
+                    <StatBox label={t('progressTab.lowest')} value={`${Math.min(...bwChart.data)} ${t('progressTab.kgUnit')}`} />
                     <StatBox
                       label={t('progressTab.change')}
-                      value={(bwChart.data[bwChart.data.length - 1] >= bwChart.data[0] ? '+' : '') + Math.round((bwChart.data[bwChart.data.length - 1] - bwChart.data[0]) * 10) / 10 + ' kg'}
+                      value={`${bwChart.data[bwChart.data.length - 1] >= bwChart.data[0] ? '+' : ''}${Math.round((bwChart.data[bwChart.data.length - 1] - bwChart.data[0]) * 10) / 10} ${t('progressTab.kgUnit')}`}
                       valueColor={bwChart.data[bwChart.data.length - 1] <= bwChart.data[0] ? colors.success : colors.error}
                     />
                   </View>
@@ -970,7 +972,7 @@ export default function ProgressScreen() {
                   </View>
                   <View style={styles.goalStatRow}>
                     <View style={styles.goalStat}>
-                      <Text style={styles.goalStatValue}>{goal.targetWeight} kg</Text>
+                      <Text style={styles.goalStatValue}>{`${goal.targetWeight} ${t('progressTab.kgUnit')}`}</Text>
                       <Text style={styles.goalStatLabel}>{t('progressTab.target')}</Text>
                     </View>
                     <Ionicons name="arrow-forward-outline" size={14} color={colors.textDisabled} />
@@ -979,7 +981,7 @@ export default function ProgressScreen() {
                         styles.goalStatValue,
                         { color: goal.weeklyRate < 0 ? colors.info : goal.weeklyRate > 0 ? colors.success : colors.textSecondary },
                       ]}>
-                        {goal.weeklyRate > 0 ? '+' : ''}{goal.weeklyRate} kg/wk
+                        {`${goal.weeklyRate > 0 ? '+' : ''}${goal.weeklyRate} ${t('progressTab.kgPerWeek')}`}
                       </Text>
                       <Text style={styles.goalStatLabel}>{t('progressTab.rate')}</Text>
                     </View>
@@ -1039,7 +1041,7 @@ export default function ProgressScreen() {
                     bezier
                     withShadow={false}
                     style={styles.chart}
-                    yAxisSuffix=" kg"
+                    yAxisSuffix={` ${t('progressTab.kgUnit')}`}
                     formatYLabel={(y) => String(Math.round(Number(y)))}
                   />
                   <View style={styles.projLegendRow}>
@@ -1066,7 +1068,7 @@ export default function ProgressScreen() {
                     return (
                       <View key={i} style={[styles.bwRow, i === 0 ? { marginTop: 8 } : undefined]}>
                         <Text style={styles.bwDate}>{new Date(m.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
-                        <Text style={styles.bwWeight}>{bw} kg</Text>
+                        <Text style={styles.bwWeight}>{`${bw} ${t('progressTab.kgUnit')}`}</Text>
                       </View>
                     );
                   })}
@@ -1090,9 +1092,9 @@ export default function ProgressScreen() {
                     withInnerLines
                   />
                   <View style={styles.statRow}>
-                    <StatBox label={t('progressTab.avgPerDay')} value={nutritionChart.avgCalories + ' kcal'} />
-                    <StatBox label={t('progressTab.avgProtein')} value={nutritionChart.avgProtein + 'g'} />
-                    <StatBox label={t('progressTab.daysLogged')} value={nutritionChart.daysLogged + ' / 7'} />
+                    <StatBox label={t('progressTab.avgPerDay')} value={`${nutritionChart.avgCalories} ${t('addFood.kcalShort')}`} />
+                    <StatBox label={t('progressTab.avgProtein')} value={`${nutritionChart.avgProtein}${t('addFood.gramsSuffix')}`} />
+                    <StatBox label={t('progressTab.daysLogged')} value={t('progressTab.daysLoggedValue', { logged: nutritionChart.daysLogged, total: 7 })} />
                   </View>
                 </View>
               )}

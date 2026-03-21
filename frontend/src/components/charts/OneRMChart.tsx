@@ -22,7 +22,7 @@ const SCREEN_W = Dimensions.get('window').width;
 
 const shortDate = (dateStr: string): string => {
   const d = new Date(dateStr);
-  return isNaN(d.getTime()) ? '?' : (d.getMonth() + 1) + '/' + d.getDate();
+  return isNaN(d.getTime()) ? '' : (d.getMonth() + 1) + '/' + d.getDate();
 };
 
 export function OneRMChart({ exerciseName, workouts }: Props) {
@@ -102,7 +102,7 @@ export function OneRMChart({ exerciseName, workouts }: Props) {
         }}
         width={SCREEN_W - 48}
         height={200}
-        yAxisSuffix=" kg"
+        yAxisSuffix={` ${t('progressTab.kgUnit')}`}
         chartConfig={{
           backgroundColor:         colors.surface,
           backgroundGradientFrom:  colors.surface,
@@ -121,16 +121,16 @@ export function OneRMChart({ exerciseName, workouts }: Props) {
 
       <View style={styles.statRow}>
         <View style={styles.statBox}>
-          <Text style={styles.statValue}>{best} kg</Text>
+          <Text style={styles.statValue}>{`${best} ${t('progressTab.kgUnit')}`}</Text>
           <Text style={styles.statLabel}>{t('progressTab.bestOneRm')}</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={styles.statValue}>{latest} kg</Text>
+          <Text style={styles.statValue}>{`${latest} ${t('progressTab.kgUnit')}`}</Text>
           <Text style={styles.statLabel}>{t('progressTab.latest')}</Text>
         </View>
         <View style={styles.statBox}>
           <Text style={[styles.statValue, { color: delta >= 0 ? colors.success : colors.error }]}>
-            {delta >= 0 ? '+' : ''}{delta} kg
+            {`${delta >= 0 ? '+' : ''}${delta} ${t('progressTab.kgUnit')}`}
           </Text>
           <Text style={styles.statLabel}>{t('progressTab.change')}</Text>
         </View>

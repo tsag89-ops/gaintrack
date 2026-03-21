@@ -56,12 +56,16 @@ function SwipeableFoodEntry({
   onEdit,
   editLabel,
   deleteLabel,
+  fallbackFoodName,
+  macroSummary,
 }: {
   entry: any;
   onDelete: () => void;
   onEdit: () => void;
   editLabel: string;
   deleteLabel: string;
+  fallbackFoodName: string;
+  macroSummary: (args: { calories: number; protein: number; carbs: number; fat: number }) => string;
 }) {
   const swipeRef = useRef<Swipeable>(null);
 
@@ -107,9 +111,14 @@ function SwipeableFoodEntry({
           <Image source={{ uri: entry.imageUrl }} style={styles.foodEntryThumb} />
         ) : null}
         <View style={{ flex: 1 }}>
-          <Text style={styles.foodName} numberOfLines={1}>{entry.food_name ?? entry.name ?? 'Food'}</Text>
+          <Text style={styles.foodName} numberOfLines={1}>{entry.food_name ?? entry.name ?? fallbackFoodName}</Text>
           <Text style={styles.foodMacros}>
-            {Math.round(entry.calories ?? 0)} kcal · P {Math.round(entry.protein ?? 0)}g · C {Math.round(entry.carbs ?? 0)}g · F {Math.round(entry.fat ?? 0)}g
+            {macroSummary({
+              calories: Math.round(entry.calories ?? 0),
+              protein: Math.round(entry.protein ?? 0),
+              carbs: Math.round(entry.carbs ?? 0),
+              fat: Math.round(entry.fat ?? 0),
+            })}
           </Text>
         </View>
       </View>
@@ -119,7 +128,7 @@ function SwipeableFoodEntry({
 
 export default function NutritionScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const user = useAuthStore((s) => s.user);
   const userId = user?.id;
   const { isPro } = usePro();
@@ -227,7 +236,7 @@ export default function NutritionScreen() {
           <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.dateText}>
-          {isToday ? t('nutritionTab.today') : format(selectedDate, 'EEE, MMM d')}
+          {isToday ? t('nutritionTab.today') : selectedDate.toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric' })}
         </Text>
         <TouchableOpacity
           onPress={() => setSelectedDate(d => addDays(d, 1))}
@@ -278,7 +287,7 @@ export default function NutritionScreen() {
                 <View style={styles.mealHeaderLeft}>
                   <Ionicons name={MEAL_ICONS[mealType] as any} size={18} color="#FF6200" />
                   <Text style={styles.mealTitle}>{t(`nutritionTab.meals.${mealType}`)}</Text>
-                  {mealKcal > 0 && <Text style={styles.mealKcal}>{Math.round(mealKcal)} kcal</Text>}
+                  {mealKcal > 0 && <Text style={styles.mealKcal}>{`${Math.round(mealKcal)} ${t('addFood.kcalShort')}`}</Text>}
                 </View>
                 <TouchableOpacity
                   style={styles.addBtn}
@@ -304,6 +313,20 @@ export default function NutritionScreen() {
                     entry={entry}
                     editLabel={t('nutritionTab.edit')}
                     deleteLabel={t('nutritionTab.delete')}
+                    fallbackFoodName={t('nutritionTab.fallbackFoodName')}
+                    macroSummary={({ calories, protein, carbs, fat }) =>
+                      t('nutritionTab.macroSummaryInline', {
+                        calories,
+                        protein,
+                        carbs,
+                        fat,
+                        kcal: t('addFood.kcalShort'),
+                        proteinLabel: t('addFood.protein').charAt(0).toUpperCase(),
+                        carbsLabel: t('addFood.carbs').charAt(0).toUpperCase(),
+                        fatLabel: t('addFood.fat').charAt(0).toUpperCase(),
+                        grams: t('addFood.gramsSuffix'),
+                      })
+                    }
                     onDelete={() => handleDeleteEntry(mealType, idx)}
                     onEdit={() => openEdit(entry, mealType, idx)}
                   />
@@ -320,7 +343,7 @@ export default function NutritionScreen() {
           <View style={styles.editModalContent}>
             <View style={styles.editModalHeader}>
               <Text style={styles.editModalTitle} numberOfLines={1}>
-                {editTarget?.entry?.food_name ?? editTarget?.entry?.name ?? 'Edit Entry'}
+                {editTarget?.entry?.food_name ?? editTarget?.entry?.name ?? t('nutritionTab.editEntryFallbackTitle')}
               </Text>
               <TouchableOpacity onPress={() => setEditTarget(null)}>
                 <Ionicons name="close" size={22} color="#B0B0B0" />
@@ -354,9 +377,9 @@ export default function NutritionScreen() {
               return (
                 <View style={styles.editMacroRow}>
                   <View style={styles.editMacroItem}><Text style={styles.editMacroVal}>{cal}</Text><Text style={styles.editMacroLbl}>{t('addFood.calAbbrev')}</Text></View>
-                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#FF6200' }]}>{pro}g</Text><Text style={styles.editMacroLbl}>{t('nutritionTab.protein').slice(0, 1)}</Text></View>
-                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#3B82F6' }]}>{car}g</Text><Text style={styles.editMacroLbl}>{t('nutritionTab.carbs').slice(0, 1)}</Text></View>
-                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#F59E0B' }]}>{fat}g</Text><Text style={styles.editMacroLbl}>{t('nutritionTab.fat').slice(0, 1)}</Text></View>
+                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#FF6200' }]}>{`${pro}${t('addFood.gramsSuffix')}`}</Text><Text style={styles.editMacroLbl}>{t('nutritionTab.protein').slice(0, 1)}</Text></View>
+                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#3B82F6' }]}>{`${car}${t('addFood.gramsSuffix')}`}</Text><Text style={styles.editMacroLbl}>{t('nutritionTab.carbs').slice(0, 1)}</Text></View>
+                  <View style={styles.editMacroItem}><Text style={[styles.editMacroVal, { color: '#F59E0B' }]}>{`${fat}${t('addFood.gramsSuffix')}`}</Text><Text style={styles.editMacroLbl}>{t('nutritionTab.fat').slice(0, 1)}</Text></View>
                 </View>
               );
             })()}

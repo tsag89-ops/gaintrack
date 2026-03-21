@@ -516,7 +516,7 @@ Always give specific, personalized advice referencing the user's actual data, cu
         try {
           const rateBody = await res.json();
           if (rateBody?.code === 'daily_limit_exceeded') {
-            detail = `Daily cap reached: ${PRO_DAILY_AI_CHAT_LIMIT} messages/day.`;
+            detail = t('aiSuggestions.errors.dailyCapReachedDetail', { limit: PRO_DAILY_AI_CHAT_LIMIT });
           }
         } catch {
           detail = '';

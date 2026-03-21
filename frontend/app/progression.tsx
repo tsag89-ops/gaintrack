@@ -75,7 +75,7 @@ const TREND_ICONS: Record<string, { icon: string; color: string }> = {
 
 export default function ProgressionScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const weightUnit = useWeightUnit();
   const [suggestions, setSuggestions] = useState<ProgressionSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -172,7 +172,7 @@ export default function ProgressionScreen() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
   };
 
   return (
@@ -240,7 +240,7 @@ export default function ProgressionScreen() {
                 <Text style={styles.depthTitle}>{t('progression.periodizationTitle')}</Text>
               </View>
               <Text style={styles.depthValue}>
-                {analyticsInsights.periodizationPhase.charAt(0).toUpperCase() + analyticsInsights.periodizationPhase.slice(1)}
+                {t(`progression.phases.${analyticsInsights.periodizationPhase}`)}
               </Text>
               <Text style={styles.depthBody}>{analyticsInsights.periodizationMessage}</Text>
               <Text style={styles.depthMeta}>{t('progression.cycleCadence')}</Text>
@@ -321,7 +321,7 @@ export default function ProgressionScreen() {
                         <View key={idx} style={styles.perfItem}>
                           <Text style={styles.perfDate}>{formatDate(perf.date)}</Text>
                           <Text style={styles.perfWeight}>{perf.max_weight} {weightUnit}</Text>
-                          <Text style={styles.perfRpe}>RPE {perf.avg_rpe}</Text>
+                          <Text style={styles.perfRpe}>{`${t('progression.rpe')} ${perf.avg_rpe}`}</Text>
                         </View>
                       ))}
                     </View>
@@ -366,7 +366,15 @@ export default function ProgressionScreen() {
                       color={TREND_ICONS[exerciseHistory.trend]?.color || '#B0B0B0'}
                     />
                     <Text style={[styles.prValue, { textTransform: 'capitalize' }]}>
-                      {exerciseHistory.trend.replace('_', ' ')}
+                      {exerciseHistory.trend === 'improving'
+                        ? t('progression.trendLabels.improving')
+                        : exerciseHistory.trend === 'stable'
+                          ? t('progression.trendLabels.stable')
+                          : exerciseHistory.trend === 'declining'
+                            ? t('progression.trendLabels.declining')
+                            : exerciseHistory.trend === 'not_enough_data'
+                              ? t('progression.trendLabels.notEnoughData')
+                              : t('progression.trendLabels.noData')}
                     </Text>
                     <Text style={styles.prLabel}>{t('progression.trend')}</Text>
                   </View>

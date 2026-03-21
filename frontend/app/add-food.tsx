@@ -120,7 +120,7 @@ export default function AddFoodScreen() {
         protein: parseFloat(createProtein) || 0,
         carbs: parseFloat(createCarbs) || 0,
         fat: parseFloat(createFat) || 0,
-        unit: createUnit.trim() || '1 serving',
+        unit: createUnit.trim() || t('addFood.defaultServingUnit'),
       });
       setFoods(prev => [...prev, newFood as Food]);
       setShowCreateModal(false);
@@ -191,11 +191,11 @@ export default function AddFoodScreen() {
             <Text style={styles.foodServing}>{t('addFood.per100g')}</Text>
           </View>
           <View style={styles.foodMacros}>
-            <Text style={styles.foodCalories}>{Math.round(item.calories)} kcal</Text>
+            <Text style={styles.foodCalories}>{`${Math.round(item.calories)} ${t('addFood.kcalShort')}`}</Text>
             <View style={styles.macroRow}>
-              <Text style={[styles.macroText, { color: '#EF4444' }]}>P {Math.round(item.protein)}g</Text>
-              <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {Math.round(item.carbs)}g</Text>
-              <Text style={[styles.macroText, { color: '#F59E0B' }]}>F {Math.round(item.fat)}g</Text>
+              <Text style={[styles.macroText, { color: '#EF4444' }]}>{`${t('addFood.protein').charAt(0).toUpperCase()} ${Math.round(item.protein)}${t('addFood.gramsSuffix')}`}</Text>
+              <Text style={[styles.macroText, { color: '#3B82F6' }]}>{`${t('addFood.carbs').charAt(0).toUpperCase()} ${Math.round(item.carbs)}${t('addFood.gramsSuffix')}`}</Text>
+              <Text style={[styles.macroText, { color: '#F59E0B' }]}>{`${t('addFood.fat').charAt(0).toUpperCase()} ${Math.round(item.fat)}${t('addFood.gramsSuffix')}`}</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -215,9 +215,9 @@ export default function AddFoodScreen() {
           <View style={styles.foodMacros}>
             <Text style={styles.foodCalories}>{food.calories} {t('addFood.calAbbrev')}</Text>
             <View style={styles.macroRow}>
-              <Text style={[styles.macroText, { color: '#EF4444' }]}>P {food.protein}g</Text>
-              <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {food.carbs}g</Text>
-              <Text style={[styles.macroText, { color: '#F59E0B' }]}>F {food.fat}g</Text>
+              <Text style={[styles.macroText, { color: '#EF4444' }]}>{`${t('addFood.protein').charAt(0).toUpperCase()} ${food.protein}${t('addFood.gramsSuffix')}`}</Text>
+              <Text style={[styles.macroText, { color: '#3B82F6' }]}>{`${t('addFood.carbs').charAt(0).toUpperCase()} ${food.carbs}${t('addFood.gramsSuffix')}`}</Text>
+              <Text style={[styles.macroText, { color: '#F59E0B' }]}>{`${t('addFood.fat').charAt(0).toUpperCase()} ${food.fat}${t('addFood.gramsSuffix')}`}</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -237,9 +237,9 @@ export default function AddFoodScreen() {
         <View style={styles.foodMacros}>
           <Text style={styles.foodCalories}>{food.calories} {t('addFood.calAbbrev')}</Text>
           <View style={styles.macroRow}>
-            <Text style={[styles.macroText, { color: '#EF4444' }]}>P {food.protein}g</Text>
-            <Text style={[styles.macroText, { color: '#3B82F6' }]}>C {food.carbs}g</Text>
-            <Text style={[styles.macroText, { color: '#F59E0B' }]}>F {food.fat}g</Text>
+            <Text style={[styles.macroText, { color: '#EF4444' }]}>{`${t('addFood.protein').charAt(0).toUpperCase()} ${food.protein}${t('addFood.gramsSuffix')}`}</Text>
+            <Text style={[styles.macroText, { color: '#3B82F6' }]}>{`${t('addFood.carbs').charAt(0).toUpperCase()} ${food.carbs}${t('addFood.gramsSuffix')}`}</Text>
+            <Text style={[styles.macroText, { color: '#F59E0B' }]}>{`${t('addFood.fat').charAt(0).toUpperCase()} ${food.fat}${t('addFood.gramsSuffix')}`}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -273,7 +273,7 @@ export default function AddFoodScreen() {
     setCreateProtein('');
     setCreateCarbs('');
     setCreateFat('');
-    setCreateUnit('100g');
+    setCreateUnit(t('addFood.defaultBarcodeUnit'));
     setShowCreateModal(true);
   };
 
@@ -500,15 +500,15 @@ export default function AddFoodScreen() {
                 <Text style={styles.totalMacroLabel}>{t('addFood.calories')}</Text>
               </View>
               <View style={styles.totalMacroItem}>
-                <Text style={[styles.totalMacroValue, { color: '#EF4444' }]}>{Math.round((selectedOFFFood.protein * gramsVal) / 100)}g</Text>
+                <Text style={[styles.totalMacroValue, { color: '#EF4444' }]}>{`${Math.round((selectedOFFFood.protein * gramsVal) / 100)}${t('addFood.gramsSuffix')}`}</Text>
                 <Text style={styles.totalMacroLabel}>{t('addFood.protein')}</Text>
               </View>
               <View style={styles.totalMacroItem}>
-                <Text style={[styles.totalMacroValue, { color: '#3B82F6' }]}>{Math.round((selectedOFFFood.carbs * gramsVal) / 100)}g</Text>
+                <Text style={[styles.totalMacroValue, { color: '#3B82F6' }]}>{`${Math.round((selectedOFFFood.carbs * gramsVal) / 100)}${t('addFood.gramsSuffix')}`}</Text>
                 <Text style={styles.totalMacroLabel}>{t('addFood.carbs')}</Text>
               </View>
               <View style={styles.totalMacroItem}>
-                <Text style={[styles.totalMacroValue, { color: '#F59E0B' }]}>{Math.round((selectedOFFFood.fat * gramsVal) / 100)}g</Text>
+                <Text style={[styles.totalMacroValue, { color: '#F59E0B' }]}>{`${Math.round((selectedOFFFood.fat * gramsVal) / 100)}${t('addFood.gramsSuffix')}`}</Text>
                 <Text style={styles.totalMacroLabel}>{t('addFood.fat')}</Text>
               </View>
             </View>
@@ -573,19 +573,19 @@ export default function AddFoodScreen() {
               </View>
               <View style={styles.totalMacroItem}>
                 <Text style={[styles.totalMacroValue, { color: '#EF4444' }]}>
-                  {Math.round(selectedFood.protein * servingCount)}g
+                  {`${Math.round(selectedFood.protein * servingCount)}${t('addFood.gramsSuffix')}`}
                 </Text>
                 <Text style={styles.totalMacroLabel}>{t('addFood.protein')}</Text>
               </View>
               <View style={styles.totalMacroItem}>
                 <Text style={[styles.totalMacroValue, { color: '#3B82F6' }]}>
-                  {Math.round(selectedFood.carbs * servingCount)}g
+                  {`${Math.round(selectedFood.carbs * servingCount)}${t('addFood.gramsSuffix')}`}
                 </Text>
                 <Text style={styles.totalMacroLabel}>{t('addFood.carbs')}</Text>
               </View>
               <View style={styles.totalMacroItem}>
                 <Text style={[styles.totalMacroValue, { color: '#F59E0B' }]}>
-                  {Math.round(selectedFood.fat * servingCount)}g
+                  {`${Math.round(selectedFood.fat * servingCount)}${t('addFood.gramsSuffix')}`}
                 </Text>
                 <Text style={styles.totalMacroLabel}>{t('addFood.fat')}</Text>
               </View>
