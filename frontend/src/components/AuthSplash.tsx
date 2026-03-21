@@ -29,6 +29,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors, typography } from '../constants/theme';
+import { useLanguage } from '../context/LanguageContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BAR_WIDTH = SCREEN_WIDTH * 0.55;
@@ -49,6 +50,8 @@ interface AuthSplashProps {
 }
 
 export default function AuthSplash({ message }: AuthSplashProps) {
+  const { t } = useLanguage();
+
   // ── Logo ──────────────────────────────────────────────────────────────────
   const logoOpacity = useSharedValue(0);
   const logoScale   = useSharedValue(0.72);
@@ -146,12 +149,12 @@ export default function AuthSplash({ message }: AuthSplashProps) {
 
       {/* App name */}
       <Animated.Text style={[styles.appName, nameStyle]}>
-        GAINTRACK
+        {t('common.brandName')}
       </Animated.Text>
 
       {/* Tagline — replaced by update message when OTA is active */}
       <Animated.Text style={[styles.tagline, tagStyle, message ? styles.updateText : undefined]}>
-        {message ?? 'Track every rep. Own every PR.'}
+        {message ?? t('common.appTagline')}
       </Animated.Text>
 
       {/* Progress bar */}

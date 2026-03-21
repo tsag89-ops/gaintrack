@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
+import { useLanguage } from '../context/LanguageContext';
 
 interface SearchInputProps {
   value: string;
@@ -7,18 +8,20 @@ interface SearchInputProps {
   placeholder?: string;
 }
 
-export const SearchInput: React.FC<SearchInputProps> = ({ 
-  value, 
-  onChangeText, 
-  placeholder = 'Search...' 
+export const SearchInput: React.FC<SearchInputProps> = ({
+  value,
+  onChangeText,
+  placeholder,
 }) => {
+  const { t } = useLanguage();
+
   return (
     <View style={styles.container}>
       <TextInput
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t('common.searchPlaceholder')}
         placeholderTextColor="#999"
       />
     </View>

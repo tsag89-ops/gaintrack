@@ -1041,7 +1041,13 @@ const ActiveWorkoutScreen: React.FC = () => {
                 if (Number(cs.reps) !== Number(os.reps)) {
                   parts.push(t('workoutActive.templateDiffRepsChange', { from: os.reps, to: cs.reps }));
                 }
-                if (Number(cs.weight) !== Number(os.weight)) parts.push(`${os.weight}→${cs.weight}${weightUnit}`);
+                if (Number(cs.weight) !== Number(os.weight)) {
+                  parts.push(t('workoutActive.templateDiffWeightChange', {
+                    from: os.weight,
+                    to: cs.weight,
+                    unit: weightUnit,
+                  }));
+                }
                 if ((cs.rpe ?? '') !== (os.rpe ?? '')) {
                   parts.push(t('workoutActive.templateDiffRpeChange', { from: os.rpe ?? '-', to: cs.rpe ?? '-' }));
                 }
@@ -1378,7 +1384,9 @@ const ActiveWorkoutScreen: React.FC = () => {
                 {item.restSeconds != null && (
                   <View style={styles.restOverrideBadge}>
                     <Text style={styles.restOverrideBadgeText}>
-                      {item.restSeconds >= 60 ? `${item.restSeconds / 60}m` : `${item.restSeconds}s`}
+                      {item.restSeconds >= 60
+                        ? t('workoutActive.minutesShort', { count: item.restSeconds / 60 })
+                        : t('workoutActive.secondsShort', { count: item.restSeconds })}
                     </Text>
                   </View>
                 )}
@@ -1463,7 +1471,9 @@ const ActiveWorkoutScreen: React.FC = () => {
                     styles.restPresetPillText,
                     parseInt(restOverrideInput, 10) === s && styles.restPresetPillTextActive,
                   ]}>
-                    {s >= 60 ? `${s / 60}m` : `${s}s`}
+                    {s >= 60
+                      ? t('workoutActive.minutesShort', { count: s / 60 })
+                      : t('workoutActive.secondsShort', { count: s })}
                   </Text>
                 </TouchableOpacity>
               ))}

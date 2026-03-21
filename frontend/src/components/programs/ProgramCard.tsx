@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { format, addDays, parseISO } from 'date-fns';
+import { addDays, parseISO } from 'date-fns';
 import { WorkoutProgram } from '../../types';
 import { colors, typography, radii, shadows, spacing } from '../../constants/theme';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface ProgramCardProps {
   program: WorkoutProgram;
@@ -22,14 +23,17 @@ interface ProgramCardProps {
 }
 
 /** Returns the estimated next session date from lastSessionDate or today. */
-const nextSessionDate = (program: WorkoutProgram): string => {
+const nextSessionDate = (program: WorkoutProgram, locale: string): string => {
   const base = program.lastSessionDate
     ? parseISO(program.lastSessionDate)
     : new Date();
   // Rough heuristic: 7 / daysPerWeek = rest days between sessions
   const daysGap = Math.round(7 / program.daysPerWeek);
   const next = addDays(base, daysGap);
-  return format(next, 'MMM d');
+  return new Intl.DateTimeFormat(locale, {
+    month: 'short',
+    day: 'numeric',
+  }).format(next);
 };
 
 /** How many days in this cycle have been completed (0 → daysPerWeek-1). */
@@ -42,6 +46,8 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({
   onPress,
   onLongPress,
 }) => {
+  const { t, locale } = useLanguage();
+
   const handlePress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress(program);
@@ -72,7 +78,10 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({
           <View style={styles.titleBlock}>
             <Text style={styles.name} numberOfLines={1}>{program.name}</Text>
             <Text style={styles.schedule}>
-              {program.daysPerWeek}×/week · Cycle {program.currentCycle}
+              {t('programsTab.scheduleSummary', {
+                count: program.daysPerWeek,
+                cycle: program.currentCycle,
+              })}
             </Text>
           </View>
         </View>
@@ -85,7 +94,10 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({
       </View>
       <View style={styles.progressLabels}>
         <Text style={styles.progressText}>
-          Day {program.currentDayIndex + 1} of {program.daysPerWeek} this cycle
+          {t('programsTab.cycleProgress', {
+            day: program.currentDayIndex + 1,
+            total: program.daysPerWeek,
+          })}
         </Text>
         <Text style={styles.progressText}>{Math.round(progressPercent)}%</Text>
       </View>
@@ -94,7 +106,9 @@ export const ProgramCard: React.FC<ProgramCardProps> = ({
       <View style={styles.footer}>
         <View style={styles.footerItem}>
           <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} />
-          <Text style={styles.footerText}>Next: {nextSessionDate(program)}</Text>
+          <Text style={styles.footerText}>
+            {t('programsTab.nextSessionLabel', { date: nextSessionDate(program, locale) })}
+          </Text>
         </View>
         {nextDay && (
           <View style={styles.footerItem}>

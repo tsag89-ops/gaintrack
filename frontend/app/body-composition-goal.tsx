@@ -71,7 +71,7 @@ const RATE_COLORS: Record<RateType, string> = {
 
 export default function BodyCompositionGoalScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [currentWeight, setCurrentWeight] = useState('');
   const [targetWeight, setTargetWeight] = useState('');
   const [targetBodyFat, setTargetBodyFat] = useState('');
@@ -80,6 +80,18 @@ export default function BodyCompositionGoalScreen() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [hasExistingGoal, setHasExistingGoal] = useState(false);
+
+  const formatShortDate = (date: Date) => new Intl.DateTimeFormat(locale, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+
+  const formatLongDate = (date: Date) => new Intl.DateTimeFormat(locale, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
 
   // Load most recent measurement and any existing goal on mount
   useEffect(() => {
@@ -198,7 +210,7 @@ export default function BodyCompositionGoalScreen() {
       await AsyncStorage.setItem(GOAL_KEY, JSON.stringify(goal));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const projText = projection?.targetDate
-        ? t('bodyGoal.projectedLine', { projection: format(projection.targetDate, 'MMM d, yyyy') })
+        ? t('bodyGoal.projectedLine', { projection: formatShortDate(projection.targetDate) })
         : '';
       Alert.alert(t('bodyGoal.goalSavedTitle'), t('bodyGoal.goalSavedMessage', { weight: tw, projection: projText }), [
         { text: t('bodyGoal.doneButton'), onPress: () => router.back() },
@@ -417,7 +429,7 @@ export default function BodyCompositionGoalScreen() {
                     </Text>
                     {projection.targetDate && (
                       <Text style={styles.projectionDate}>
-                        {format(projection.targetDate, 'MMMM d, yyyy')}
+                        {formatLongDate(projection.targetDate)}
                       </Text>
                     )}
                   </View>
@@ -426,7 +438,7 @@ export default function BodyCompositionGoalScreen() {
                 {/* Stat row */}
                 <View style={styles.projStatRow}>
                   <View style={styles.projStatItem}>
-                    <Text style={styles.projStatValue}>{projection.weeks}w</Text>
+                    <Text style={styles.projStatValue}>{t('bodyGoal.weeksShort', { count: projection.weeks })}</Text>
                     <Text style={styles.projStatLabel}>{t('bodyGoal.durationLabel')}</Text>
                   </View>
                   <View style={styles.projStatDivider} />
@@ -435,7 +447,10 @@ export default function BodyCompositionGoalScreen() {
                       styles.projStatValue,
                       { color: weeklyRate < 0 ? colors.info : colors.success },
                     ]}>
-                      {weeklyRate < 0 ? '−' : '+'}{projection.fatChange} kg
+                      {t('bodyGoal.weightChangeValue', {
+                        sign: weeklyRate < 0 ? '−' : '+',
+                        value: projection.fatChange,
+                      })}
                     </Text>
                     <Text style={styles.projStatLabel}>
                       {weeklyRate < 0 ? t('bodyGoal.fatToLoseLabel') : t('bodyGoal.massToGainLabel')}
@@ -459,13 +474,13 @@ export default function BodyCompositionGoalScreen() {
                     {projection.lbm !== null && (
                       <View style={styles.lbmChip}>
                         <Text style={styles.lbmChipLabel}>{t('bodyGoal.currentLbmLabel')}</Text>
-                        <Text style={styles.lbmChipValue}>{projection.lbm} kg</Text>
+                        <Text style={styles.lbmChipValue}>{t('bodyGoal.lbmValue', { value: projection.lbm })}</Text>
                       </View>
                     )}
                     {projection.targetLbm !== null && (
                       <View style={styles.lbmChip}>
                         <Text style={styles.lbmChipLabel}>{t('bodyGoal.targetLbmLabel')}</Text>
-                        <Text style={styles.lbmChipValue}>{projection.targetLbm} kg</Text>
+                        <Text style={styles.lbmChipValue}>{t('bodyGoal.lbmValue', { value: projection.targetLbm })}</Text>
                       </View>
                     )}
                   </View>
