@@ -65,7 +65,7 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#10B981",
           "sounds": [
-            "./assets/sounds/rest-bell.wav"
+            "./assets/sounds/rest_bell.wav"
           ]
         }
       ],

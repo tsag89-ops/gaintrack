@@ -10,7 +10,7 @@ import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const BELL_ASSET = require('../../assets/sounds/rest-bell.wav');
+const BELL_ASSET = require('../../assets/sounds/rest_bell.wav');
 
 export function useTimerAlerts(remainingSeconds: number, active: boolean): void {
   const soundRef = useRef<Audio.Sound | null>(null);

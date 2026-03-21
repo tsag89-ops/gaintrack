@@ -56,7 +56,7 @@ const REST_TIMER_CHANNEL_ID = 'rest-timer-alerts';
 // DEFAULT importance keeps it out of the heads-up window; no sound.
 const REST_COUNTDOWN_CHANNEL_ID = 'rest-countdown-alerts';
 const REST_DURATION_KEY = 'gaintrack_rest_duration';
-const REST_TIMER_SOUND = 'rest-bell.wav';
+const REST_TIMER_SOUND = 'rest_bell.wav';
 const SUPERSET_COLORS = ['#FF6200', '#4CAF50', '#29B6F6', '#FFB300', '#EF5350', '#AB47BC'];
 const WORKOUT_MILESTONES = [1, 5, 10, 25, 50, 100, 200];
 const SUPERSET_FIRST_COMPLETION_PROMPT_KEY = 'gaintrack_superset_first_completion_prompted';
