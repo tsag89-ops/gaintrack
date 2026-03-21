@@ -151,7 +151,13 @@ export default function ProfileScreen() {
     const snapshotEntries = await Promise.all(
       supportedHealthProviders.map(async (provider) => [provider, await getHealthSyncSnapshot(provider)] as const),
     );
-    setHealthSyncSnapshots(Object.fromEntries(snapshotEntries) as Partial<Record<HealthProvider, Awaited<ReturnType<typeof getHealthSyncSnapshot>>>>);
+    const snapshots = Object.fromEntries(snapshotEntries) as Partial<Record<HealthProvider, Awaited<ReturnType<typeof getHealthSyncSnapshot>>>>;
+    setHealthSyncSnapshots(snapshots);
+
+    await userApi.updateUserPrefs({
+      healthSyncSettings: next as unknown as Record<string, unknown>,
+      healthSyncSnapshots: snapshots as unknown as Record<string, unknown>,
+    }).catch(() => null);
   };
 
   const getHealthSyncQuality = (provider: HealthProvider) => {
@@ -342,6 +348,7 @@ export default function ProfileScreen() {
     setAutoStartRestTimer(value);
     await Haptics.selectionAsync();
     await AsyncStorage.setItem(AUTO_REST_KEY, JSON.stringify(value));
+    await userApi.updateUserPrefs({ autoRestTimer: value }).catch(() => null);
   };
 
   const toggleAiConsent = async (value: boolean) => {
@@ -358,6 +365,7 @@ export default function ProfileScreen() {
             onPress: async () => {
               setAiConsent(false);
               await AsyncStorage.setItem(AI_CONSENT_KEY, 'false');
+              await userApi.updateUserPrefs({ aiConsent: false }).catch(() => null);
               await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             },
           },
@@ -366,6 +374,7 @@ export default function ProfileScreen() {
     } else {
       setAiConsent(true);
       await AsyncStorage.setItem(AI_CONSENT_KEY, 'true');
+      await userApi.updateUserPrefs({ aiConsent: true }).catch(() => null);
       await Haptics.selectionAsync();
     }
   };
@@ -374,6 +383,7 @@ export default function ProfileScreen() {
     setRestDuration(seconds);
     await Haptics.selectionAsync();
     await AsyncStorage.setItem(REST_DURATION_KEY, String(seconds));
+    await userApi.updateUserPrefs({ restDuration: seconds }).catch(() => null);
   };
 
   const saveUnits = async (w: 'kg' | 'lbs', h: 'cm' | 'in', d: 'km' | 'mi') => {
@@ -401,6 +411,7 @@ export default function ProfileScreen() {
       'gaintrack_body_goal',
       'gaintrack_body_goals',
       'gaintrack_notification_settings',
+      'notification_settings',
       'gaintrack_auto_rest_timer',
       'gaintrack_rest_duration',
       'gaintrack_ai_consent',
@@ -415,6 +426,7 @@ export default function ProfileScreen() {
     const allKeys = await AsyncStorage.getAllKeys();
     const prefixedKeys = allKeys.filter((key) =>
       key.startsWith('gaintrack_') ||
+      key.startsWith('user_prefs_') ||
       key.startsWith('workout_') ||
       key.startsWith('program_')
     );
@@ -526,6 +538,7 @@ const handleExportMyData = async () => {
       'gaintrack_body_goal',
       'gaintrack_body_goals',
       'gaintrack_notification_settings',
+      'notification_settings',
       'gaintrack_auto_rest_timer',
       'gaintrack_rest_duration',
       'gaintrack_ai_consent',

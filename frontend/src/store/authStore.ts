@@ -3,6 +3,13 @@ import { storage } from '../utils/storage';
 import { auth, db } from '../config/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { identifyUser, resetRevenueCatUser, getCustomerInfo, hasProEntitlement } from '../services/revenueCat';
+import { UserPrefs } from '../types';
+import {
+  getExercisesFromFirestore,
+  getProgramsFromFirestore,
+  getUserPrefsFromFirestore,
+  getWorkouts,
+} from '../services/firestore';
 
 interface User {
   id: string;
@@ -37,6 +44,77 @@ interface AuthState {
   setSession: (user: User, token: string) => Promise<void>;
   logout: () => Promise<void>;
   loadStoredAuth: () => Promise<void>;
+}
+
+const USER_PREFS_PREFIX = 'user_prefs_';
+const WORKOUT_KEYS = ['workouts', 'gaintrack_workouts'];
+const EXERCISE_KEYS = ['exercises', 'gaintrack_exercises'];
+const PROGRAM_KEYS = ['programs_v1'];
+
+const uniqueBy = <T,>(items: T[], getKey: (item: T) => string): T[] => {
+  const map = new Map<string, T>();
+  for (const item of items) {
+    const key = getKey(item);
+    if (!key) continue;
+    map.set(key, item);
+  }
+  return Array.from(map.values());
+};
+
+async function applyPrefsToStorage(prefs: UserPrefs): Promise<void> {
+  const writes: Array<Promise<void>> = [];
+
+  if (typeof prefs.autoRestTimer === 'boolean') {
+    writes.push(storage.setItem('gaintrack_auto_rest_timer', JSON.stringify(prefs.autoRestTimer)));
+  }
+  if (typeof prefs.restDuration === 'number') {
+    writes.push(storage.setItem('gaintrack_rest_duration', String(prefs.restDuration)));
+  }
+  if (typeof prefs.aiConsent === 'boolean') {
+    writes.push(storage.setItem('gaintrack_ai_consent', String(prefs.aiConsent)));
+  }
+  if (prefs.notificationSettings) {
+    writes.push(storage.setItem('notification_settings', JSON.stringify(prefs.notificationSettings)));
+  }
+  if (prefs.healthSyncSettings) {
+    writes.push(storage.setItem('gaintrack_health_sync_settings', JSON.stringify(prefs.healthSyncSettings)));
+  }
+  if (prefs.units) {
+    writes.push(storage.setItem('gaintrack_weight_unit', prefs.units.weight));
+    writes.push(storage.setItem('gaintrack_height_unit', prefs.units.height));
+    writes.push(storage.setItem('gaintrack_distance_unit', prefs.units.distance));
+  }
+
+  await Promise.all(writes);
+}
+
+async function bootstrapCloudDataToLocal(userId: string): Promise<void> {
+  const [cloudWorkouts, cloudExercises, cloudPrograms] = await Promise.all([
+    getWorkouts(userId),
+    getExercisesFromFirestore(userId),
+    getProgramsFromFirestore(userId),
+  ]);
+
+  if (cloudWorkouts.length > 0) {
+    const existingRaw = await storage.getItem('workouts');
+    const existing = existingRaw ? JSON.parse(existingRaw) : [];
+    const merged = uniqueBy([...existing, ...cloudWorkouts], (w: any) => w.workout_id ?? '');
+    await Promise.all(WORKOUT_KEYS.map((key) => storage.setItem(key, JSON.stringify(merged))));
+  }
+
+  if (cloudExercises.length > 0) {
+    const existingRaw = await storage.getItem('exercises');
+    const existing = existingRaw ? JSON.parse(existingRaw) : [];
+    const merged = uniqueBy([...existing, ...cloudExercises], (e: any) => e.exercise_id ?? e.id ?? '');
+    await Promise.all(EXERCISE_KEYS.map((key) => storage.setItem(key, JSON.stringify(merged))));
+  }
+
+  if (cloudPrograms.length > 0) {
+    const existingRaw = await storage.getItem('programs_v1');
+    const existing = existingRaw ? JSON.parse(existingRaw) : [];
+    const merged = uniqueBy([...existing, ...cloudPrograms], (p: any) => p.id ?? '');
+    await Promise.all(PROGRAM_KEYS.map((key) => storage.setItem(key, JSON.stringify(merged))));
+  }
 }
 
 async function upsertUserProfile(userId: string, data: object) {
@@ -94,77 +172,101 @@ export const useAuthStore = create<AuthState>((set) => ({
   setSession: async (user, token) => {
     if (_sessionInProgress.has(user.id)) return;
     _sessionInProgress.add(user.id);
-    let finalUser = user;
     try {
-      const existing = await storage.getItem('user');
-      if (existing) {
-        const prev = JSON.parse(existing) as User;
-        if (prev.id === user.id) {
-          finalUser = {
-            ...user,
-            equipment: prev.equipment ?? user.equipment,
-            goals: prev.goals ?? user.goals,
-            isPro: user.isPro ?? false,
-          };
+      let finalUser = user;
+      try {
+        const existing = await storage.getItem('user');
+        if (existing) {
+          const prev = JSON.parse(existing) as User;
+          if (prev.id === user.id) {
+            finalUser = {
+              ...user,
+              equipment: prev.equipment ?? user.equipment,
+              goals: prev.goals ?? user.goals,
+              units: prev.units ?? user.units,
+              isPro: user.isPro ?? false,
+            };
+          }
         }
+      } catch (e) {
+        console.warn('setSession storage error:', e);
       }
-    } catch (e) {
-      console.warn('setSession storage error:', e);
-    }
 
-    // Restore per-user prefs (equipment, etc.) that survive logout
-    try {
-      const uid = user.id ?? (user as any).user_id;
+      const uid = finalUser.id ?? (finalUser as any).user_id;
       if (uid) {
-        const prefsStr = await storage.getItem(`user_prefs_${uid}`);
-        if (prefsStr) {
-          const prefs = JSON.parse(prefsStr);
-          if (prefs.equipment) finalUser = { ...finalUser, equipment: prefs.equipment };
+        try {
+          const [localPrefsStr, cloudPrefs] = await Promise.all([
+            storage.getItem(`${USER_PREFS_PREFIX}${uid}`),
+            getUserPrefsFromFirestore(uid),
+          ]);
+          const localPrefs = localPrefsStr ? (JSON.parse(localPrefsStr) as UserPrefs) : null;
+          const mergedPrefs: UserPrefs = {
+            ...(localPrefs ?? {}),
+            ...(cloudPrefs ?? {}),
+            updatedAt: new Date().toISOString(),
+          };
+
+          if (Object.keys(mergedPrefs).length > 0) {
+            finalUser = {
+              ...finalUser,
+              goals: mergedPrefs.goals ?? finalUser.goals,
+              equipment: mergedPrefs.equipment ?? finalUser.equipment,
+              units: mergedPrefs.units ?? finalUser.units,
+            };
+            await storage.setItem(`${USER_PREFS_PREFIX}${uid}`, JSON.stringify(mergedPrefs));
+            await applyPrefsToStorage(mergedPrefs);
+          }
+        } catch (e) {
+          console.warn('setSession user_prefs restore error:', e);
         }
       }
-    } catch (e) {
-      console.warn('setSession user_prefs restore error:', e);
-    }
 
-    // Write profile — NO isPro here (blocked by Security Rules)
-    await upsertUserProfile(finalUser.id, {
-      uid: finalUser.id,
-      email: finalUser.email,
-      displayName: finalUser.name || '',
-      createdAt: new Date().toISOString(),
-    });
+      // Write profile — NO isPro here (blocked by Security Rules)
+      await upsertUserProfile(finalUser.id, {
+        uid: finalUser.id,
+        email: finalUser.email,
+        displayName: finalUser.name || '',
+        createdAt: new Date().toISOString(),
+      });
 
-    // Read isPro from Firestore
-    let isPro = await fetchIsPro(finalUser.id);
+      // Read isPro from Firestore
+      let isPro = await fetchIsPro(finalUser.id);
 
-    // Link RevenueCat identity and check entitlements.
-    // RC is a secondary source of truth: if the webhook hasn't written to
-    // Firestore yet (common on Android first-login), RC wins here.
-    try {
-      await identifyUser(finalUser.id);
-      const customerInfo = await getCustomerInfo();
-      const rcIsPro = hasProEntitlement(customerInfo);
-      if (rcIsPro) {
-        if (__DEV__) console.log('[authStore] isPro from RevenueCat entitlements: true');
-        isPro = true;
+      // Link RevenueCat identity and check entitlements.
+      // RC is a secondary source of truth: if the webhook hasn't written to
+      // Firestore yet (common on Android first-login), RC wins here.
+      try {
+        await identifyUser(finalUser.id);
+        const customerInfo = await getCustomerInfo();
+        const rcIsPro = hasProEntitlement(customerInfo);
+        if (rcIsPro) {
+          if (__DEV__) console.log('[authStore] isPro from RevenueCat entitlements: true');
+          isPro = true;
+        }
+      } catch (e) {
+        console.warn('[authStore] RevenueCat identifyUser/check failed:', e);
       }
-    } catch (e) {
-      console.warn('[authStore] RevenueCat identifyUser/check failed:', e);
+
+      finalUser = { ...finalUser, isPro };
+
+      if (isPro && finalUser.id) {
+        await bootstrapCloudDataToLocal(finalUser.id).catch((e) => {
+          console.warn('[authStore] cloud bootstrap failed:', e);
+        });
+      }
+
+      // Save full user (with isPro) to AsyncStorage
+      try {
+        await storage.setItem('user', JSON.stringify(finalUser));
+        await storage.setItem('sessionToken', token);
+      } catch (e) {
+        console.warn('setSession storage save error:', e);
+      }
+
+      set({ user: finalUser, sessionToken: token, isAuthenticated: true, isLoading: false });
+    } finally {
+      _sessionInProgress.delete(user.id);
     }
-
-    finalUser = { ...finalUser, isPro };
-
-    // Save full user (with isPro) to AsyncStorage
-    try {
-      await storage.setItem('user', JSON.stringify(finalUser));
-      await storage.setItem('sessionToken', token);
-    } catch (e) {
-      console.warn('setSession storage save error:', e);
-    }
-
-    set({ user: finalUser, sessionToken: token, isAuthenticated: true, isLoading: false });
-
-    _sessionInProgress.delete(user.id);
   },
 
   logout: async () => {
@@ -190,17 +292,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       ]);
       if (userStr && token) {
         const user = JSON.parse(userStr) as User;
-        const restoredUser = { ...user, isPro: false };
-        // Restore immediately from cache so the UI is not blocked
-        set({ user: restoredUser, sessionToken: token, isAuthenticated: true, isLoading: false, authReady: true });
-        // Then refresh isPro from Firestore in the background
-        fetchIsPro(user.id).then((isPro) => {
-          set((state) => ({
-            user: state.user ? { ...state.user, isPro } : state.user,
-          }));
-          // Persist refreshed isPro back to AsyncStorage
-          storage.setItem('user', JSON.stringify({ ...user, isPro })).catch(() => {});
-        });
+        await useAuthStore.getState().setSession(user, token);
+        set({ authReady: true });
       } else {
         set({ isLoading: false, authReady: true });
       }

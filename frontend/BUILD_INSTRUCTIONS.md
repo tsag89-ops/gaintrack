@@ -167,6 +167,19 @@ The following features only work in a development build (not Expo Go):
 2. **Background tasks** - Workout reminders even when app is closed
 3. **Native modules** - Any custom native functionality
 
+## Notification Sound Channel Changes (Android)
+
+When changing custom notification sounds or channel vibration patterns (for example rest timer bell/countdown):
+
+1. Regenerate native config and rebuild:
+  ```bash
+  cd frontend
+  npx expo prebuild --clean
+  npx eas build --platform android --profile production-apk --non-interactive
+  ```
+2. Reinstall the app build on device.
+3. If a channel already existed on device, open Android Settings > Apps > GainTrack > Notifications and reset channel preferences (or clear app data) so the updated channel sound/vibration is applied.
+
 ## Need Help?
 
 If you encounter issues:

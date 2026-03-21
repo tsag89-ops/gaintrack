@@ -4,6 +4,8 @@
 import { storage } from '../utils/storage';
 import { seedFoods } from '../data/seedData';
 import { format as formatDate } from 'date-fns';
+import { saveUserPrefsToFirestore } from './firestore';
+import { UserPrefs } from '../types';
 
 // Storage keys
 const WORKOUTS_KEY       = 'gaintrack_workouts';
@@ -41,6 +43,8 @@ const safeGetItem = async (key: string): Promise<string | null> =>
 
 const safeSetItem = async (key: string, value: string): Promise<void> =>
   withStorageTimeout(storage.setItem(key, value), `storage.setItem(${key})`);
+
+const USER_PREFS_PREFIX = 'user_prefs_';
 
 const toDateKey = (value: unknown): string | null => {
   if (typeof value === 'string') {
@@ -252,20 +256,77 @@ export const measurementApi = {
 
 // User API
 export const userApi = {
+  updateUserPrefs: async (
+    partialPrefs: Partial<UserPrefs>,
+    userOverride?: { id?: string; user_id?: string; [key: string]: any },
+  ): Promise<UserPrefs> => {
+    const userStr = await safeGetItem('user');
+    const user = userOverride ?? (userStr ? JSON.parse(userStr) : null);
+    if (!user) throw new Error('User not found');
+
+    const uid = user.id ?? user.user_id;
+    if (!uid) throw new Error('User id not found');
+
+    const prefsKey = `${USER_PREFS_PREFIX}${uid}`;
+    const existingPrefsStr = await safeGetItem(prefsKey);
+    const existingPrefs = existingPrefsStr ? (JSON.parse(existingPrefsStr) as UserPrefs) : {};
+
+    const mergedPrefs: UserPrefs = {
+      ...existingPrefs,
+      ...partialPrefs,
+      unitOverrides: {
+        ...(existingPrefs.unitOverrides ?? {}),
+        ...(partialPrefs.unitOverrides ?? {}),
+      },
+      updatedAt: new Date().toISOString(),
+    };
+
+    await safeSetItem(prefsKey, JSON.stringify(mergedPrefs));
+
+    const userPatch: any = {
+      ...(mergedPrefs.goals ? { goals: mergedPrefs.goals } : {}),
+      ...(mergedPrefs.equipment ? { equipment: mergedPrefs.equipment } : {}),
+      ...(mergedPrefs.units ? { units: mergedPrefs.units } : {}),
+    };
+    const nextUser = { ...user, ...userPatch };
+    await safeSetItem('user', JSON.stringify(nextUser));
+
+    // Keep legacy keys in sync for existing hooks/screens.
+    if (typeof mergedPrefs.autoRestTimer === 'boolean') {
+      await safeSetItem('gaintrack_auto_rest_timer', JSON.stringify(mergedPrefs.autoRestTimer));
+    }
+    if (typeof mergedPrefs.restDuration === 'number') {
+      await safeSetItem('gaintrack_rest_duration', String(mergedPrefs.restDuration));
+    }
+    if (typeof mergedPrefs.aiConsent === 'boolean') {
+      await safeSetItem('gaintrack_ai_consent', String(mergedPrefs.aiConsent));
+    }
+    if (mergedPrefs.notificationSettings) {
+      await safeSetItem('notification_settings', JSON.stringify(mergedPrefs.notificationSettings));
+    }
+    if (mergedPrefs.healthSyncSettings) {
+      await safeSetItem('gaintrack_health_sync_settings', JSON.stringify(mergedPrefs.healthSyncSettings));
+    }
+    if (mergedPrefs.units) {
+      await safeSetItem('gaintrack_weight_unit', mergedPrefs.units.weight);
+      await safeSetItem('gaintrack_height_unit', mergedPrefs.units.height);
+      await safeSetItem('gaintrack_distance_unit', mergedPrefs.units.distance);
+    }
+
+    await saveUserPrefsToFirestore(uid, mergedPrefs).catch((error) => {
+      console.warn('[userApi] saveUserPrefsToFirestore failed:', error);
+    });
+
+    return mergedPrefs;
+  },
+
   updateGoals: async (goals: any) => {
     const userStr = await safeGetItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
       user.goals = goals;
       await safeSetItem('user', JSON.stringify(user));
-      // Persist independently of session so prefs survive logout/login
-      const uid = user.id ?? user.user_id;
-      if (uid) {
-        const prefsStr = await safeGetItem(`user_prefs_${uid}`);
-        const prefs = prefsStr ? JSON.parse(prefsStr) : {};
-        prefs.goals = goals;
-        await safeSetItem(`user_prefs_${uid}`, JSON.stringify(prefs));
-      }
+      await userApi.updateUserPrefs({ goals }, user);
       return { message: 'Goals updated', goals };
     }
     throw new Error('User not found');
@@ -277,14 +338,7 @@ export const userApi = {
       const user = JSON.parse(userStr);
       user.equipment = equipment;
       await safeSetItem('user', JSON.stringify(user));
-      // Persist independently of session so prefs survive logout/login
-      const uid = user.id ?? user.user_id;
-      if (uid) {
-        const prefsStr = await safeGetItem(`user_prefs_${uid}`);
-        const prefs = prefsStr ? JSON.parse(prefsStr) : {};
-        prefs.equipment = equipment;
-        await safeSetItem(`user_prefs_${uid}`, JSON.stringify(prefs));
-      }
+      await userApi.updateUserPrefs({ equipment }, user);
       return { message: 'Equipment updated', equipment };
     }
     throw new Error('User not found');
@@ -296,14 +350,14 @@ export const userApi = {
       const user = JSON.parse(userStr);
       user.units = units;
       await safeSetItem('user', JSON.stringify(user));
-      // Persist independently of session so prefs survive logout/login
-      const uid = user.id ?? user.user_id;
-      if (uid) {
-        const prefsStr = await safeGetItem(`user_prefs_${uid}`);
-        const prefs = prefsStr ? JSON.parse(prefsStr) : {};
-        prefs.units = units;
-        await safeSetItem(`user_prefs_${uid}`, JSON.stringify(prefs));
-      }
+      await userApi.updateUserPrefs({
+        units,
+        unitOverrides: {
+          weight: units.weight,
+          height: units.height,
+          distance: units.distance,
+        },
+      }, user);
       return { message: 'Units updated', units };
     }
     throw new Error('User not found');

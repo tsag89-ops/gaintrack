@@ -427,6 +427,7 @@ const ActiveWorkoutScreen: React.FC = () => {
         name: t('workoutActive.restTimerChannelName'),
         importance: Notifications.AndroidImportance.HIGH,
         sound: REST_TIMER_SOUND,
+        enableVibrate: true,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF6200',
       }).catch(() => null);
@@ -435,6 +436,7 @@ const ActiveWorkoutScreen: React.FC = () => {
       Notifications.setNotificationChannelAsync(REST_COUNTDOWN_CHANNEL_ID, {
         name: t('workoutActive.restCountdownChannelName'),
         importance: Notifications.AndroidImportance.DEFAULT,
+        sound: null,
         enableVibrate: true,
         vibrationPattern: [0, 200, 800, 200, 800, 200],
       }).catch(() => null);

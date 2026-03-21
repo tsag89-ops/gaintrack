@@ -14,6 +14,33 @@ export interface User {
     workouts_per_week: number;
   };
   equipment?: string[];
+  units?: {
+    weight: 'kg' | 'lbs';
+    height: 'cm' | 'in';
+    distance: 'km' | 'mi';
+  };
+}
+
+export interface UserPrefs {
+  goals?: User['goals'];
+  equipment?: string[];
+  units?: {
+    weight: 'kg' | 'lbs';
+    height: 'cm' | 'in';
+    distance: 'km' | 'mi';
+  };
+  autoRestTimer?: boolean;
+  restDuration?: number;
+  aiConsent?: boolean;
+  notificationSettings?: Record<string, unknown>;
+  healthSyncSettings?: Record<string, unknown>;
+  healthSyncSnapshots?: Record<string, unknown>;
+  unitOverrides?: {
+    weight?: 'kg' | 'lbs';
+    height?: 'cm' | 'in';
+    distance?: 'km' | 'mi';
+  };
+  updatedAt?: string;
 }
 
 // Food & Nutrition

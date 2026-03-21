@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { storage } from '../utils/storage';
+import { userApi } from './api';
 
 const NOTIFICATION_SETTINGS_KEY = 'notification_settings';
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL?.trim() || '';
@@ -380,6 +381,9 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
 
 export async function saveNotificationSettings(settings: NotificationSettings): Promise<void> {
   await storage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+  await userApi.updateUserPrefs({
+    notificationSettings: settings as unknown as Record<string, unknown>,
+  }).catch(() => null);
   await scheduleNotifications(settings);
 }
 

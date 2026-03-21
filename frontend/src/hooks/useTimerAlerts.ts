@@ -5,7 +5,7 @@
 // iOS silent-mode: playsInSilentModeIOS ensures the bell is audible even
 // when the hardware mute switch is engaged.
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Audio } from 'expo-av';
 import * as Haptics from 'expo-haptics';
 
@@ -16,6 +16,18 @@ export function useTimerAlerts(remainingSeconds: number, active: boolean): void 
   const soundRef = useRef<Audio.Sound | null>(null);
   // Tracks which second we last alerted on to prevent duplicate fires.
   const lastAlertedRef = useRef<number>(-1);
+
+  const playBell = useCallback(async () => {
+    try {
+      if (!soundRef.current) {
+        const { sound } = await Audio.Sound.createAsync(BELL_ASSET, { shouldPlay: false });
+        soundRef.current = sound;
+      }
+      await soundRef.current.replayAsync();
+    } catch {
+      // Bell playback is best-effort and should never crash countdown flow.
+    }
+  }, []);
 
   // Load the bell sound once; configure iOS audio session to bypass silent mode.
   useEffect(() => {
@@ -38,6 +50,10 @@ export function useTimerAlerts(remainingSeconds: number, active: boolean): void 
 
   // Fire haptics / bell whenever remainingSeconds changes during an active countdown.
   useEffect(() => {
+    if (__DEV__) {
+      console.log('[useTimerAlerts] tick', { remainingSeconds, active });
+    }
+
     if (!active) {
       // Reset guard so the next timer run starts fresh.
       lastAlertedRef.current = -1;
@@ -53,7 +69,7 @@ export function useTimerAlerts(remainingSeconds: number, active: boolean): void 
     } else if (remainingSeconds === 0) {
       // Timer complete — bell + success haptic.
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => null);
-      soundRef.current?.replayAsync().catch(() => null);
+      playBell().catch(() => null);
     }
-  }, [remainingSeconds, active]);
+  }, [remainingSeconds, active, playBell]);
 }

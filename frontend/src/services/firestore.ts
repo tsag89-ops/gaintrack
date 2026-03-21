@@ -17,7 +17,7 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Workout, Exercise, DailyNutrition, WorkoutProgram } from '../types';
+import { Workout, Exercise, DailyNutrition, WorkoutProgram, UserPrefs } from '../types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -210,6 +210,85 @@ export const getExercisesFromFirestore = async (
     console.warn('[Firestore] getExercisesFromFirestore error:', err);
     return [];
   }
+};
+
+/**
+ * Fetches all saved programs for the user.
+ * [PRO]
+ */
+export const getProgramsFromFirestore = async (
+  userId: string,
+): Promise<WorkoutProgram[]> => {
+  if (!db || !userId) return [];
+  try {
+    const snap: QuerySnapshot<DocumentData> = await getDocs(
+      collection(db, 'Users', userId, 'programs'),
+    );
+    return snap.docs.map((d) => d.data() as WorkoutProgram);
+  } catch (err) {
+    console.warn('[Firestore] getProgramsFromFirestore error:', err);
+    return [];
+  }
+};
+
+/**
+ * Merges and stores user-level preferences on the user profile document.
+ * Path: users/{userId} and Users/{userId} for legacy compatibility.
+ */
+export const saveUserPrefsToFirestore = async (
+  userId: string,
+  prefs: UserPrefs,
+): Promise<void> => {
+  if (!db || !userId) return;
+  const payload = { prefs, _updatedAt: serverTimestamp() };
+
+  try {
+    await setDoc(doc(db, 'users', userId), payload, { merge: true });
+  } catch (err) {
+    console.warn('[Firestore] saveUserPrefsToFirestore users root failed:', err);
+  }
+
+  try {
+    await setDoc(doc(db, 'Users', userId), payload, { merge: true });
+  } catch (err) {
+    console.warn('[Firestore] saveUserPrefsToFirestore Users root failed:', err);
+  }
+};
+
+/**
+ * Reads user-level preferences from Firestore profile document.
+ * Cloud value is treated as source of truth when available.
+ */
+export const getUserPrefsFromFirestore = async (
+  userId: string,
+): Promise<UserPrefs | null> => {
+  if (!db || !userId) return null;
+
+  try {
+    const lower = await getDoc(doc(db, 'users', userId));
+    if (lower.exists()) {
+      const prefs = lower.data()?.prefs;
+      if (prefs && typeof prefs === 'object') {
+        return prefs as UserPrefs;
+      }
+    }
+  } catch (err) {
+    console.warn('[Firestore] getUserPrefsFromFirestore users root failed:', err);
+  }
+
+  try {
+    const upper = await getDoc(doc(db, 'Users', userId));
+    if (upper.exists()) {
+      const prefs = upper.data()?.prefs;
+      if (prefs && typeof prefs === 'object') {
+        return prefs as UserPrefs;
+      }
+    }
+  } catch (err) {
+    console.warn('[Firestore] getUserPrefsFromFirestore Users root failed:', err);
+  }
+
+  return null;
 };
 
 // ─── Progress ─────────────────────────────────────────────────────────────────
