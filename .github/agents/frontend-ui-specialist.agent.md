@@ -1,5 +1,5 @@
 ---
-description: "Use when requests involve React Native UI, Expo Router screens, component styling, layout polish, dark-mode token usage, haptics, or reanimated interactions in frontend app/components."
+description: "Use when requests involve React Native UI, Expo Router screens, component styling, layout polish, dark-mode token usage, haptics, or reanimated interactions in frontend app/components. Triggers: \"polish this screen\", \"improve dark-mode UI\", \"add haptics and animation\"."
 name: "Frontend UI Specialist"
 tools: [read, search, edit, execute]
 user-invocable: true

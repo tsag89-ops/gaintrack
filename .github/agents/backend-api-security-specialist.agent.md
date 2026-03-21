@@ -1,5 +1,5 @@
 ---
-description: "Use when requests involve FastAPI backend routes, authentication, entitlement checks, backend policy regressions, or tests under backend and tests/test_backend_*.py."
+description: "Use when requests involve FastAPI backend routes, authentication, entitlement checks, backend policy regressions, or tests under backend and tests/test_backend_*.py. Triggers: \"fix API auth\", \"entitlement bug\", \"backend policy test failure\"."
 name: "Backend API Security Specialist"
 tools: [read, search, edit, execute]
 user-invocable: true

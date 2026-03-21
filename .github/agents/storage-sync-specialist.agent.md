@@ -1,5 +1,5 @@
 ---
-description: "Use when requests involve AsyncStorage, Firestore sync, offline queue behavior, useOfflineSync, usePro gating, authStore state, or data consistency between local and cloud."
+description: "Use when requests involve AsyncStorage, Firestore sync, offline queue behavior, useOfflineSync, usePro gating, authStore state, or data consistency between local and cloud. Triggers: \"sync is inconsistent\", \"offline queue bug\", \"Pro data gating issue\"."
 name: "Storage Sync Specialist"
 tools: [read, search, edit, execute]
 user-invocable: true
