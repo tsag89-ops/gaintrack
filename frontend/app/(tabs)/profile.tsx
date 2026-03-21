@@ -90,12 +90,12 @@ export default function ProfileScreen() {
   const REST_DURATION_KEY = 'gaintrack_rest_duration';
   const AI_CONSENT_KEY    = 'gaintrack_ai_consent';
   const REST_PRESETS = [
-    { label: '30s', value: 30 },
-    { label: '60s', value: 60 },
-    { label: '90s', value: 90 },
-    { label: '2m', value: 120 },
-    { label: '3m', value: 180 },
-    { label: '5m', value: 300 },
+    30,
+    60,
+    90,
+    120,
+    180,
+    300,
   ];
   const [autoStartRestTimer, setAutoStartRestTimer] = useState(true);
   const [restDuration, setRestDuration] = useState(90);
@@ -122,7 +122,15 @@ export default function ProfileScreen() {
   };
   const getLocalizedLanguageLabel = (code: SupportedLocale) => t(`profile.languages.${code}`);
   const getLocalizedEquipmentLabel = (equipmentId: string) => t(`profile.equipmentLabels.${equipmentId}`);
-  const getRestDurationLabel = (seconds: number) => (seconds >= 60 ? `${seconds / 60}m` : `${seconds}s`);
+  const getRestDurationLabel = (seconds: number) => (
+    seconds >= 60
+      ? t('workoutActive.minutesShort', { count: seconds / 60 })
+      : t('workoutActive.secondsShort', { count: seconds })
+  );
+  const getHealthMessage = (message: string, messageKey?: string) => {
+    if (messageKey) return t(messageKey);
+    return message;
+  };
 
   const handleLanguageSelect = async (nextLocale: SupportedLocale) => {
     if (nextLocale === locale) return;
@@ -297,7 +305,7 @@ export default function ProfileScreen() {
       const result = await connectHealthProvider(provider);
       if (!result.ok) {
         await refreshHealthSyncSettings();
-        Alert.alert(t('profile.health.connectionIssueTitle'), result.message);
+        Alert.alert(t('profile.health.connectionIssueTitle'), getHealthMessage(result.message, result.messageKey));
         return;
       }
 
@@ -309,7 +317,7 @@ export default function ProfileScreen() {
         Alert.alert(
           t('profile.health.connectedAndSyncedTitle'),
           t('profile.health.connectedSyncedSummary', {
-            message: result.message,
+            message: getHealthMessage(result.message, result.messageKey),
             records: baseline.snapshot.providerRecordsRead,
             workouts: baseline.snapshot.workoutsImported,
             nutrition: baseline.snapshot.nutritionDaysImported,
@@ -317,7 +325,10 @@ export default function ProfileScreen() {
           }),
         );
       } else {
-        Alert.alert(t('profile.health.connectedTitle'), `${result.message}\n\n${baseline.message}`);
+        Alert.alert(
+          t('profile.health.connectedTitle'),
+          `${getHealthMessage(result.message, result.messageKey)}\n\n${getHealthMessage(baseline.message, baseline.messageKey)}`,
+        );
       }
     } catch (error: any) {
       Alert.alert(
@@ -358,7 +369,7 @@ export default function ProfileScreen() {
           }),
         );
       } else {
-        Alert.alert(t('profile.health.syncUnavailableTitle'), result.message);
+        Alert.alert(t('profile.health.syncUnavailableTitle'), getHealthMessage(result.message, result.messageKey));
       }
     } catch (error: any) {
       Alert.alert(
@@ -518,7 +529,7 @@ const handleDeleteAccount = async () => {
     } else {
       Alert.alert(
         t('common.error'),
-        error?.message ?? 'Failed to delete account. Please try again.',
+        error?.message ?? t('profile.accountAlerts.deleteFailedFallback'),
       );
     }
   }
@@ -954,13 +965,13 @@ const handleExportMyData = async () => {
               </View>
             </View>
             <View style={styles.unitToggleRow}>
-              {REST_PRESETS.map((p) => (
+              {REST_PRESETS.map((seconds) => (
                 <TouchableOpacity
-                  key={p.value}
-                  style={[styles.unitPill, restDuration === p.value && styles.unitPillActive]}
-                  onPress={() => selectRestDuration(p.value)}
+                  key={seconds}
+                  style={[styles.unitPill, restDuration === seconds && styles.unitPillActive]}
+                  onPress={() => selectRestDuration(seconds)}
                 >
-                  <Text style={[styles.unitPillText, restDuration === p.value && styles.unitPillTextActive]}>{p.label}</Text>
+                  <Text style={[styles.unitPillText, restDuration === seconds && styles.unitPillTextActive]}>{getRestDurationLabel(seconds)}</Text>
                 </TouchableOpacity>
               ))}
             </View>

@@ -277,8 +277,58 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       nextSessionLabel: 'Next: {{date}}',
       totalExercises: '{{count}} total exercises',
       useTemplate: 'Use template',
+      templateLevels: {
+        beginner: 'Beginner',
+        intermediate: 'Intermediate',
+      },
+      templates: {
+        starter_full_body_3d: {
+          name: 'Starter Full Body',
+          description: 'Simple full-body split for first 8-12 weeks.',
+          days: {
+            day0: 'Day A - Full Body',
+            day1: 'Day B - Full Body',
+            day2: 'Day C - Full Body',
+          },
+        },
+        ppl_6d_hypertrophy: {
+          name: 'Push Pull Legs',
+          description: 'Classic 6-day hypertrophy split with repeat rotation.',
+          days: {
+            day0: 'Day A - Push',
+            day1: 'Day B - Pull',
+            day2: 'Day C - Legs',
+            day3: 'Day D - Push',
+            day4: 'Day E - Pull',
+            day5: 'Day F - Legs',
+          },
+        },
+        dumbbell_home_4d: {
+          name: 'Dumbbell Home Plan',
+          description: 'Minimal-equipment home split using dumbbells and bodyweight.',
+          days: {
+            day0: 'Day A - Upper',
+            day1: 'Day B - Lower',
+            day2: 'Day C - Upper',
+            day3: 'Day D - Lower',
+          },
+        },
+      },
       deletedProgram: 'Deleted {{name}}',
       undo: 'UNDO',
+    },
+    proPaywall: {
+      purchaseFailedFallback: 'Purchase failed. Please try again.',
+      variants: {
+        valueFirst: {
+          title: 'Get stronger with clear progression',
+          subtitle: 'Unlock advanced charts, full exercise library, and smarter coaching. Pro plans: EUR 5.99 monthly or EUR 39.99 yearly with a 7-day annual trial.',
+        },
+        featureFirst: {
+          title: 'Unlock all Pro features',
+          subtitle: 'Full 1000+ exercise library, advanced analytics, AI coaching, and premium tracking. Best value: EUR 39.99/year (7-day trial) or EUR 5.99/month.',
+        },
+      },
     },
     nutritionTab: {
       today: 'Today',
@@ -535,6 +585,8 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       chatProFeatureSubtitle: 'Get unlimited, context-aware GPT coaching personalised to your workouts, nutrition, and body goals.',
       backToFreeTips: 'Back to free tips',
       usageBar: 'AI Coach: {{used}}/{{limit}} messages used today ({{remaining}} left)',
+      workoutsPerWeekGoal: '{{count}} workouts/week',
+      generalFitnessGoal: 'general fitness',
       quickPrompts: 'Quick prompts',
       askPlaceholder: 'Ask your AI coach...',
       consentTitle: 'AI Coach - Data & Health Notice',
@@ -571,6 +623,16 @@ const translations: Record<SupportedLocale, TranslationTree> = {
         syncStaleBody: 'Last sync was {{days}} days ago. Sync again before your next session so coaching reflects current fatigue and activity.',
         signalReadyTitle: '{{provider}} coaching signal ready',
         signalReadyBody: 'Latest sync captured {{records}} provider records with {{workouts}} workouts and {{nutrition}} nutrition logs. Keep sync cadence at least every 48 hours for better coaching accuracy.',
+      },
+      fallback: {
+        exerciseTitle: 'Next Muscle Group: Shoulders',
+        exerciseDescription: 'You have trained chest and triceps in recent sessions. Hit shoulders today to keep push-pull balance. Try overhead press 4x6 as your primary lift.',
+        supersetTitle: 'Superset Idea: Bicep Curl + Hammer Curl',
+        supersetDescription: 'Pair barbell curls (3x10) with hammer curls (3x12) to raise bicep volume in less time. Rest 90 seconds between supersets.',
+        nutritionTitle: 'Lean Bulk Tip: Hit 160 g Protein Today',
+        nutritionDescription: 'Based on your recent logs, you may be short on protein. Add a lean protein serving or shake to close the gap.',
+        programTitle: 'Program Suggestion: GZCLP Linear Progression',
+        programDescription: 'Your strength trend looks steady. GZCLP is a proven 3-day linear plan that can keep squat, bench, and deadlift moving over the next 12-16 weeks.',
       },
       static: {
         tip1: {
@@ -750,6 +812,7 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       notFound: 'Program not found',
       goBack: 'Go back',
       perWeek: 'per week',
+      cycleWithCount: 'Cycle {{count}}',
       current: 'current',
       daysDone: 'days done',
       nextSession: 'NEXT SESSION',
@@ -759,6 +822,8 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       autoProgressed: 'auto-progressed weights',
       next: 'NEXT',
       noExercises: 'No exercises',
+      setPairMeta: '{{weight}}{{unit}}×{{reps}}',
+      setSummaryMeta: '{{sets}}×{{reps}} @ {{weight}} {{unit}}',
       sessionHistory: 'Session History',
       startSession: 'Start Session — {{label}}',
     },
@@ -805,6 +870,25 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       whatToIncrease: 'What to increase',
       amountPer: 'Amount per {{period}}',
       applyCustomRule: 'Apply Custom Rule',
+      repShort: 'rep',
+      dayLabelPattern: 'Day {{day}} - {{label}}',
+      dayTemplates: {
+        push: 'Push',
+        pull: 'Pull',
+        legs: 'Legs',
+        upper: 'Upper',
+        lower: 'Lower',
+        fullBody: 'Full Body',
+        cardio: 'Cardio',
+      },
+      progressionOptions: {
+        weight25Session: '+2.5 {{unit}} / session',
+        weight5Session: '+5 {{unit}} / session',
+        rep1Session: '+1 rep / session',
+        weight25Cycle: '+2.5 {{unit}} / cycle',
+        weight5Cycle: '+5 {{unit}} / cycle',
+        custom: 'Custom',
+      },
       periods: {
         session: 'Session',
         week: 'Week',
@@ -828,7 +912,7 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       addMeasurement: 'Add Measurement',
       lastEntries: 'Last {{count}} entries',
       setGoal: 'Set Goal',
-      goalWithWeight: 'Goal: {{weight}} lbs',
+      goalWithWeight: 'Goal: {{weight}} {{unit}}',
       byDate: 'by {{date}}',
       current: 'Current',
       lowest: 'Lowest',
@@ -843,6 +927,51 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       notesOptional: 'Notes (optional)',
       notesPlaceholder: 'Any notes...',
       saveMeasurement: 'Save Measurement',
+      fields: {
+        weight: {
+          label: 'Weight',
+          unitKg: 'kg',
+          unitLbs: 'lbs',
+        },
+        body_fat: {
+          label: 'Body Fat',
+        },
+        chest: {
+          label: 'Chest',
+        },
+        waist: {
+          label: 'Waist',
+        },
+        hips: {
+          label: 'Hips',
+        },
+        shoulders: {
+          label: 'Shoulders',
+        },
+        biceps_left: {
+          label: 'Left Bicep',
+        },
+        biceps_right: {
+          label: 'Right Bicep',
+        },
+        thighs_left: {
+          label: 'Left Thigh',
+        },
+        thighs_right: {
+          label: 'Right Thigh',
+        },
+        neck: {
+          label: 'Neck',
+        },
+        length: {
+          unitCm: 'cm',
+          unitIn: 'in',
+        },
+        bodyFat: {
+          label: 'Body Fat',
+          unitPercent: '%',
+        },
+      },
     },
     physiqueProgress: {
       title: 'Physique Progress',
@@ -931,10 +1060,13 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       permissionBanner: 'Notifications are disabled. Please enable them in your device settings.',
       workoutReminder: 'Workout Reminder',
       workoutReminderDesc: 'Daily reminder to hit the gym',
+      workoutReminderBody: 'Ready to crush your workout? Your gains are waiting!',
       nutritionReminder: 'Nutrition Check-In',
       nutritionReminderDesc: 'Reminder to log your meals',
+      nutritionReminderBody: 'Have you logged your meals today? Keep tracking those macros!',
       progressReminder: 'Weekly Progress',
       progressReminderDesc: 'Reminder to update measurements',
+      progressReminderBody: 'Time to check your progress! Update your body measurements.',
       reminderTime: 'Reminder Time',
       reminderDay: 'Reminder Day',
       testNotification: 'Send Test Notification',
@@ -1290,6 +1422,25 @@ const translations: Record<SupportedLocale, TranslationTree> = {
         syncIssueFallback: 'Unexpected error during Health Connect sync. Please try again.',
         syncedSummary: '{{provider}} synced.\nProvider records: {{records}}\nWorkouts: {{workouts}}\nNutrition days: {{nutrition}}\nMeasurements: {{measurements}}',
         connectedSyncedSummary: '{{message}}\n\nProvider records: {{records}}\nWorkouts: {{workouts}}\nNutrition days: {{nutrition}}\nMeasurements: {{measurements}}',
+        messages: {
+          providerUnsupported: 'This provider is not supported on your current platform.',
+          connectionUnavailable: 'Health connection is unavailable in this app version. Please update the app and try again.',
+          providerConnectedReady: 'Provider connected. You can now run sync.',
+          connectAndEnableBeforeSync: 'Connect and enable the provider before syncing.',
+          nativeBridgeUnavailableSync: 'Native health bridge is unavailable in this build. Sync cannot read device health data yet.',
+          baselineSyncCompleted: 'Baseline sync completed.',
+          applePermissionGranted: 'Apple Health permission granted.',
+          applePermissionFlowFailed: 'Apple Health permission flow failed.',
+          androidOnly: 'Android Health Connect is only available on Android devices.',
+          androidVersionRequired: 'Android Health Connect requires Android 8.0 (API 26) or newer.',
+          healthConnectUpdateRequired: 'Health Connect needs to be installed or updated. Open Play Store, update Health Connect, then try Connect again.',
+          healthConnectUnavailable: 'Health Connect is unavailable on this device right now. Install/update Health Connect and retry.',
+          healthConnectInitializeFailed: 'Health Connect failed to initialize on this device.',
+          permissionsAlreadyGranted: 'Android Health Connect permissions already granted.',
+          permissionsGranted: 'Android Health Connect permissions granted.',
+          permissionsNotEnabled: 'Health permissions are not enabled yet. Open Health Connect and allow access for GainTrack, then try again.',
+          connectTryAgain: 'Could not connect to Health Connect right now. Please try again in a moment.',
+        },
       },
       aiConsent: {
         disableTitle: 'Disable AI Coach?',
@@ -1300,6 +1451,7 @@ const translations: Record<SupportedLocale, TranslationTree> = {
         deleteTitle: 'Delete Account',
         deleteMessage: 'This will permanently delete your account and all data. This cannot be undone.',
         delete: 'Delete',
+        deleteFailedFallback: 'Failed to delete account. Please try again.',
         reauthTitle: 'Re-authentication Required',
         reauthMessage: 'For security, Firebase requires a recent sign-in before deleting your account. Sign out now, sign back in, and then delete your account.',
         signOutNow: 'Sign Out Now',
@@ -1889,6 +2041,84 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       setsLabel: 'Σετ',
       volumeLabel: 'Όγκος ({{unit}})',
       moreExercises: '+{{count}} ακόμη',
+    },
+    measurements: {
+      title: 'Μετρήσεις σώματος',
+      subtitle: 'Παρακολούθησε την πρόοδό σου',
+      historyTab: 'Ιστορικό',
+      progressTab: 'Πρόοδος',
+      enterAtLeastOne: 'Συμπλήρωσε τουλάχιστον μία μέτρηση',
+      saved: 'Η μέτρηση αποθηκεύτηκε!',
+      saveFailed: 'Αποτυχία αποθήκευσης μέτρησης',
+      deleteTitle: 'Διαγραφή μέτρησης',
+      deleteMessage: 'Θέλεις σίγουρα να διαγράψεις αυτή τη μέτρηση;',
+      deleteAction: 'Διαγραφή',
+      deleteFailed: 'Αποτυχία διαγραφής μέτρησης',
+      noMeasurementsTitle: 'Δεν υπάρχουν μετρήσεις ακόμη',
+      noMeasurementsSubtitle: 'Ξεκίνα να καταγράφεις μετρήσεις σώματος για να βλέπεις την πρόοδό σου με τον χρόνο',
+      addMeasurement: 'Προσθήκη μέτρησης',
+      lastEntries: 'Τελευταίες {{count}} καταχωρήσεις',
+      setGoal: 'Ορισμός στόχου',
+      goalWithWeight: 'Στόχος: {{weight}} {{unit}}',
+      byDate: 'έως {{date}}',
+      current: 'Τρέχον',
+      lowest: 'Χαμηλότερο',
+      change: 'Μεταβολή',
+      dailyCalorieIntake: 'Ημερήσια πρόσληψη θερμίδων',
+      dailyCalorieSubtitle: 'Μαζί με τα δεδομένα βάρους · τελευταίες {{count}} ημέρες',
+      notEnoughData: 'Δεν υπάρχουν αρκετά δεδομένα',
+      notEnoughDataSubtitle: 'Πρόσθεσε περισσότερες μετρήσεις για να δεις την πρόοδό σου με τον χρόνο',
+      startedAt: 'Ξεκίνησε από {{value}} {{unit}}',
+      modalSubtitle: 'Συμπλήρωσε τις μετρήσεις σου (άφησε κενό για παράλειψη)',
+      enterField: 'Καταχώρισε {{field}}',
+      notesOptional: 'Σημειώσεις (προαιρετικά)',
+      notesPlaceholder: 'Οποιεσδήποτε σημειώσεις...',
+      saveMeasurement: 'Αποθήκευση μέτρησης',
+      fields: {
+        weight: {
+          label: 'Βάρος',
+          unitKg: 'kg',
+          unitLbs: 'lbs',
+        },
+        body_fat: {
+          label: 'Σωματικό λίπος',
+        },
+        chest: {
+          label: 'Στήθος',
+        },
+        waist: {
+          label: 'Μέση',
+        },
+        hips: {
+          label: 'Γοφοί',
+        },
+        shoulders: {
+          label: 'Ώμοι',
+        },
+        biceps_left: {
+          label: 'Αριστερός δικέφαλος',
+        },
+        biceps_right: {
+          label: 'Δεξιός δικέφαλος',
+        },
+        thighs_left: {
+          label: 'Αριστερός μηρός',
+        },
+        thighs_right: {
+          label: 'Δεξιός μηρός',
+        },
+        neck: {
+          label: 'Λαιμός',
+        },
+        length: {
+          unitCm: 'εκ',
+          unitIn: 'ίντσες',
+        },
+        bodyFat: {
+          label: 'Σωματικό λίπος',
+          unitPercent: '%',
+        },
+      },
     },
     profile: {
       subscription: 'Συνδρομή',
@@ -2553,6 +2783,84 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       noWorkoutsYetTitle: 'Noch keine Workouts',
       noWorkoutsYetSubtitle: 'Schließe ein Workout ab, um es hier zu sehen.',
     },
+    measurements: {
+      title: 'Körpermaße',
+      subtitle: 'Verfolge deinen Fortschritt',
+      historyTab: 'Verlauf',
+      progressTab: 'Fortschritt',
+      enterAtLeastOne: 'Bitte gib mindestens eine Messung ein',
+      saved: 'Messung gespeichert!',
+      saveFailed: 'Messung konnte nicht gespeichert werden',
+      deleteTitle: 'Messung löschen',
+      deleteMessage: 'Möchtest du diese Messung wirklich löschen?',
+      deleteAction: 'Löschen',
+      deleteFailed: 'Messung konnte nicht gelöscht werden',
+      noMeasurementsTitle: 'Noch keine Messungen',
+      noMeasurementsSubtitle: 'Beginne mit dem Erfassen deiner Körpermaße, um Fortschritte über die Zeit zu sehen',
+      addMeasurement: 'Messung hinzufügen',
+      lastEntries: 'Letzte {{count}} Einträge',
+      setGoal: 'Ziel festlegen',
+      goalWithWeight: 'Ziel: {{weight}} {{unit}}',
+      byDate: 'bis {{date}}',
+      current: 'Aktuell',
+      lowest: 'Niedrigster Wert',
+      change: 'Veränderung',
+      dailyCalorieIntake: 'Tägliche Kalorienaufnahme',
+      dailyCalorieSubtitle: 'Zusammen mit deinen Gewichtsdaten · letzte {{count}} Tage',
+      notEnoughData: 'Nicht genug Daten',
+      notEnoughDataSubtitle: 'Füge mehr Messungen hinzu, um deinen Fortschritt über die Zeit zu sehen',
+      startedAt: 'Gestartet bei {{value}} {{unit}}',
+      modalSubtitle: 'Gib deine Messungen ein (leer lassen zum Überspringen)',
+      enterField: '{{field}} eingeben',
+      notesOptional: 'Notizen (optional)',
+      notesPlaceholder: 'Beliebige Notizen...',
+      saveMeasurement: 'Messung speichern',
+      fields: {
+        weight: {
+          label: 'Gewicht',
+          unitKg: 'kg',
+          unitLbs: 'lbs',
+        },
+        body_fat: {
+          label: 'Körperfett',
+        },
+        chest: {
+          label: 'Brust',
+        },
+        waist: {
+          label: 'Taille',
+        },
+        hips: {
+          label: 'Hüfte',
+        },
+        shoulders: {
+          label: 'Schultern',
+        },
+        biceps_left: {
+          label: 'Linker Bizeps',
+        },
+        biceps_right: {
+          label: 'Rechter Bizeps',
+        },
+        thighs_left: {
+          label: 'Linker Oberschenkel',
+        },
+        thighs_right: {
+          label: 'Rechter Oberschenkel',
+        },
+        neck: {
+          label: 'Hals',
+        },
+        length: {
+          unitCm: 'cm',
+          unitIn: 'in',
+        },
+        bodyFat: {
+          label: 'Körperfett',
+          unitPercent: '%',
+        },
+      },
+    },
     profile: {
       subscription: 'Abo',
       gainTrackPro: 'GainTrack Pro',
@@ -3216,6 +3524,84 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       noWorkoutsYetTitle: 'Aucune séance pour le moment',
       noWorkoutsYetSubtitle: 'Terminez une séance pour la voir ici.',
     },
+    measurements: {
+      title: 'Mensurations',
+      subtitle: 'Suivez votre progression',
+      historyTab: 'Historique',
+      progressTab: 'Progression',
+      enterAtLeastOne: 'Veuillez saisir au moins une mesure',
+      saved: 'Mesure enregistrée !',
+      saveFailed: 'Échec de l’enregistrement de la mesure',
+      deleteTitle: 'Supprimer la mesure',
+      deleteMessage: 'Voulez-vous vraiment supprimer cette mesure ?',
+      deleteAction: 'Supprimer',
+      deleteFailed: 'Échec de la suppression de la mesure',
+      noMeasurementsTitle: 'Aucune mesure pour le moment',
+      noMeasurementsSubtitle: 'Commencez à suivre vos mensurations pour voir votre progression au fil du temps',
+      addMeasurement: 'Ajouter une mesure',
+      lastEntries: 'Dernières {{count}} entrées',
+      setGoal: 'Définir un objectif',
+      goalWithWeight: 'Objectif : {{weight}} {{unit}}',
+      byDate: 'pour {{date}}',
+      current: 'Actuel',
+      lowest: 'Plus bas',
+      change: 'Variation',
+      dailyCalorieIntake: 'Apport calorique quotidien',
+      dailyCalorieSubtitle: 'Avec vos données de poids · {{count}} derniers jours',
+      notEnoughData: 'Pas assez de données',
+      notEnoughDataSubtitle: 'Ajoutez plus de mesures pour voir votre progression dans le temps',
+      startedAt: 'Commencé à {{value}} {{unit}}',
+      modalSubtitle: 'Saisissez vos mesures (laissez vide pour ignorer)',
+      enterField: 'Saisir {{field}}',
+      notesOptional: 'Notes (optionnel)',
+      notesPlaceholder: 'Quelques notes...',
+      saveMeasurement: 'Enregistrer la mesure',
+      fields: {
+        weight: {
+          label: 'Poids',
+          unitKg: 'kg',
+          unitLbs: 'lbs',
+        },
+        body_fat: {
+          label: 'Masse grasse',
+        },
+        chest: {
+          label: 'Poitrine',
+        },
+        waist: {
+          label: 'Taille',
+        },
+        hips: {
+          label: 'Hanches',
+        },
+        shoulders: {
+          label: 'Épaules',
+        },
+        biceps_left: {
+          label: 'Biceps gauche',
+        },
+        biceps_right: {
+          label: 'Biceps droit',
+        },
+        thighs_left: {
+          label: 'Cuisse gauche',
+        },
+        thighs_right: {
+          label: 'Cuisse droite',
+        },
+        neck: {
+          label: 'Cou',
+        },
+        length: {
+          unitCm: 'cm',
+          unitIn: 'po',
+        },
+        bodyFat: {
+          label: 'Masse grasse',
+          unitPercent: '%',
+        },
+      },
+    },
     profile: {
       subscription: 'Abonnement',
       gainTrackPro: 'GainTrack Pro',
@@ -3878,6 +4264,84 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       headerTitle: 'Tutti gli allenamenti',
       noWorkoutsYetTitle: 'Nessun allenamento ancora',
       noWorkoutsYetSubtitle: 'Completa un allenamento per vederlo qui.',
+    },
+    measurements: {
+      title: 'Misure corporee',
+      subtitle: 'Monitora i tuoi progressi',
+      historyTab: 'Cronologia',
+      progressTab: 'Progressi',
+      enterAtLeastOne: 'Inserisci almeno una misurazione',
+      saved: 'Misurazione salvata!',
+      saveFailed: 'Salvataggio della misurazione non riuscito',
+      deleteTitle: 'Elimina misurazione',
+      deleteMessage: 'Vuoi davvero eliminare questa misurazione?',
+      deleteAction: 'Elimina',
+      deleteFailed: 'Eliminazione della misurazione non riuscita',
+      noMeasurementsTitle: 'Nessuna misurazione ancora',
+      noMeasurementsSubtitle: 'Inizia a registrare le misure corporee per vedere i progressi nel tempo',
+      addMeasurement: 'Aggiungi misurazione',
+      lastEntries: 'Ultime {{count}} registrazioni',
+      setGoal: 'Imposta obiettivo',
+      goalWithWeight: 'Obiettivo: {{weight}} {{unit}}',
+      byDate: 'entro {{date}}',
+      current: 'Attuale',
+      lowest: 'Più basso',
+      change: 'Variazione',
+      dailyCalorieIntake: 'Apporto calorico giornaliero',
+      dailyCalorieSubtitle: 'Insieme ai dati del peso · ultimi {{count}} giorni',
+      notEnoughData: 'Dati insufficienti',
+      notEnoughDataSubtitle: 'Aggiungi più misurazioni per vedere i tuoi progressi nel tempo',
+      startedAt: 'Partito da {{value}} {{unit}}',
+      modalSubtitle: 'Inserisci le tue misurazioni (lascia vuoto per saltare)',
+      enterField: 'Inserisci {{field}}',
+      notesOptional: 'Note (facoltative)',
+      notesPlaceholder: 'Eventuali note...',
+      saveMeasurement: 'Salva misurazione',
+      fields: {
+        weight: {
+          label: 'Peso',
+          unitKg: 'kg',
+          unitLbs: 'lbs',
+        },
+        body_fat: {
+          label: 'Massa grassa',
+        },
+        chest: {
+          label: 'Petto',
+        },
+        waist: {
+          label: 'Vita',
+        },
+        hips: {
+          label: 'Fianchi',
+        },
+        shoulders: {
+          label: 'Spalle',
+        },
+        biceps_left: {
+          label: 'Bicipite sinistro',
+        },
+        biceps_right: {
+          label: 'Bicipite destro',
+        },
+        thighs_left: {
+          label: 'Coscia sinistra',
+        },
+        thighs_right: {
+          label: 'Coscia destra',
+        },
+        neck: {
+          label: 'Collo',
+        },
+        length: {
+          unitCm: 'cm',
+          unitIn: 'in',
+        },
+        bodyFat: {
+          label: 'Massa grassa',
+          unitPercent: '%',
+        },
+      },
     },
     profile: {
       subscription: 'Abbonamento',

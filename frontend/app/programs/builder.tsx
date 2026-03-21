@@ -50,32 +50,25 @@ const FREE_PROGRAM_LIMIT = 1;
 const FREE_EXERCISE_LIMIT = 3; // [PRO]
 
 const PROGRESSION_OPTIONS: Array<{
-  label: string;
+  labelKey: string;
   rule: ProgressionRule;
   proOnly?: boolean;
 }> = [
-  { label: '+2.5 kg / session', rule: { type: 'weight', increment: 2.5, every: 'session' } },
-  { label: '+5 kg / session', rule: { type: 'weight', increment: 5, every: 'session' }, proOnly: true }, // [PRO]
-  { label: '+1 rep / session', rule: { type: 'reps', increment: 1, every: 'session' }, proOnly: true }, // [PRO]
-  { label: '+2.5 kg / cycle', rule: { type: 'weight', increment: 2.5, every: 'cycle' }, proOnly: true }, // [PRO]
-  { label: '+5 kg / cycle', rule: { type: 'weight', increment: 5, every: 'cycle' }, proOnly: true }, // [PRO]
-  { label: 'Custom', rule: { type: 'custom', increment: 0, every: 'session' }, proOnly: true }, // [PRO]
+  { labelKey: 'programBuilder.progressionOptions.weight25Session', rule: { type: 'weight', increment: 2.5, every: 'session' } },
+  { labelKey: 'programBuilder.progressionOptions.weight5Session', rule: { type: 'weight', increment: 5, every: 'session' }, proOnly: true }, // [PRO]
+  { labelKey: 'programBuilder.progressionOptions.rep1Session', rule: { type: 'reps', increment: 1, every: 'session' }, proOnly: true }, // [PRO]
+  { labelKey: 'programBuilder.progressionOptions.weight25Cycle', rule: { type: 'weight', increment: 2.5, every: 'cycle' }, proOnly: true }, // [PRO]
+  { labelKey: 'programBuilder.progressionOptions.weight5Cycle', rule: { type: 'weight', increment: 5, every: 'cycle' }, proOnly: true }, // [PRO]
+  { labelKey: 'programBuilder.progressionOptions.custom', rule: { type: 'custom', increment: 0, every: 'session' }, proOnly: true }, // [PRO]
 ];
 
 const DEFAULT_PROGRESSION: ProgressionRule = PROGRESSION_OPTIONS[0].rule;
 
-const DAY_LABELS = ['Push', 'Pull', 'Legs', 'Upper', 'Lower', 'Full Body', 'Cardio'];
+const DAY_LABEL_KEYS = ['push', 'pull', 'legs', 'upper', 'lower', 'fullBody', 'cardio'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
-const makeDays = (count: number): ProgramDay[] =>
-  Array.from({ length: count }, (_, i) => ({
-    id: makeId(),
-    label: `Day ${String.fromCharCode(65 + i)} — ${DAY_LABELS[i % DAY_LABELS.length]}`,
-    exercises: [],
-  }));
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -87,10 +80,28 @@ export default function ProgramBuilderScreen() {
   const { isPro } = usePro();
   const weightUnit = useWeightUnit();
 
+  const buildDayLabel = useCallback(
+    (dayIndex: number) =>
+      t('programBuilder.dayLabelPattern', {
+        day: String.fromCharCode(65 + dayIndex),
+        label: t(`programBuilder.dayTemplates.${DAY_LABEL_KEYS[dayIndex % DAY_LABEL_KEYS.length]}`),
+      }),
+    [t],
+  );
+  const makeDays = useCallback(
+    (count: number): ProgramDay[] =>
+      Array.from({ length: count }, (_, i) => ({
+        id: makeId(),
+        label: buildDayLabel(i),
+        exercises: [],
+      })),
+    [buildDayLabel],
+  );
+
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [daysPerWeek, setDaysPerWeek] = useState(3);
-  const [days, setDays] = useState<ProgramDay[]>(makeDays(3));
+  const [days, setDays] = useState<ProgramDay[]>(() => makeDays(3));
   const [saving, setSaving] = useState(false);
 
   // Exercise picker state
@@ -137,7 +148,7 @@ export default function ProgramBuilderScreen() {
         if (n > prev.length) {
           const extra = Array.from({ length: n - prev.length }, (_, i) => ({
             id: makeId(),
-            label: `Day ${String.fromCharCode(65 + prev.length + i)} — ${DAY_LABELS[(prev.length + i) % DAY_LABELS.length]}`,
+            label: buildDayLabel(prev.length + i),
             exercises: [],
           }));
           return [...prev, ...extra];
@@ -145,7 +156,22 @@ export default function ProgramBuilderScreen() {
         return prev.slice(0, n);
       });
     },
-    [],
+    [buildDayLabel],
+  );
+
+  const getProgressionLabel = useCallback(
+    (rule: ProgressionRule) => {
+      const option = PROGRESSION_OPTIONS.find(
+        (o) =>
+          o.rule.type === rule.type &&
+          o.rule.increment === rule.increment &&
+          o.rule.every === rule.every,
+      );
+      return option
+        ? t(option.labelKey, { unit: weightUnit })
+        : t('programBuilder.progressionOptions.custom');
+    },
+    [t, weightUnit],
   );
 
   // Step navigation
@@ -414,13 +440,7 @@ export default function ProgramBuilderScreen() {
           <View key={day.id} style={styles.progDaySection}>
             <Text style={styles.progDayLabel}>{day.label}</Text>
             {day.exercises.map((ex) => {
-              const optionLabel =
-                PROGRESSION_OPTIONS.find(
-                  (o) =>
-                    o.rule.type === ex.progression.type &&
-                    o.rule.increment === ex.progression.increment &&
-                    o.rule.every === ex.progression.every,
-                )?.label ?? 'Custom';
+              const optionLabel = getProgressionLabel(ex.progression);
               return (
                 <TouchableOpacity
                   key={ex.exerciseName}
@@ -484,18 +504,14 @@ export default function ProgramBuilderScreen() {
           ) : (
             day.exercises.map((ex) => {
               const meta = ex.setDetails && ex.setDetails.length > 0
-                ? ex.setDetails.map(s => `${s.weight}kg×${s.reps}`).join(' / ')
-                : `${ex.sets}×${ex.reps} @ ${ex.weight} kg`;
+                ? ex.setDetails.map(s => `${s.weight}${weightUnit}×${s.reps}`).join(' / ')
+                : `${ex.sets}×${ex.reps} @ ${ex.weight} ${weightUnit}`;
               return (
                 <View key={ex.exerciseName} style={styles.reviewExRow}>
                   <Text style={styles.reviewExName}>{ex.exerciseName}</Text>
                   <Text style={styles.reviewExMeta}>
                     {meta} ·{' '}
-                    {PROGRESSION_OPTIONS.find(
-                      (o) =>
-                        o.rule.type === ex.progression.type &&
-                        o.rule.increment === ex.progression.increment,
-                    )?.label ?? 'Custom'}
+                    {getProgressionLabel(ex.progression)}
                   </Text>
                 </View>
               );
@@ -689,7 +705,7 @@ export default function ProgramBuilderScreen() {
                 progressionModal?.current.every === opt.rule.every;
               return (
                 <TouchableOpacity
-                  key={opt.label}
+                  key={opt.labelKey}
                   style={[
                     styles.progressionOption,
                     isSelected && styles.progressionOptionSelected,
@@ -722,7 +738,7 @@ export default function ProgramBuilderScreen() {
                       locked && styles.progressionOptionTextLocked,
                     ]}
                   >
-                    {opt.label}
+                    {t(opt.labelKey, { unit: weightUnit })}
                   </Text>
                   {locked && (
                     <View style={styles.lockBadge}>
@@ -768,7 +784,7 @@ export default function ProgramBuilderScreen() {
                     placeholderTextColor={colors.textDisabled}
                   />
                   <Text style={styles.customUnit}>
-                    {customRuleType === 'weight' ? weightUnit : 'rep'}
+                    {customRuleType === 'weight' ? weightUnit : t('programBuilder.repShort')}
                   </Text>
                 </View>
 

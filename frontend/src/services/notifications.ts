@@ -15,6 +15,15 @@ export interface NotificationSettings {
   progressReminderDay: number; // 0-6 (Sunday-Saturday)
 }
 
+export interface NotificationScheduleCopy {
+  workoutTitle: string;
+  workoutBody: string;
+  nutritionTitle: string;
+  nutritionBody: string;
+  progressTitle: string;
+  progressBody: string;
+}
+
 const DEFAULT_SETTINGS: NotificationSettings = {
   workoutReminder: true,
   workoutReminderTime: '09:00',
@@ -22,6 +31,15 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   nutritionReminderTime: '19:00',
   progressReminder: true,
   progressReminderDay: 0, // Sunday
+};
+
+const DEFAULT_SCHEDULE_COPY: NotificationScheduleCopy = {
+  workoutTitle: '💪 Time to Work Out!',
+  workoutBody: 'Ready to crush your workout? Your gains are waiting!',
+  nutritionTitle: '🍽️ Nutrition Check-In',
+  nutritionBody: 'Have you logged your meals today? Keep tracking those macros!',
+  progressTitle: '📊 Weekly Progress Update',
+  progressBody: 'Time to check your progress! Update your body measurements.',
 };
 
 // Check if we're in Expo Go (notifications won't work there in SDK 53+)
@@ -379,15 +397,21 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   }
 }
 
-export async function saveNotificationSettings(settings: NotificationSettings): Promise<void> {
+export async function saveNotificationSettings(
+  settings: NotificationSettings,
+  scheduleCopy?: NotificationScheduleCopy,
+): Promise<void> {
   await storage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
   await userApi.updateUserPrefs({
     notificationSettings: settings as unknown as Record<string, unknown>,
   }).catch(() => null);
-  await scheduleNotifications(settings);
+  await scheduleNotifications(settings, scheduleCopy);
 }
 
-export async function scheduleNotifications(settings: NotificationSettings): Promise<void> {
+export async function scheduleNotifications(
+  settings: NotificationSettings,
+  scheduleCopy: NotificationScheduleCopy = DEFAULT_SCHEDULE_COPY,
+): Promise<void> {
   const available = await initNotifications();
   if (!available || !Notifications) {
     console.log('Cannot schedule notifications - not available in Expo Go');
@@ -403,8 +427,8 @@ export async function scheduleNotifications(settings: NotificationSettings): Pro
       const [hours, minutes] = settings.workoutReminderTime.split(':').map(Number);
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: '💪 Time to Work Out!',
-          body: 'Ready to crush your workout? Your gains are waiting!',
+          title: scheduleCopy.workoutTitle,
+          body: scheduleCopy.workoutBody,
           sound: true,
         },
         trigger: {
@@ -420,8 +444,8 @@ export async function scheduleNotifications(settings: NotificationSettings): Pro
       const [hours, minutes] = settings.nutritionReminderTime.split(':').map(Number);
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: '🍽️ Nutrition Check-In',
-          body: 'Have you logged your meals today? Keep tracking those macros!',
+          title: scheduleCopy.nutritionTitle,
+          body: scheduleCopy.nutritionBody,
           sound: true,
         },
         trigger: {
@@ -436,8 +460,8 @@ export async function scheduleNotifications(settings: NotificationSettings): Pro
     if (settings.progressReminder) {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: '📊 Weekly Progress Update',
-          body: 'Time to check your progress! Update your body measurements.',
+          title: scheduleCopy.progressTitle,
+          body: scheduleCopy.progressBody,
           sound: true,
         },
         trigger: {

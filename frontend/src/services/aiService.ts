@@ -59,6 +59,10 @@ export interface AIContext {
   calories?: number;
 }
 
+export interface AISuggestionsRequestOptions {
+  fallbackSuggestions?: AISuggestion[];
+}
+
 // --- Mocked fallback ----------------------------------------------------------
 
 const MOCK_SUGGESTIONS: AISuggestion[] = [
@@ -104,7 +108,10 @@ const MOCK_SUGGESTIONS: AISuggestion[] = [
  *   1. Try the server route /api/ai-chat (web, native dev, or EXPO_PUBLIC_API_BASE_URL).
  *   2. If unavailable, return static mocks so the UI is never broken.
  */
-export async function getAISuggestions(context: AIContext): Promise<AISuggestion[]> {
+export async function getAISuggestions(
+  context: AIContext,
+  options?: AISuggestionsRequestOptions,
+): Promise<AISuggestion[]> {
   const system =
     'You are a personal fitness coach. Respond ONLY with a valid JSON array of suggestion objects. ' +
     'Each object must have: id (string), category ("exercise"|"superset"|"nutrition"|"program"), ' +
@@ -129,18 +136,18 @@ export async function getAISuggestions(context: AIContext): Promise<AISuggestion
 
   if (!res || !res.ok) {
     console.warn(`[aiService] All AI attempts failed (${res?.status}) � using mocked suggestions.`);
-    return MOCK_SUGGESTIONS;
+    return options?.fallbackSuggestions ?? MOCK_SUGGESTIONS;
   }
 
   try {
     const data = await res.json();
     const raw: string = data?.choices?.[0]?.message?.content ?? '';
-    if (!raw) return MOCK_SUGGESTIONS;
+    if (!raw) return options?.fallbackSuggestions ?? MOCK_SUGGESTIONS;
     const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
     return JSON.parse(jsonStr) as AISuggestion[];
   } catch (e: any) {
     console.warn('[aiService] Failed to parse AI response:', e?.message);
-    return MOCK_SUGGESTIONS;
+    return options?.fallbackSuggestions ?? MOCK_SUGGESTIONS;
   }
 }
 

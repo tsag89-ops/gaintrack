@@ -23,6 +23,8 @@ import { LineChart } from 'react-native-chart-kit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BodyCompositionGoals } from '../src/types/bodyGoals';
 import { useLanguage } from '../src/context/LanguageContext';
+import { useWeightUnit } from '../src/hooks/useWeightUnit';
+import { useLengthUnit } from '../src/hooks/useLengthUnit';
 
 const SCREEN_W = Dimensions.get('window').width;
 const NUTRITION_KEY = 'gaintrack_nutrition';
@@ -62,23 +64,40 @@ interface MeasurementProgress {
   change_percent: number;
 }
 
+type MeasurementFieldKey =
+  | 'weight'
+  | 'body_fat'
+  | 'chest'
+  | 'waist'
+  | 'hips'
+  | 'shoulders'
+  | 'biceps_left'
+  | 'biceps_right'
+  | 'thighs_left'
+  | 'thighs_right'
+  | 'neck';
+
+type MeasurementUnitType = 'weight' | 'length' | 'bodyFat';
+
 const MEASUREMENT_FIELDS = [
-  { key: 'weight', label: 'Weight', unit: 'lbs', icon: 'scale-outline' },
-  { key: 'body_fat', label: 'Body Fat', unit: '%', icon: 'fitness-outline' },
-  { key: 'chest', label: 'Chest', unit: 'in', icon: 'body-outline' },
-  { key: 'waist', label: 'Waist', unit: 'in', icon: 'body-outline' },
-  { key: 'hips', label: 'Hips', unit: 'in', icon: 'body-outline' },
-  { key: 'shoulders', label: 'Shoulders', unit: 'in', icon: 'body-outline' },
-  { key: 'biceps_left', label: 'Left Bicep', unit: 'in', icon: 'fitness-outline' },
-  { key: 'biceps_right', label: 'Right Bicep', unit: 'in', icon: 'fitness-outline' },
-  { key: 'thighs_left', label: 'Left Thigh', unit: 'in', icon: 'body-outline' },
-  { key: 'thighs_right', label: 'Right Thigh', unit: 'in', icon: 'body-outline' },
-  { key: 'neck', label: 'Neck', unit: 'in', icon: 'body-outline' },
-];
+  { key: 'weight', unitType: 'weight', icon: 'scale-outline' },
+  { key: 'body_fat', unitType: 'bodyFat', icon: 'fitness-outline' },
+  { key: 'chest', unitType: 'length', icon: 'body-outline' },
+  { key: 'waist', unitType: 'length', icon: 'body-outline' },
+  { key: 'hips', unitType: 'length', icon: 'body-outline' },
+  { key: 'shoulders', unitType: 'length', icon: 'body-outline' },
+  { key: 'biceps_left', unitType: 'length', icon: 'fitness-outline' },
+  { key: 'biceps_right', unitType: 'length', icon: 'fitness-outline' },
+  { key: 'thighs_left', unitType: 'length', icon: 'body-outline' },
+  { key: 'thighs_right', unitType: 'length', icon: 'body-outline' },
+  { key: 'neck', unitType: 'length', icon: 'body-outline' },
+] as const satisfies ReadonlyArray<{ key: MeasurementFieldKey; unitType: MeasurementUnitType; icon: string }>;
 
 export default function MeasurementsScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const weightUnit = useWeightUnit();
+  const lengthUnit = useLengthUnit();
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [progress, setProgress] = useState<Record<string, MeasurementProgress>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -193,6 +212,26 @@ export default function MeasurementsScreen() {
     return ['weight', 'waist', 'body_fat', 'hips'].includes(key);
   };
 
+  const getFieldLabel = useCallback((key: MeasurementFieldKey) => {
+    return t(`measurements.fields.${key}.label`);
+  }, [t]);
+
+  const getUnitLabel = useCallback((unitType: MeasurementUnitType) => {
+    if (unitType === 'weight') {
+      return weightUnit === 'kg'
+        ? t('measurements.fields.weight.unitKg')
+        : t('measurements.fields.weight.unitLbs');
+    }
+    if (unitType === 'length') {
+      return lengthUnit === 'cm'
+        ? t('measurements.fields.length.unitCm')
+        : t('measurements.fields.length.unitIn');
+    }
+    return t('measurements.fields.bodyFat.unitPercent');
+  }, [lengthUnit, t, weightUnit]);
+
+  const weightUnitLabel = getUnitLabel('weight');
+
   // ── Chart data ──────────────────────────────────────────────────────────────
 
   // Weight trend: last 20 entries with weight, ascending order for display
@@ -300,11 +339,11 @@ export default function MeasurementsScreen() {
                       </TouchableOpacity>
                     </View>
                     <View style={styles.measurementGrid}>
-                      {MEASUREMENT_FIELDS.filter(f => measurement[f.key as keyof Measurement]).map((field) => (
+                      {MEASUREMENT_FIELDS.filter((f) => typeof measurement[f.key] === 'number').map((field) => (
                         <View key={field.key} style={styles.measurementItem}>
-                          <Text style={styles.measurementLabel}>{field.label}</Text>
+                          <Text style={styles.measurementLabel}>{getFieldLabel(field.key)}</Text>
                           <Text style={styles.measurementValue}>
-                            {measurement[field.key as keyof Measurement]} {field.unit}
+                            {measurement[field.key]} {getUnitLabel(field.unitType)}
                           </Text>
                         </View>
                       ))}
@@ -355,14 +394,14 @@ export default function MeasurementsScreen() {
                     bezier
                     withShadow={false}
                     style={{ borderRadius: 12 }}
-                    yAxisSuffix=" lbs"
+                    yAxisSuffix={` ${weightUnitLabel}`}
                     formatYLabel={(y) => String(Math.round(Number(y)))}
                   />
                   {bodyGoals?.targetWeight && (
                     <View style={styles.goalLineLabel}>
                       <View style={styles.goalLineDash} />
                       <Text style={styles.goalLineLabelText}>
-                        {t('measurements.goalWithWeight', { weight: bodyGoals.targetWeight })}
+                        {t('measurements.goalWithWeight', { weight: bodyGoals.targetWeight, unit: weightUnitLabel })}
                         {bodyGoals.targetDate
                           ? `  ·  ${t('measurements.byDate', { date: format(new Date(bodyGoals.targetDate), 'MMM yyyy') })}`
                           : ''}
@@ -371,11 +410,11 @@ export default function MeasurementsScreen() {
                   )}
                   <View style={styles.chartStats}>
                     <View style={styles.chartStatBox}>
-                      <Text style={styles.chartStatValue}>{weightChartData.data[weightChartData.data.length - 1]} lbs</Text>
+                      <Text style={styles.chartStatValue}>{weightChartData.data[weightChartData.data.length - 1]} {weightUnitLabel}</Text>
                       <Text style={styles.chartStatLabel}>{t('measurements.current')}</Text>
                     </View>
                     <View style={styles.chartStatBox}>
-                      <Text style={styles.chartStatValue}>{Math.min(...weightChartData.data)} lbs</Text>
+                      <Text style={styles.chartStatValue}>{Math.min(...weightChartData.data)} {weightUnitLabel}</Text>
                       <Text style={styles.chartStatLabel}>{t('measurements.lowest')}</Text>
                     </View>
                     <View style={styles.chartStatBox}>
@@ -384,7 +423,7 @@ export default function MeasurementsScreen() {
                         { color: weightChartData.data[weightChartData.data.length - 1] <= weightChartData.data[0] ? '#4CAF50' : '#F44336' },
                       ]}>
                         {(weightChartData.data[weightChartData.data.length - 1] >= weightChartData.data[0] ? '+' : '') +
-                          (Math.round((weightChartData.data[weightChartData.data.length - 1] - weightChartData.data[0]) * 10) / 10)} lbs
+                          (Math.round((weightChartData.data[weightChartData.data.length - 1] - weightChartData.data[0]) * 10) / 10)} {weightUnitLabel}
                       </Text>
                       <Text style={styles.chartStatLabel}>{t('measurements.change')}</Text>
                     </View>
@@ -432,17 +471,18 @@ export default function MeasurementsScreen() {
                     const changeColor = isDecreaseGood(field.key)
                       ? getChangeColor(data.change)
                       : getGainColor(data.change);
+                    const unitLabel = getUnitLabel(field.unitType);
 
                     return (
                       <View key={field.key} style={styles.progressCard}>
                         <View style={styles.progressHeader}>
                           <Ionicons name={field.icon as any} size={20} color="#FF6200" />
-                          <Text style={styles.progressLabel}>{field.label}</Text>
+                          <Text style={styles.progressLabel}>{getFieldLabel(field.key)}</Text>
                         </View>
                         <View style={styles.progressValues}>
                           <View style={styles.progressValue}>
                             <Text style={styles.progressNumber}>{data.latest}</Text>
-                            <Text style={styles.progressUnit}>{field.unit}</Text>
+                            <Text style={styles.progressUnit}>{unitLabel}</Text>
                           </View>
                           <View style={[styles.changeIndicator, { backgroundColor: changeColor + '20' }]}>
                             <Ionicons
@@ -456,7 +496,7 @@ export default function MeasurementsScreen() {
                           </View>
                         </View>
                         <Text style={styles.progressRange}>
-                          {t('measurements.startedAt', { value: data.first, unit: field.unit })}
+                          {t('measurements.startedAt', { value: data.first, unit: unitLabel })}
                         </Text>
                       </View>
                     );
@@ -488,13 +528,13 @@ export default function MeasurementsScreen() {
               
               {MEASUREMENT_FIELDS.map((field) => (
                 <View key={field.key} style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>{field.label} ({field.unit})</Text>
+                  <Text style={styles.inputLabel}>{getFieldLabel(field.key)} ({getUnitLabel(field.unitType)})</Text>
                   <TextInput
                     style={styles.input}
                     value={newMeasurement[field.key] || ''}
                     onChangeText={(v) => setNewMeasurement({ ...newMeasurement, [field.key]: v })}
                     keyboardType="decimal-pad"
-                    placeholder={t('measurements.enterField', { field: field.label.toLowerCase() })}
+                    placeholder={t('measurements.enterField', { field: getFieldLabel(field.key) })}
                     placeholderTextColor="#B0B0B0"
                   />
                 </View>

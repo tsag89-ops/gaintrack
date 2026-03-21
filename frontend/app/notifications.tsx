@@ -63,7 +63,14 @@ export default function NotificationsScreen() {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      await saveNotificationSettings(settings);
+      await saveNotificationSettings(settings, {
+        workoutTitle: `💪 ${t('notifications.workoutReminder')}`,
+        workoutBody: t('notifications.workoutReminderBody'),
+        nutritionTitle: `🍽️ ${t('notifications.nutritionReminder')}`,
+        nutritionBody: t('notifications.nutritionReminderBody'),
+        progressTitle: `📊 ${t('notifications.progressReminder')}`,
+        progressBody: t('notifications.progressReminderBody'),
+      });
       if (isExpoGo) {
         Alert.alert(t('notifications.settingsSavedTitle'), t('notifications.settingsSavedExpoGo'));
       } else {

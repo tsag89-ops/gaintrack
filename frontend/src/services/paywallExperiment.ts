@@ -5,6 +5,11 @@ const PAYWALL_EXPERIMENT_ID = 'paywall_copy_v1';
 
 export type PaywallVariant = 'value_first' | 'feature_first';
 
+export interface PaywallVariantCopy {
+  title: string;
+  subtitle: string;
+}
+
 export interface PaywallExperimentAssignment {
   experimentId: string;
   variant: PaywallVariant;
@@ -39,7 +44,15 @@ export async function getPaywallExperimentAssignment(): Promise<PaywallExperimen
   return created;
 }
 
-export function getPaywallVariantCopy(variant: PaywallVariant): { title: string; subtitle: string } {
+export function getPaywallVariantCopy(
+  variant: PaywallVariant,
+  localizedCopy?: Partial<Record<PaywallVariant, PaywallVariantCopy>>,
+): PaywallVariantCopy {
+  const scopedCopy = localizedCopy?.[variant];
+  if (scopedCopy) {
+    return scopedCopy;
+  }
+
   if (variant === 'value_first') {
     return {
       title: 'Get stronger with clear progression',

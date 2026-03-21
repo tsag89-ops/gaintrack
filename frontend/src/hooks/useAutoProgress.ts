@@ -53,10 +53,14 @@ export const useAutoProgress = () => {
    * Cycle 2+ = base + (increment × (currentCycle - 1)).
    */
   const calculateNextSession = useCallback(
-    (program: WorkoutProgram, dayIndex: number): ProgramDay => {
+    (
+      program: WorkoutProgram,
+      dayIndex: number,
+      options?: { restLabel?: string },
+    ): ProgramDay => {
       const day = program.days[dayIndex];
       if (!day) {
-        return { id: 'empty', label: 'Rest', exercises: [] };
+        return { id: 'empty', label: options?.restLabel ?? 'Rest', exercises: [] };
       }
 
       const cyclesCompleted = program.currentCycle - 1; // 0 on first cycle

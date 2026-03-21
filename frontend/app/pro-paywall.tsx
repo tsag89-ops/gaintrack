@@ -88,8 +88,19 @@ export default function ProPaywallScreen() {
   }
 
   function handlePurchaseError({ error: purchaseError }: { error: PurchasesError }) {
-    setError((purchaseError as any)?.message ?? 'Purchase failed. Please try again.');
+    setError((purchaseError as any)?.message ?? t('proPaywall.purchaseFailedFallback'));
   }
+
+  const paywallCopy = getPaywallVariantCopy(assignment?.variant ?? 'value_first', {
+    value_first: {
+      title: t('proPaywall.variants.valueFirst.title'),
+      subtitle: t('proPaywall.variants.valueFirst.subtitle'),
+    },
+    feature_first: {
+      title: t('proPaywall.variants.featureFirst.title'),
+      subtitle: t('proPaywall.variants.featureFirst.subtitle'),
+    },
+  });
 
   if (error) {
     return (
@@ -109,8 +120,8 @@ export default function ProPaywallScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.copyCard}>
-        <Text style={styles.copyTitle}>{getPaywallVariantCopy(assignment?.variant ?? 'value_first').title}</Text>
-        <Text style={styles.copySubtitle}>{getPaywallVariantCopy(assignment?.variant ?? 'value_first').subtitle}</Text>
+        <Text style={styles.copyTitle}>{paywallCopy.title}</Text>
+        <Text style={styles.copySubtitle}>{paywallCopy.subtitle}</Text>
       </View>
       {/*
         RevenueCatUI.Paywall renders your RevenueCat "default" offering.

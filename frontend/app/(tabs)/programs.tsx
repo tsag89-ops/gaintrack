@@ -43,6 +43,13 @@ export default function ProgramsScreen() {
   const fabScale = useSharedValue(1);
   const [recentlyDeleted, setRecentlyDeleted] = useState<WorkoutProgram | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const resolveTemplateText = useCallback(
+    (key: string, fallback: string) => {
+      const value = t(key);
+      return value === key ? fallback : value;
+    },
+    [t],
+  );
 
   useEffect(() => {
     return () => {
@@ -121,7 +128,17 @@ export default function ProgramsScreen() {
         return;
       }
 
-      const program = createProgramFromTemplate(template);
+      const localizedTemplate = {
+        ...template,
+        name: resolveTemplateText(`programsTab.templates.${template.id}.name`, template.name),
+        description: resolveTemplateText(`programsTab.templates.${template.id}.description`, template.description),
+        days: template.days.map((day, index) => ({
+          ...day,
+          label: resolveTemplateText(`programsTab.templates.${template.id}.days.day${index}`, day.label),
+        })),
+      };
+
+      const program = createProgramFromTemplate(localizedTemplate);
       await saveOne(program);
       sendEngagementTelemetry({
         feature: 'programs',
@@ -130,7 +147,7 @@ export default function ProgramsScreen() {
       }).catch(() => null);
       router.push(`/programs/${program.id}` as any);
     },
-    [isPro, programs.length, router, saveOne],
+    [isPro, programs.length, resolveTemplateText, router, saveOne],
   );
 
   const handleCardLongPress = useCallback(
@@ -215,6 +232,15 @@ export default function ProgramsScreen() {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.templateRow}>
         {PREBUILT_PROGRAMS.map((template) => (
+          (() => {
+            const localizedName = resolveTemplateText(`programsTab.templates.${template.id}.name`, template.name);
+            const localizedDescription = resolveTemplateText(`programsTab.templates.${template.id}.description`, template.description);
+            const localizedLevel = resolveTemplateText(
+              `programsTab.templateLevels.${String(template.level).toLowerCase()}`,
+              template.level,
+            );
+
+            return (
           <TouchableOpacity
             key={template.id}
             style={styles.templateCard}
@@ -222,12 +248,12 @@ export default function ProgramsScreen() {
             activeOpacity={0.85}
           >
             <View style={styles.templateBadgeRow}>
-              <Text style={styles.templateLevelBadge}>{template.level}</Text>
+              <Text style={styles.templateLevelBadge}>{localizedLevel}</Text>
               <Text style={styles.templateDuration}>{t('programsTab.minutesLabel', { minutes: template.estimatedSessionMinutes })}</Text>
             </View>
 
-            <Text style={styles.templateName} numberOfLines={1}>{template.name}</Text>
-            <Text style={styles.templateDescription} numberOfLines={2}>{template.description}</Text>
+            <Text style={styles.templateName} numberOfLines={1}>{localizedName}</Text>
+            <Text style={styles.templateDescription} numberOfLines={2}>{localizedDescription}</Text>
 
             <View style={styles.templateMetaRow}>
               <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} />
@@ -244,6 +270,8 @@ export default function ProgramsScreen() {
               <Ionicons name="arrow-forward" size={14} color={colors.accent} />
             </View>
           </TouchableOpacity>
+            );
+          })()
         ))}
       </ScrollView>
     </View>

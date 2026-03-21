@@ -24,6 +24,7 @@ export interface HealthSyncSettings {
 export interface HealthSyncResult {
   ok: boolean;
   message: string;
+  messageKey?: string;
   snapshot?: {
     workoutsImported: number;
     nutritionDaysImported: number;
@@ -125,7 +126,7 @@ const detectNativeBridgeAvailability = (provider: HealthProvider): boolean => {
   }
 };
 
-const connectAppleHealth = async (): Promise<{ ok: boolean; message: string }> => {
+const connectAppleHealth = async (): Promise<{ ok: boolean; message: string; messageKey?: string }> => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const appleHealthKit = require('react-native-health');
@@ -149,20 +150,36 @@ const connectAppleHealth = async (): Promise<{ ok: boolean; message: string }> =
       });
     });
 
-    return { ok: true, message: 'Apple Health permission granted.' };
+    return {
+      ok: true,
+      message: 'Apple Health permission granted.',
+      messageKey: 'profile.health.messages.applePermissionGranted',
+    };
   } catch (error: any) {
-    return { ok: false, message: error?.message ?? 'Apple Health permission flow failed.' };
+    return {
+      ok: false,
+      message: error?.message ?? 'Apple Health permission flow failed.',
+      messageKey: error?.message ? undefined : 'profile.health.messages.applePermissionFlowFailed',
+    };
   }
 };
 
-const connectGoogleFit = async (): Promise<{ ok: boolean; message: string }> => {
+const connectGoogleFit = async (): Promise<{ ok: boolean; message: string; messageKey?: string }> => {
   if (Platform.OS !== 'android') {
-    return { ok: false, message: 'Android Health Connect is only available on Android devices.' };
+    return {
+      ok: false,
+      message: 'Android Health Connect is only available on Android devices.',
+      messageKey: 'profile.health.messages.androidOnly',
+    };
   }
 
   const androidVersion = Number(Platform.Version);
   if (Number.isFinite(androidVersion) && androidVersion < 26) {
-    return { ok: false, message: 'Android Health Connect requires Android 8.0 (API 26) or newer.' };
+    return {
+      ok: false,
+      message: 'Android Health Connect requires Android 8.0 (API 26) or newer.',
+      messageKey: 'profile.health.messages.androidVersionRequired',
+    };
   }
 
   try {
@@ -180,6 +197,7 @@ const connectGoogleFit = async (): Promise<{ ok: boolean; message: string }> => 
         return {
           ok: false,
           message: 'Health Connect needs to be installed or updated. Open Play Store, update Health Connect, then try Connect again.',
+          messageKey: 'profile.health.messages.healthConnectUpdateRequired',
         };
       }
 
@@ -187,13 +205,18 @@ const connectGoogleFit = async (): Promise<{ ok: boolean; message: string }> => 
         return {
           ok: false,
           message: 'Health Connect is unavailable on this device right now. Install/update Health Connect and retry.',
+          messageKey: 'profile.health.messages.healthConnectUnavailable',
         };
       }
     }
 
     const initialized = await healthConnect.initialize();
     if (!initialized) {
-      return { ok: false, message: 'Health Connect failed to initialize on this device.' };
+      return {
+        ok: false,
+        message: 'Health Connect failed to initialize on this device.',
+        messageKey: 'profile.health.messages.healthConnectInitializeFailed',
+      };
     }
 
     const existingPermissions = typeof healthConnect?.getGrantedPermissions === 'function'
@@ -201,7 +224,11 @@ const connectGoogleFit = async (): Promise<{ ok: boolean; message: string }> => 
       : [];
 
     if (Array.isArray(existingPermissions) && existingPermissions.length > 0) {
-      return { ok: true, message: 'Android Health Connect permissions already granted.' };
+      return {
+        ok: true,
+        message: 'Android Health Connect permissions already granted.',
+        messageKey: 'profile.health.messages.permissionsAlreadyGranted',
+      };
     }
 
     const grantedPermissions = await healthConnect.requestPermission([
@@ -228,7 +255,11 @@ const connectGoogleFit = async (): Promise<{ ok: boolean; message: string }> => 
         : [];
 
       if (Array.isArray(afterRequestPermissions) && afterRequestPermissions.length > 0) {
-        return { ok: true, message: 'Android Health Connect permissions granted.' };
+        return {
+          ok: true,
+          message: 'Android Health Connect permissions granted.',
+          messageKey: 'profile.health.messages.permissionsGranted',
+        };
       }
 
       if (typeof healthConnect?.openHealthConnectSettings === 'function') {
@@ -242,14 +273,20 @@ const connectGoogleFit = async (): Promise<{ ok: boolean; message: string }> => 
       return {
         ok: false,
         message: 'Health permissions are not enabled yet. Open Health Connect and allow access for GainTrack, then try again.',
+        messageKey: 'profile.health.messages.permissionsNotEnabled',
       };
     }
 
-    return { ok: true, message: 'Android Health Connect permissions granted.' };
+    return {
+      ok: true,
+      message: 'Android Health Connect permissions granted.',
+      messageKey: 'profile.health.messages.permissionsGranted',
+    };
   } catch {
     return {
       ok: false,
       message: 'Could not connect to Health Connect right now. Please try again in a moment.',
+      messageKey: 'profile.health.messages.connectTryAgain',
     };
   }
 };
@@ -411,11 +448,19 @@ export const connectHealthProvider = async (provider: HealthProvider): Promise<H
   const settings = await getHealthSyncSettings();
 
   if (!settings.consentGiven) {
-    return { ok: false, message: 'Enable Health Data consent first.' };
+    return {
+      ok: false,
+      message: 'Enable Health Data consent first.',
+      messageKey: 'profile.health.consentRequiredMessage',
+    };
   }
 
   if (!isProviderSupportedOnPlatform(provider)) {
-    return { ok: false, message: 'This provider is not supported on your current platform.' };
+    return {
+      ok: false,
+      message: 'This provider is not supported on your current platform.',
+      messageKey: 'profile.health.messages.providerUnsupported',
+    };
   }
 
   const nativeBridgeAvailable = detectNativeBridgeAvailability(provider);
@@ -447,6 +492,7 @@ export const connectHealthProvider = async (provider: HealthProvider): Promise<H
     return {
       ok: false,
       message: 'Health connection is unavailable in this app version. Please update the app and try again.',
+      messageKey: 'profile.health.messages.connectionUnavailable',
     };
   }
 
@@ -488,6 +534,9 @@ export const connectHealthProvider = async (provider: HealthProvider): Promise<H
   return {
     ok: connectionResult.ok,
     message: connectionResult.ok ? 'Provider connected. You can now run sync.' : connectionResult.message,
+    messageKey: connectionResult.ok
+      ? 'profile.health.messages.providerConnectedReady'
+      : connectionResult.messageKey,
   };
 };
 
@@ -496,11 +545,19 @@ export const syncHealthProviderBaseline = async (provider: HealthProvider): Prom
   const providerState = settings.providers[provider];
 
   if (!settings.consentGiven) {
-    return { ok: false, message: 'Enable Health Data consent first.' };
+    return {
+      ok: false,
+      message: 'Enable Health Data consent first.',
+      messageKey: 'profile.health.consentRequiredMessage',
+    };
   }
 
   if (!providerState.connected || !providerState.enabled) {
-    return { ok: false, message: 'Connect and enable the provider before syncing.' };
+    return {
+      ok: false,
+      message: 'Connect and enable the provider before syncing.',
+      messageKey: 'profile.health.messages.connectAndEnableBeforeSync',
+    };
   }
 
   if (!providerState.nativeBridgeAvailable) {
@@ -513,6 +570,7 @@ export const syncHealthProviderBaseline = async (provider: HealthProvider): Prom
     return {
       ok: false,
       message: 'Native health bridge is unavailable in this build. Sync cannot read device health data yet.',
+      messageKey: 'profile.health.messages.nativeBridgeUnavailableSync',
     };
   }
 
@@ -586,6 +644,7 @@ export const syncHealthProviderBaseline = async (provider: HealthProvider): Prom
   return {
     ok: true,
     message: 'Baseline sync completed.',
+    messageKey: 'profile.health.messages.baselineSyncCompleted',
     snapshot,
   };
 };

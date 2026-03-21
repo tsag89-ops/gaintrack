@@ -202,7 +202,7 @@ export default function AISuggestions() {
   const router    = useRouter();
   const { user }  = useAuthStore();
   const { isPro } = usePro();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
 
   // Chat state
   const [messages,    setMessages]    = useState<ChatMessage[]>([]);
@@ -226,14 +226,50 @@ export default function AISuggestions() {
   // [PRO] AI personalised picks — fetched once on mount, cached 24 h
   const aiPicksContext = useMemo(() => ({
     recentWorkouts,
-    goals: user?.goals ? `${user.goals.workouts_per_week ?? 4} workouts/week` : 'general fitness',
+    goals: user?.goals
+      ? t('aiSuggestions.workoutsPerWeekGoal', { count: user.goals.workouts_per_week ?? 4 })
+      : t('aiSuggestions.generalFitnessGoal'),
     calories: user?.goals?.daily_calories,
-  }), [recentWorkouts, user?.goals]); // eslint-disable-line react-hooks/exhaustive-deps
+  }), [recentWorkouts, user?.goals, t]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fallbackSuggestions = useMemo(() => ([
+    {
+      id: '1',
+      category: 'exercise' as const,
+      title: t('aiSuggestions.fallback.exerciseTitle'),
+      description: t('aiSuggestions.fallback.exerciseDescription'),
+      isProOnly: false,
+    },
+    {
+      id: '2',
+      category: 'superset' as const,
+      title: t('aiSuggestions.fallback.supersetTitle'),
+      description: t('aiSuggestions.fallback.supersetDescription'),
+      isProOnly: false,
+    },
+    {
+      id: '3',
+      category: 'nutrition' as const,
+      title: t('aiSuggestions.fallback.nutritionTitle'),
+      description: t('aiSuggestions.fallback.nutritionDescription'),
+      isProOnly: false,
+    },
+    {
+      id: '4',
+      category: 'program' as const,
+      title: t('aiSuggestions.fallback.programTitle'),
+      description: t('aiSuggestions.fallback.programDescription'),
+      isProOnly: true,
+    },
+  ]), [t]);
   const {
     suggestions: aiSuggestions,
     loading: aiPicksLoading,
     refresh: refreshAIPicks,
-  } = useAISuggestions(aiPicksContext); // [PRO]
+  } = useAISuggestions(aiPicksContext, {
+    fallbackSuggestions,
+    errorMessage: t('aiSuggestions.errors.somethingWentWrong'),
+    cacheScopeKey: locale,
+  }); // [PRO]
 
   const scrollRef    = useRef<ScrollView>(null);
   const today        = format(new Date(), 'yyyy-MM-dd');

@@ -21,6 +21,7 @@ import { format } from 'date-fns';
 import { usePrograms } from '../../src/hooks/usePrograms';
 import { useAutoProgress } from '../../src/hooks/useAutoProgress';
 import { usePro } from '../../src/hooks/usePro';
+import { useWeightUnit } from '../../src/hooks/useWeightUnit';
 import { ProgressionBadge } from '../../src/components/programs/ProgressionBadge';
 import { useWorkoutStore } from '../../src/store/workoutStore';
 import { WorkoutProgram, ProgramDay, ProgramExercise, WorkoutExercise, WorkoutSet } from '../../src/types';
@@ -76,6 +77,7 @@ export default function ProgramDetailScreen() {
   const { programs, removeOne } = usePrograms();
   const { calculateNextSession } = useAutoProgress();
   const { isPro } = usePro();
+  const weightUnit = useWeightUnit();
   const { startWorkout, addExerciseToWorkout } = useWorkoutStore();
 
   const [program, setProgram] = useState<WorkoutProgram | null>(null);
@@ -101,8 +103,10 @@ export default function ProgramDetailScreen() {
     if (!program) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    const nextDay = calculateNextSession(program, program.currentDayIndex);
-    const workoutName = `${program.name} — ${nextDay.label} (Cycle ${program.currentCycle})`;
+    const nextDay = calculateNextSession(program, program.currentDayIndex, {
+      restLabel: t('workoutLogger.restLabel'),
+    });
+    const workoutName = `${program.name} — ${nextDay.label} (${t('programDetail.cycleWithCount', { count: program.currentCycle })})`;
 
     // Pre-populate current workout in store
     startWorkout(workoutName);
@@ -114,7 +118,7 @@ export default function ProgramDetailScreen() {
     router.push(
       `/workout/active?name=${encodeURIComponent(workoutName)}&programId=${program.id}&dayIndex=${program.currentDayIndex}` as any,
     );
-  }, [program, calculateNextSession, startWorkout, addExerciseToWorkout, router]);
+  }, [program, calculateNextSession, startWorkout, addExerciseToWorkout, router, t]);
 
   const handleDelete = useCallback(() => {
     if (!program) return;
@@ -154,7 +158,9 @@ export default function ProgramDetailScreen() {
     );
   }
 
-  const nextDay = calculateNextSession(program, program.currentDayIndex);
+  const nextDay = calculateNextSession(program, program.currentDayIndex, {
+    restLabel: t('workoutLogger.restLabel'),
+  });
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -188,7 +194,7 @@ export default function ProgramDetailScreen() {
             </View>
             <View style={styles.metaDivider} />
             <View style={styles.metaItem}>
-              <Text style={styles.metaValue}>Cycle {program.currentCycle}</Text>
+              <Text style={styles.metaValue}>{t('programDetail.cycleWithCount', { count: program.currentCycle })}</Text>
               <Text style={styles.metaLabel}>{t('programDetail.current')}</Text>
             </View>
             <View style={styles.metaDivider} />
@@ -237,7 +243,7 @@ export default function ProgramDetailScreen() {
           const isNext = i === program.currentDayIndex;
           const isDone = i < program.currentDayIndex;
           const progressedDay = isNext
-            ? calculateNextSession(program, i)
+            ? calculateNextSession(program, i, { restLabel: t('workoutLogger.restLabel') })
             : day;
 
           return (
@@ -269,8 +275,15 @@ export default function ProgramDetailScreen() {
               ) : (
                 progressedDay.exercises.map((ex) => {
                   const meta = ex.setDetails && ex.setDetails.length > 0
-                    ? ex.setDetails.map((s) => `${s.weight}kg×${s.reps}`).join(' / ')
-                    : `${ex.sets}×${ex.reps} @ ${ex.weight} kg`;
+                    ? ex.setDetails
+                        .map((s) => t('programDetail.setPairMeta', { weight: s.weight, reps: s.reps, unit: weightUnit }))
+                        .join(' / ')
+                    : t('programDetail.setSummaryMeta', {
+                        sets: ex.sets,
+                        reps: ex.reps,
+                        weight: ex.weight,
+                        unit: weightUnit,
+                      });
                   return (
                     <View key={ex.exerciseName} style={styles.exRow}>
                       <View style={styles.exInfo}>
@@ -292,7 +305,7 @@ export default function ProgramDetailScreen() {
                       <Text style={styles.historyDate}>{session.date}</Text>
                       {session.exercises.map((hEx) => (
                         <Text key={hEx.exerciseName} style={styles.historyExLine} numberOfLines={1}>
-                          {hEx.exerciseName}: {hEx.sets.map(s => `${s.weight}kg×${s.reps}`).join(' / ')}
+                          {hEx.exerciseName}: {hEx.sets.map((s) => t('programDetail.setPairMeta', { weight: s.weight, reps: s.reps, unit: weightUnit })).join(' / ')}
                         </Text>
                       ))}
                     </View>
