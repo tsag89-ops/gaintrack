@@ -15,7 +15,7 @@ interface WorkoutCardProps {
 }
 
 export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDelete }) => {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const exercises = workout.exercises ?? [];
   const volume = calculateWorkoutVolume(exercises);
   const totalSets = calculateTotalSets(exercises);
@@ -53,7 +53,11 @@ export const WorkoutCard: React.FC<WorkoutCardProps> = ({ workout, onPress, onDe
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.header}>
         <View style={styles.dateContainer}>
-          <Text style={styles.date}>{formatDate(workout.date)}</Text>
+          <Text style={styles.date}>{formatDate(workout.date, {
+            locale,
+            todayLabel: t('workoutCard.today'),
+            yesterdayLabel: t('workoutCard.yesterday'),
+          })}</Text>
           <Text style={styles.name}>{workout.name}</Text>
         </View>
         <Ionicons name="chevron-forward" size={20} color="#B0B0B0" />

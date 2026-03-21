@@ -1,12 +1,26 @@
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
 import { WorkoutExercise } from '../types';
 
-export const formatDate = (dateString: string): string => {
+export const formatDate = (
+  dateString: string,
+  options?: {
+    locale?: string;
+    todayLabel?: string;
+    yesterdayLabel?: string;
+  },
+): string => {
   if (!dateString) return '';
   try {
     const date = parseISO(dateString);
-    if (isToday(date)) return 'Today';
-    if (isYesterday(date)) return 'Yesterday';
+    if (isToday(date)) return options?.todayLabel ?? 'Today';
+    if (isYesterday(date)) return options?.yesterdayLabel ?? 'Yesterday';
+    if (options?.locale) {
+      return date.toLocaleDateString(options.locale, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    }
     return format(date, 'MMM d, yyyy');
   } catch {
     return dateString;

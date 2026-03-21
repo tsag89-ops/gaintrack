@@ -251,7 +251,7 @@ const StatBox = React.memo(function StatBox({
 
 export default function ProgressScreen() {
   const { isPro } = usePro();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const router = useRouter();
   const recapParams = useLocalSearchParams<{
     source?: string;
@@ -742,7 +742,7 @@ export default function ProgressScreen() {
                 <Ionicons name="sparkles-outline" size={14} color={colors.primary} />
               </View>
               <Text style={styles.recapDeltaText}>
-                {t('progressTab.volume')}: {weeklyRecapDelta.volumeDelta >= 0 ? '+' : ''}{Math.round(weeklyRecapDelta.volumeDelta)} kg ({weeklyRecapDelta.volumeDeltaPct >= 0 ? '+' : ''}{weeklyRecapDelta.volumeDeltaPct}%)
+                {t('progressTab.volume')}: {weeklyRecapDelta.volumeDelta >= 0 ? '+' : ''}{Math.round(weeklyRecapDelta.volumeDelta)} {t('progressTab.kgUnit')} ({weeklyRecapDelta.volumeDeltaPct >= 0 ? '+' : ''}{weeklyRecapDelta.volumeDeltaPct}%)
               </Text>
               <Text style={styles.recapDeltaText}>
                 {t('progressTab.workoutDays')}: {weeklyRecapDelta.dayDelta >= 0 ? '+' : ''}{weeklyRecapDelta.dayDelta} • {t('progressTab.sessions')}: {weeklyRecapDelta.workoutDelta >= 0 ? '+' : ''}{weeklyRecapDelta.workoutDelta}
@@ -990,7 +990,10 @@ export default function ProgressScreen() {
                         <Ionicons name="arrow-forward-outline" size={14} color={colors.textDisabled} />
                         <View style={styles.goalStat}>
                           <Text style={[styles.goalStatValue, { color: colors.primary, fontSize: typography.fontSize.sm }]}>
-                            {format(projectionChart.projectedDate, 'MMM d')}
+                            {projectionChart.projectedDate.toLocaleDateString(locale, {
+                              month: 'short',
+                              day: 'numeric',
+                            })}
                           </Text>
                           <Text style={styles.goalStatLabel}>{t('progressTab.projected')}</Text>
                         </View>
@@ -1067,7 +1070,7 @@ export default function ProgressScreen() {
                     if (!bw) return null;
                     return (
                       <View key={i} style={[styles.bwRow, i === 0 ? { marginTop: 8 } : undefined]}>
-                        <Text style={styles.bwDate}>{new Date(m.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
+                        <Text style={styles.bwDate}>{new Date(m.date).toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' })}</Text>
                         <Text style={styles.bwWeight}>{`${bw} ${t('progressTab.kgUnit')}`}</Text>
                       </View>
                     );

@@ -21,7 +21,7 @@ type DayData = {
 
 export default function CalendarScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [calendarData, setCalendarData] = useState<Record<string, DayData>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -111,7 +111,9 @@ export default function CalendarScreen() {
         <TouchableOpacity onPress={() => changeMonth('prev')} style={styles.monthArrow}>
           <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.monthText}>{format(currentMonth, 'MMMM yyyy')}</Text>
+        <Text style={styles.monthText}>
+          {currentMonth.toLocaleDateString(locale, { month: 'long', year: 'numeric' })}
+        </Text>
         <TouchableOpacity onPress={() => changeMonth('next')} style={styles.monthArrow}>
           <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
         </TouchableOpacity>
@@ -220,7 +222,11 @@ export default function CalendarScreen() {
           {selectedDate && selectedDayData && (
             <View style={styles.detailsCard}>
               <Text style={styles.detailsTitle}>
-                {format(new Date(selectedDate), 'EEEE, MMMM d')}
+                {new Date(selectedDate).toLocaleDateString(locale, {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                })}
               </Text>
 
               {selectedDayData.workouts.length > 0 ? (

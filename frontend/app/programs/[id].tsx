@@ -72,7 +72,7 @@ const toWorkoutExercise = (ex: ProgramExercise): WorkoutExercise => {
 
 export default function ProgramDetailScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { programs, removeOne } = usePrograms();
   const { calculateNextSession } = useAutoProgress();
@@ -228,7 +228,12 @@ export default function ProgramDetailScreen() {
             <Text style={styles.nextSessionDate}>
               {program.lastSessionDate
                 ? t('programDetail.lastSession', { date: program.lastSessionDate })
-                : t('programDetail.created', { date: format(new Date(program.createdAt), 'MMM d') })}
+                : t('programDetail.created', {
+                    date: new Date(program.createdAt).toLocaleDateString(locale, {
+                      month: 'short',
+                      day: 'numeric',
+                    }),
+                  })}
             </Text>
           </View>
           <Text style={styles.nextSessionLabel}>{nextDay.label}</Text>

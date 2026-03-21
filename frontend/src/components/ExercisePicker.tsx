@@ -41,6 +41,7 @@ import { useLanguage } from '../context/LanguageContext';
 import {
   localizeEquipmentLabel,
   localizeExerciseName,
+  localizeExerciseInstruction,
   localizeMuscleGroup,
 } from '../i18n/exerciseTranslations';
 
@@ -367,7 +368,9 @@ const ExerciseRow: React.FC<{
         <View>
           {exercise.instructions ? (
             <View style={rowStyles.instructions}>
-              <Text style={rowStyles.instructionText}>{exercise.instructions}</Text>
+              <Text style={rowStyles.instructionText}>
+                {localizeExerciseInstruction(exercise.instructions, locale)}
+              </Text>
             </View>
           ) : null}
           <VideoPreview exercise={exercise} isPro={isPro} />

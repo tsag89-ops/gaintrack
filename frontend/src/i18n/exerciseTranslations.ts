@@ -322,3 +322,9 @@ export const localizeEquipmentLabel = (label: string, locale: SupportedLocale): 
   if (locale === 'en') return label;
   return equipmentTranslations[locale][label] ?? label;
 };
+
+export const localizeExerciseInstruction = (instruction: string, locale: SupportedLocale): string => {
+  if (locale === 'en' || !instruction) return instruction;
+  const tokens = Object.entries(tokenTranslations[locale]).sort((a, b) => b[0].length - a[0].length);
+  return tokens.reduce((acc, [source, target]) => replaceWholeWord(acc, source, target), instruction);
+};

@@ -28,6 +28,10 @@
  *    For every new key added under `en`, non-empty values for el, de, fr,
  *    and it must be added in the SAME change. Do not rely on English fallback
  *    for newly added text.
+ *
+ * 6. Localisation audit command
+ *    Run `npm run check:i18n-literals` in `frontend/` to flag likely
+ *    hardcoded UI literals in app and component TS/TSX files.
  */
 
 export type SupportedLocale = 'en' | 'el' | 'de' | 'fr' | 'it';
@@ -433,7 +437,9 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       "exercisesLabel": "Exercises",
       "setsLabel": "Sets",
       "volumeLabel": "Vol ({{unit}})",
-      "moreExercises": "+{{count}} more"
+      "moreExercises": "+{{count}} more",
+      "today": "Today",
+      "yesterday": "Yesterday"
     },
     "notFound": {
       "title": "Not Found",
@@ -2131,7 +2137,9 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       "exercisesLabel": "Ασκήσεις",
       "setsLabel": "Σετ",
       "volumeLabel": "Όγκος ({{unit}})",
-      "moreExercises": "+{{count}} ακόμη"
+      "moreExercises": "+{{count}} ακόμη",
+      "today": "Σήμερα",
+      "yesterday": "Χθες"
     },
     "measurements": {
       "title": "Μετρήσεις σώματος",
@@ -4047,7 +4055,9 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       "exercisesLabel": "Übungen",
       "setsLabel": "Sets",
       "volumeLabel": "Band ({{unit}})",
-      "moreExercises": "+{{count}} mehr"
+      "moreExercises": "+{{count}} mehr",
+      "today": "Heute",
+      "yesterday": "Gestern"
     },
     "notFound": {
       "title": "Nicht gefunden",
@@ -5548,7 +5558,9 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       "exercisesLabel": "Exercices",
       "setsLabel": "Ensembles",
       "volumeLabel": "Vol ({{unit}})",
-      "moreExercises": "+{{count}} plus"
+      "moreExercises": "+{{count}} plus",
+      "today": "Aujourd'hui",
+      "yesterday": "Hier"
     },
     "notFound": {
       "title": "Introuvable",
@@ -7049,7 +7061,9 @@ const translations: Record<SupportedLocale, TranslationTree> = {
       "exercisesLabel": "Esercizi",
       "setsLabel": "Imposta",
       "volumeLabel": "Vol ({{unit}})",
-      "moreExercises": "+{{count}} altro"
+      "moreExercises": "+{{count}} altro",
+      "today": "Oggi",
+      "yesterday": "Ieri"
     },
     "notFound": {
       "title": "Non trovato",

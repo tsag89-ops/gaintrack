@@ -46,13 +46,15 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 /** Returns the last 7 day labels + volume sums from workout list */
-function buildWeeklyChartData(workouts: Workout[]) {
+function buildWeeklyChartData(workouts: Workout[], locale: string) {
   // Skip workouts with zero total volume
   const validWorkouts = workouts.filter(
     (w) => calculateWorkoutVolume(w.exercises ?? []) > 0,
   );
   const days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), 6 - i));
-  const labels = days.map((d) => format(d, 'EEE').slice(0, 1)); // M T W …
+  const labels = days.map((d) =>
+    d.toLocaleDateString(locale, { weekday: 'narrow' }),
+  );
   const data = days.map((day) => {
     const dayWorkouts = validWorkouts.filter((w) => {
       try {
@@ -133,7 +135,7 @@ function getMilestoneProgress(totalWorkouts: number) {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { workouts, isLoading, loadUserWorkouts, deleteWorkout, clearInProgress } = useWorkoutStore();
   const { user } = useAuthStore();
   const { uid } = useNativeAuthState();
@@ -238,7 +240,7 @@ export default function HomeScreen() {
   );
 
   const { labels: chartLabels, data: chartData, max: chartMax } =
-    useMemo(() => buildWeeklyChartData(workouts), [workouts]);
+    useMemo(() => buildWeeklyChartData(workouts, locale), [workouts, locale]);
 
   const streak = useMemo(() => calcStreak(workouts), [workouts]);
 
