@@ -200,11 +200,13 @@ export const useAuthStore = create<AuthState>((set) => ({
             getUserPrefsFromFirestore(uid),
           ]);
           const localPrefs = localPrefsStr ? (JSON.parse(localPrefsStr) as UserPrefs) : null;
-          const mergedPrefs: UserPrefs = {
-            ...(localPrefs ?? {}),
-            ...(cloudPrefs ?? {}),
-            updatedAt: new Date().toISOString(),
-          };
+          // Prefer the more recently-written source; local wins on a tie so that a
+          // silent Firestore write failure never reverts data the user already saved.
+          const localTime = localPrefs?.updatedAt ? new Date(localPrefs.updatedAt).getTime() : 0;
+          const cloudTime = cloudPrefs?.updatedAt ? new Date(cloudPrefs.updatedAt).getTime() : 0;
+          const mergedPrefs: UserPrefs = cloudTime > localTime
+            ? { ...(localPrefs ?? {}), ...(cloudPrefs ?? {}), updatedAt: new Date().toISOString() }
+            : { ...(cloudPrefs ?? {}), ...(localPrefs ?? {}), updatedAt: new Date().toISOString() };
 
           if (Object.keys(mergedPrefs).length > 0) {
             finalUser = {

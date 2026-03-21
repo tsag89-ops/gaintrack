@@ -144,6 +144,32 @@ export default function ProfileScreen() {
     refreshHealthSyncSettings().catch(() => null);
   }, []);
 
+  // Sync goals edit-state when the modal opens so it always shows the persisted value.
+  useEffect(() => {
+    if (showGoalsModal && user?.goals) {
+      setCalories(String(user.goals.daily_calories || 2000));
+      setProtein(String(user.goals.protein_grams || 150));
+      setCarbs(String(user.goals.carbs_grams || 200));
+      setFat(String(user.goals.fat_grams || 65));
+    }
+  }, [showGoalsModal]);
+
+  // Sync equipment selection when the modal opens.
+  useEffect(() => {
+    if (showEquipmentModal) {
+      setSelectedEquipment(user?.equipment || []);
+    }
+  }, [showEquipmentModal]);
+
+  // Sync unit toggles whenever the persisted user.units changes (e.g. after setSession).
+  useEffect(() => {
+    if (user?.units) {
+      setWeightUnit(user.units.weight || 'kg');
+      setHeightUnit(user.units.height || 'cm');
+      setDistanceUnit(user.units.distance || 'km');
+    }
+  }, [user?.units?.weight, user?.units?.height, user?.units?.distance]);
+
   const refreshHealthSyncSettings = async () => {
     const next = await getHealthSyncSettings();
     setHealthSyncSettings(next);
