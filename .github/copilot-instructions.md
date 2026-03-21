@@ -72,6 +72,13 @@ npx eas update --branch production --message "<description>"
 - Keep comments concise and meaningful.
 - Always commit, push and update to main after each completed task with a clear message; avoid large commits spanning multiple concerns.
 
+## Localization
+- All translation keys defined in `en` must also be defined in el, de, fr, and it.
+- Domain-standard acronyms and units must remain English-equal in every locale — do not translate: `RPE`, `1RM`, `kg`, `lb`/`lbs`, `cm`, `in`, `kcal`, `cal`, `g`, `W`, `km`, `mi`, `BPM`, `VO2max`, `CSV`, `%`, `KG`, `REPS`, and similar short technical labels used universally in fitness/tech apps.
+- Entries in translations.ts that are identical to `en` for these terms are intentional; do not flag or re-translate them.
+- Preserve `{{token}}` interpolation placeholders exactly as written in every locale.
+- Brand strings `GainTrack`, `GainTrack Pro`, `PRO`, and `FREE` are never translated.
+
 ## Pro Gating and Data Rules
 - Gate paid features through frontend/src/hooks/usePro.ts.
 - Treat Firestore user isPro as authoritative state; do not write isPro from client update paths.
